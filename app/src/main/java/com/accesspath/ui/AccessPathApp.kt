@@ -369,7 +369,7 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
     val activeGf = if (currentPosNode != null) {
         s.geofences.find { gf ->
             gf.active && gf.floorId == currentPosNode.floorId &&
-            Math.hypot(currentPosNode.x - gf.centerX, currentPosNode.y - gf.centerY) <= gf.radius
+            gf.contains(currentPosNode.x, currentPosNode.y)
         }
     } else null
 
@@ -638,8 +638,10 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
     Panel(
         title = AppStrings.t("campus_overview", lang),
         badge = when (s.mapStyle) {
-            MapStyle.BLUEPRINT -> "📐 Blueprint"
-            MapStyle.SATELLITE_HYBRID -> "🛰️ Satellite"
+            MapStyle.DEFAULT_VECTOR, MapStyle.BLUEPRINT -> "🗺️ Default"
+            MapStyle.SATELLITE -> "🛰️ Satellite"
+            MapStyle.TERRAIN -> "⛰️ Terrain"
+            MapStyle.HYBRID, MapStyle.SATELLITE_HYBRID -> "🌐 Hybrid"
             MapStyle.ACCESSIBILITY_HEATMAP -> "🌡️ Heatmap"
             MapStyle.NIGHT_CYBER -> "⚡ Cyber OLED"
         }
@@ -651,12 +653,16 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
                     GeofenceType.SAFE_ZONE -> Color(0xFF10B981).copy(alpha = 0.15f)
                     GeofenceType.HAZARD -> Color(0xFFEF4444).copy(alpha = 0.15f)
                     GeofenceType.ACCESSIBLE_FACILITY -> Color(0xFF3B82F6).copy(alpha = 0.15f)
+                    GeofenceType.QUIET_ZONE -> Color(0xFF6366F1).copy(alpha = 0.15f)
+                    GeofenceType.RESTRICTED -> Color(0xFFF59E0B).copy(alpha = 0.15f)
                 },
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, when (activeGf.type) {
                     GeofenceType.SAFE_ZONE -> Color(0xFF10B981)
                     GeofenceType.HAZARD -> Color(0xFFEF4444)
                     GeofenceType.ACCESSIBLE_FACILITY -> Color(0xFF3B82F6)
+                    GeofenceType.QUIET_ZONE -> Color(0xFF6366F1)
+                    GeofenceType.RESTRICTED -> Color(0xFFF59E0B)
                 }),
                 modifier = Modifier.fillMaxWidth()
             ) {

@@ -246,4 +246,47 @@ class RoutingTest {
         assertEquals("iitd", updatedState.activeCampusId)
         assertTrue(updatedState.map.name.contains("IIT Delhi"))
     }
+
+    @Test fun testFreehandPolygonGeofenceContainment() {
+        // Freehand polygon around coordinates (10,10) to (50,50)
+        val polygon = listOf(
+            GeofencePoint(10.0, 10.0),
+            GeofencePoint(50.0, 10.0),
+            GeofencePoint(50.0, 50.0),
+            GeofencePoint(10.0, 50.0)
+        )
+        val zone = GeofenceZone(
+            id = "fh_test",
+            name = "Construction Area",
+            floorId = "a0",
+            centerX = 30.0,
+            centerY = 30.0,
+            radius = 35.0,
+            type = GeofenceType.HAZARD,
+            polygon = polygon
+        )
+
+        // Point strictly inside
+        assertTrue(zone.contains(30.0, 30.0))
+        assertTrue(zone.contains(20.0, 20.0))
+
+        // Point strictly outside
+        assertFalse(zone.contains(5.0, 5.0))
+        assertFalse(zone.contains(60.0, 60.0))
+        assertFalse(zone.contains(100.0, 20.0))
+    }
+
+    @Test fun testGoogleMapsStyleEnumerations() {
+        val styles = listOf(
+            MapStyle.DEFAULT_VECTOR,
+            MapStyle.SATELLITE,
+            MapStyle.TERRAIN,
+            MapStyle.HYBRID,
+            MapStyle.ACCESSIBILITY_HEATMAP,
+            MapStyle.NIGHT_CYBER
+        )
+        assertTrue(styles.size >= 6)
+        val s = state().copy(mapStyle = MapStyle.SATELLITE)
+        assertEquals(MapStyle.SATELLITE, s.mapStyle)
+    }
 }

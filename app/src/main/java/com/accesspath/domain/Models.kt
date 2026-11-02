@@ -59,13 +59,26 @@ val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefault
 )
 @Serializable data class AuditEvent(val id: String, val action: String, val target: String, val before: String,
     val after: String, val reason: String, val time: Long, val actor: String = "Local demo reviewer")
-enum class MapStyle { BLUEPRINT, SATELLITE_HYBRID, ACCESSIBILITY_HEATMAP, NIGHT_CYBER }
 
-enum class GeofenceType { SAFE_ZONE, HAZARD, ACCESSIBLE_FACILITY }
+@Serializable
+data class GeofencePoint(val x: Double, val y: Double)
+
+enum class MapStyle { 
+    DEFAULT_VECTOR,        // Google Maps clean standard vector view
+    SATELLITE,             // Google Maps photorealistic satellite view
+    TERRAIN,               // Google Maps contour & elevation terrain view
+    HYBRID,                // Google Maps hybrid (satellite + roads + labels)
+    ACCESSIBILITY_HEATMAP, // Accessibility slope heatmap
+    NIGHT_CYBER,           // Google Maps night OLED view
+    BLUEPRINT,             // Technical CAD blueprint
+    SATELLITE_HYBRID       // Backward compat alias
+}
+
+enum class GeofenceType { SAFE_ZONE, HAZARD, ACCESSIBLE_FACILITY, QUIET_ZONE, RESTRICTED }
 
 @Serializable
 data class GeofenceZone(
-    val id: String,
+    val id: String = java.util.UUID.randomUUID().toString(),
     val name: String,
     val floorId: String,
     val centerX: Double,
@@ -73,8 +86,29 @@ data class GeofenceZone(
     val radius: Double,
     val type: GeofenceType = GeofenceType.SAFE_ZONE,
     val alertMessage: String = "",
-    val active: Boolean = true
-)
+    val active: Boolean = true,
+    val polygon: List<GeofencePoint> = emptyList()
+) {
+    fun contains(px: Double, py: Double): Boolean {
+        if (!active) return false
+        if (polygon.size >= 3) {
+            var inside = false
+            var j = polygon.size - 1
+            for (i in polygon.indices) {
+                val xi = polygon[i].x
+                val yi = polygon[i].y
+                val xj = polygon[j].x
+                val yj = polygon[j].y
+                val intersect = ((yi > py) != (yj > py)) &&
+                        (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+                if (intersect) inside = !inside
+                j = i
+            }
+            return inside
+        }
+        return Math.hypot(px - centerX, py - centerY) <= radius
+    }
+}
 
 @Serializable
 data class CampusListing(

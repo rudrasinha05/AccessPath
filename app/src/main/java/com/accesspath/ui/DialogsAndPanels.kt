@@ -1,5 +1,7 @@
 package com.accesspath.ui
 
+import androidx.compose.foundation.horizontalScroll
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -317,6 +319,8 @@ fun GeofenceManagerDialog(
                             GeofenceType.SAFE_ZONE -> Color(0xFF10B981)
                             GeofenceType.HAZARD -> Color(0xFFEF4444)
                             GeofenceType.ACCESSIBLE_FACILITY -> Color(0xFF3B82F6)
+                            GeofenceType.QUIET_ZONE -> Color(0xFF6366F1)
+                            GeofenceType.RESTRICTED -> Color(0xFFF59E0B)
                         }
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -521,5 +525,98 @@ fun WorldwideCampusExplorerDialog(
         },
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+}
+
+
+@Composable
+fun FreehandGeofenceSaveDialog(
+    points: List<GeofencePoint>,
+    currentFloor: String,
+    onSave: (GeofenceZone) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var type by rememberSaveable { mutableStateOf(GeofenceType.HAZARD) }
+    var alertMsg by rememberSaveable { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("✏️ Save Freehand Geofence") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "You have drawn a custom freehand boundary with ${points.size} perimeter points.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Geofence Name (e.g. Lawn Construction Area)") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text("Geofence Security Type:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        GeofenceType.HAZARD to "⚠️ Hazard",
+                        GeofenceType.SAFE_ZONE to "🟢 Safe Corridor",
+                        GeofenceType.QUIET_ZONE to "🤫 Quiet Zone",
+                        GeofenceType.RESTRICTED to "🚫 Restricted",
+                        GeofenceType.ACCESSIBLE_FACILITY to "♿ Step-Free"
+                    ).forEach { (t, label) ->
+                        FilterChip(
+                            selected = type == t,
+                            onClick = { type = t },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = alertMsg,
+                    onValueChange = { alertMsg = it },
+                    label = { Text("Safety Notification on Entry") },
+                    placeholder = { Text("e.g. Caution: Under construction, detour via Ramp 2") },
+                    minLines = 2,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val centroidX = points.map { it.x }.average()
+                    val centroidY = points.map { it.y }.average()
+                    val radius = points.maxOfOrNull { Math.hypot(it.x - centroidX, it.y - centroidY) }?.coerceAtLeast(5.0) ?: 15.0
+                    val zone = GeofenceZone(
+                        id = "fh_gf_" + System.currentTimeMillis(),
+                        name = name.ifBlank { "Freehand Zone" },
+                        floorId = currentFloor,
+                        centerX = centroidX,
+                        centerY = centroidY,
+                        radius = radius,
+                        type = type,
+                        alertMessage = alertMsg.ifBlank { "Alert: Entered $name" },
+                        polygon = points
+                    )
+                    onSave(zone)
+                },
+                enabled = name.isNotBlank(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Save Freehand Fence")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Discard") }
+        }
     )
 }
