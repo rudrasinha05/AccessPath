@@ -28,7 +28,7 @@ class RoutingTest {
         val s=state();assertTrue(Routing.calculate(s.copy(map=s.map.copy(facilities=s.map.facilities.map{it.copy(availability=Availability.UNAVAILABLE)}))) is RouteResult.Unavailable)
     }
     @Test fun blockedHallUsesSouthCorridor() {
-        val s=state().copy(blockedEdges=setOf("hall2","hall2_r"))
+        val s=state().copy(current="lobby2",blockedEdges=setOf("hall2","hall2_r"))
         val r=found(s);assertFalse(r.edges.any{it.id=="hall2"});assertTrue(r.edges.any{it.id=="south2"})
     }
     @Test fun reportedElevatorExcludesEntireFacility() {

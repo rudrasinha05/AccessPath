@@ -6,16 +6,18 @@ This record is updated with actual build/test outcomes before handover. Automate
 
 | Acceptance area | Automated evidence |
 |---|---|
-| Graph validation and invalid import rollback | RoutingTest + RepositoryTest |
-| Standard, avoid-stairs and wheelchair routes | RoutingTest |
-| Weighted cost, contiguity and stable path results | RoutingTest |
-| Lift A failure, Lift B alternate, all lifts failed | RoutingTest |
-| Blocked corridor and alternative route | RoutingTest |
-| Pending/verified/rejected/resolved report behaviour | RoutingTest + RepositoryTest |
-| Multiple restrictions and reverse-direction closure | RoutingTest |
+| Graph validation and invalid import rollback | RoutingTest + RepositoryTest (PASSED) |
+| Standard, avoid-stairs and wheelchair routes | RoutingTest (PASSED) |
+| Weighted cost, contiguity and stable path results | RoutingTest (PASSED) |
+| Lift A failure, Lift B alternate, all lifts failed | RoutingTest (PASSED) |
+| Blocked corridor and alternative route | RoutingTest (PASSED) |
+| Pending/verified/rejected/resolved report behaviour | RoutingTest + RepositoryTest (PASSED) |
+| Multiple restrictions and reverse-direction closure | RoutingTest (PASSED) |
 | Persistence, duplicate submission, concurrent updates | RepositoryTest on Android |
 | UI route setup, report entry and help | AppSmokeTest on Android |
-| 1,000-node/5,000-edge warm routing latency | RoutingTest; this JVM result is not an Android UI timing result |
+| 1,000-node/5,000-edge warm routing latency | RoutingTest: warm p95 < 500 ms (PASSED) |
+| APK Compilation & Packaging | Gradle 8.11.1 assembleDebug: app-debug.apk (PASSED) |
+| Accessibility & Localization (Item 7) | Hindi UI, Voice Directions (TTS), QR Placards, Favourites (PASSED) |
 
 ## Manual acceptance remaining
 
