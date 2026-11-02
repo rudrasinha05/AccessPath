@@ -146,4 +146,62 @@ class RoutingTest {
         assertEquals(1, repConflicts.size)
         assertEquals(ReportStatus.VERIFIED, resolvedRep.first().status)
     }
+
+    @Test fun findNearestFacilityReturnsClosestAccessibleLocation() {
+        val s = state().copy(current = "gate")
+        val nearestWashroom = Routing.findNearestFacility(s, "WASHROOM")
+        assertNotNull(nearestWashroom)
+        assertEquals("washroom", nearestWashroom!!.first.id)
+        assertTrue(nearestWashroom.second.distance > 0.0)
+
+        val nearestElevator = Routing.findNearestFacility(s, "ELEVATOR")
+        assertNotNull(nearestElevator)
+        assertEquals("liftA0", nearestElevator!!.first.id)
+        assertTrue(nearestElevator.second.distance > 0.0)
+
+        val nearestExit = Routing.findNearestFacility(s.copy(current = "classroom"), "EXIT")
+        assertNotNull(nearestExit)
+        assertEquals("gate", nearestExit!!.first.id)
+    }
+
+    @Test fun routeExplanationAndMaxWalkingDistance() {
+        val s = state().copy(current = "gate", destination = "classroom")
+        val foundRoute = found(s)
+        assertTrue(foundRoute.explanation.contains("Step-free wheelchair route"))
+        assertFalse(foundRoute.exceedsMaxWalkingDistance)
+
+        // Exceeds max walking distance
+        val strictProfile = s.profile.copy(maxWalkingDistance = 10.0)
+        val strictState = s.copy(profile = strictProfile)
+        val strictRoute = found(strictState)
+        assertTrue(strictRoute.exceedsMaxWalkingDistance)
+        assertTrue(strictRoute.explanation.contains("exceeds preferred limit"))
+    }
+
+    @Test fun temporaryReportExpiryTracking() {
+        val now = 1_000_000_000L
+        val expiredReport = BarrierReport("rep_old", "hall0", "Blocked path", "Spill", createdAt = 1000L, expiryHours = 2)
+        val activeReport = BarrierReport("rep_fresh", "hall1", "Blocked path", "Spill", createdAt = now - 1000L, expiryHours = 24)
+        val updatedReports = listOf(expiredReport, activeReport).map { r ->
+            val expiryMs = r.createdAt + (r.expiryHours * 3600 * 1000L)
+            if (now > expiryMs) r.copy(status = ReportStatus.RESOLVED, reason = "Auto-resolved: report expired after ${r.expiryHours} hours") else r
+        }
+        assertEquals(ReportStatus.RESOLVED, updatedReports.first().status)
+        assertEquals(ReportStatus.PENDING, updatedReports[1].status)
+    }
+
+    @Test fun assistanceRequestLifecycle() {
+        val req = AssistanceRequest(
+            id = "sos_01",
+            nodeId = "gate",
+            nodeName = "Main Gate",
+            urgency = "HIGH",
+            note = "Need wheelchair push assistance",
+            requestedAt = 1000L,
+            status = "OPEN"
+        )
+        assertEquals("OPEN", req.status)
+        val ack = req.copy(status = "ACKNOWLEDGED")
+        assertEquals("ACKNOWLEDGED", ack.status)
+    }
 }

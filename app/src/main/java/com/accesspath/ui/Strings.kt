@@ -74,6 +74,12 @@ object AppStrings {
             "speak_directions" to "🔊 आवाज़ में सुनें",
             "stop_speech" to "⏹ आवाज़ बंद करें",
             "quick_destinations" to "त्वरित स्थान (Quick Favourites):",
+            "nearest_facilities" to "निकटतम सुलभ सुविधाएं (1-Tap):",
+            "nearest_washroom" to "🚻 सुलभ शौचालय",
+            "nearest_lift" to "🛗 निकटतम लिफ्ट",
+            "nearest_exit" to "🚪 सुलभ निकास द्वार",
+            "request_assistance" to "🆘 सहायता अनुरोध (SOS)",
+            "route_explanation" to "मार्ग विवरण (Route Explanation):",
             "start_guided_nav" to "🧭 मार्गदर्शन शुरू करें",
             "stop_guided_nav" to "⏹ मार्गदर्शन समाप्त करें",
             "next_step" to "अगला कदम ▶",
@@ -93,6 +99,8 @@ object AppStrings {
             "demo_role" to "लोकल समीक्षक मोड",
             "map_editor" to "मैप एडिटर (Landmark & Connector Editor)",
             "add_landmark" to "+ नया लैंडमार्क / कमरा जोड़ें",
+            "edit_landmark" to "लैंडमार्क संपादित करें",
+            "delete_landmark" to "लैंडमार्क हटाएं",
             "add_connector" to "+ नया रास्ता / कॉरिडोर जोड़ें",
             "sensor_mapping" to "सेंसर व 2D ऑक्यूपेंसी मैपिंग (Mapping Engine)",
             "start_mapping" to "सर्वेक्षण सत्र शुरू करें",
@@ -144,6 +152,12 @@ object AppStrings {
             "speak_directions" -> "🔊 Speak directions"
             "stop_speech" -> "⏹ Stop voice"
             "quick_destinations" -> "Quick destinations:"
+            "nearest_facilities" -> "Nearest Accessible Facilities (1-Tap):"
+            "nearest_washroom" -> "🚻 Accessible Washroom"
+            "nearest_lift" -> "🛗 Nearest Lift"
+            "nearest_exit" -> "🚪 Accessible Exit"
+            "request_assistance" -> "🆘 Request Assistance (SOS)"
+            "route_explanation" -> "Route Explanation:"
             "start_guided_nav" -> "🧭 Start guided navigation"
             "stop_guided_nav" -> "⏹ Exit guidance"
             "next_step" -> "Next step ▶"
@@ -163,6 +177,8 @@ object AppStrings {
             "demo_role" -> "Local demo role"
             "map_editor" -> "Map Editor (Landmark & Connector Editor)"
             "add_landmark" -> "+ Add Landmark / Room"
+            "edit_landmark" -> "Edit Landmark"
+            "delete_landmark" -> "Delete Landmark"
             "add_connector" -> "+ Add Path / Corridor"
             "sensor_mapping" -> "Sensor & 2D Occupancy Mapping"
             "start_mapping" -> "Start Survey Session"

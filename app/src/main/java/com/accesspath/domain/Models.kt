@@ -3,12 +3,15 @@ package com.accesspath.domain
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = false; encodeDefaults = true }
+val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
 
 @Serializable enum class Segment { CORRIDOR, OUTDOOR, DOOR, RAMP, STAIRS, ELEVATOR }
 @Serializable enum class Mobility { STANDARD, AVOID_STAIRS, WHEELCHAIR }
 @Serializable enum class Availability { AVAILABLE, UNAVAILABLE, UNKNOWN }
 @Serializable enum class ReportStatus { PENDING, VERIFIED, REJECTED, RESOLVED }
+@Serializable enum class DoorType { NONE, AUTOMATIC, MANUAL_LIGHT, HEAVY, ASSISTANCE_REQUIRED }
+@Serializable enum class SurfaceCondition { SMOOTH_TILES, PAVED, UNEVEN, DAMAGED }
+
 @Serializable data class Building(val id: String, val name: String)
 @Serializable data class Floor(val id: String, val buildingId: String, val label: String, val ordinal: Int)
 @Serializable data class Node(val id: String, val floorId: String, val name: String, val x: Double, val y: Double, val type: String = "LANDMARK")
@@ -16,7 +19,9 @@ val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = false; encodeDefaul
     val id: String, val from: String, val to: String, val type: Segment, val length: Double,
     val width: Double? = null, val slope: Double? = null, val stepFree: Boolean? = null,
     val wheelchairSuitable: Boolean? = null, val facilityId: String? = null,
-    val restricted: Boolean = false, val multiplier: Double? = null, val penalty: Double? = null
+    val restricted: Boolean = false, val multiplier: Double? = null, val penalty: Double? = null,
+    val doorType: DoorType = DoorType.NONE,
+    val surface: SurfaceCondition = SurfaceCondition.SMOOTH_TILES
 )
 @Serializable data class Facility(val id: String, val name: String, val availability: Availability = Availability.AVAILABLE,
     val reason: String = "Seeded demo status", val updatedAt: Long = 0, val source: String = "Seeded")
@@ -25,19 +30,41 @@ val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = false; encodeDefaul
     val provenance: String, val verifiedAt: Long? = null, val buildings: List<Building>,
     val floors: List<Floor>, val nodes: List<Node>, val edges: List<Edge>, val facilities: List<Facility>
 )
-@Serializable data class Profile(val mobility: Mobility = Mobility.WHEELCHAIR, val minWidth: Double = 0.85, val maxSlope: Double = 8.0) {
-    fun validate() { require(minWidth.isFinite() && minWidth > 0 && minWidth <= 5) { "Width must be above 0 and at most 5 metres." }
-        require(maxSlope.isFinite() && maxSlope >= 0 && maxSlope <= 100) { "Slope must be between 0 and 100 percent." } }
+@Serializable data class Profile(
+    val mobility: Mobility = Mobility.WHEELCHAIR,
+    val minWidth: Double = 0.85,
+    val maxSlope: Double = 8.0,
+    val maxWalkingDistance: Double? = null
+) {
+    fun validate() {
+        require(minWidth.isFinite() && minWidth > 0 && minWidth <= 5) { "Width must be above 0 and at most 5 metres." }
+        require(maxSlope.isFinite() && maxSlope >= 0 && maxSlope <= 100) { "Slope must be between 0 and 100 percent." }
+        if (maxWalkingDistance != null) {
+            require(maxWalkingDistance.isFinite() && maxWalkingDistance > 0 && maxWalkingDistance <= 20000) {
+                "Max walking distance must be positive and realistic (up to 20 km)."
+            }
+        }
+    }
 }
-@Serializable data class BarrierReport(val id: String, val edgeId: String, val category: String, val description: String,
-    val createdAt: Long, val status: ReportStatus = ReportStatus.PENDING, val reason: String = "", val reviewedAt: Long? = null)
+@Serializable data class BarrierReport(
+    val id: String, val edgeId: String, val category: String, val description: String,
+    val createdAt: Long, val status: ReportStatus = ReportStatus.PENDING, val reason: String = "",
+    val reviewedAt: Long? = null, val photoUri: String? = null, val hasVoiceNote: Boolean = false,
+    val expiryHours: Int = 24
+)
+@Serializable data class AssistanceRequest(
+    val id: String, val nodeId: String, val nodeName: String,
+    val urgency: String = "STANDARD", val note: String = "",
+    val requestedAt: Long, val status: String = "OPEN"
+)
 @Serializable data class AuditEvent(val id: String, val action: String, val target: String, val before: String,
     val after: String, val reason: String, val time: Long, val actor: String = "Local demo reviewer")
 @Serializable data class AppSnapshot(
     val map: CampusMap, val revision: Long = 0, val reports: List<BarrierReport> = emptyList(),
     val audit: List<AuditEvent> = emptyList(), val blockedEdges: Set<String> = emptySet(),
     val profile: Profile = Profile(), val start: String = "gate", val destination: String = "classroom",
-    val current: String = "gate", val selectedFloor: String = "a0"
+    val current: String = "gate", val selectedFloor: String = "a0",
+    val assistanceRequests: List<AssistanceRequest> = emptyList()
 )
 
 object MapValidator {

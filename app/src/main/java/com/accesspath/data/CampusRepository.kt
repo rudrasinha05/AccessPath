@@ -45,12 +45,68 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
     private fun event(action: String, target: String, before: String, after: String, reason: String) =
         AuditEvent(UUID.randomUUID().toString(), action, target, before, after, reason, System.currentTimeMillis())
 
-    suspend fun submit(id: String, edgeId: String, category: String, description: String) = mutate { s ->
+    suspend fun submit(id: String, edgeId: String, category: String, description: String) =
+        submitReportWithMedia(id, edgeId, category, description, photoUri = null, hasVoiceNote = false, expiryHours = 24)
+
+    suspend fun submitReportWithMedia(
+        id: String,
+        edgeId: String,
+        category: String,
+        description: String,
+        photoUri: String? = null,
+        hasVoiceNote: Boolean = false,
+        expiryHours: Int = 24
+    ) = mutate { s ->
         require(description.trim().length in 5..1000) { "Description must contain 5–1000 characters." }
         require(category in categories) { "Select an issue type." }
         require(s.map.edges.any { it.id == edgeId }) { "Select a mapped segment." }
-        if(s.reports.any { it.id == id }) s else s.copy(reports = s.reports + BarrierReport(id, edgeId, category, description.trim(), System.currentTimeMillis()))
+        if(s.reports.any { it.id == id }) s else s.copy(
+            reports = s.reports + BarrierReport(
+                id = id,
+                edgeId = edgeId,
+                category = category,
+                description = description.trim(),
+                createdAt = System.currentTimeMillis(),
+                photoUri = photoUri,
+                hasVoiceNote = hasVoiceNote,
+                expiryHours = expiryHours
+            )
+        )
     }
+
+    suspend fun checkExpiredReports() = mutate { s ->
+        val now = System.currentTimeMillis()
+        val updatedReports = s.reports.map { r ->
+            val expiryMs = r.createdAt + (r.expiryHours * 3600 * 1000L)
+            if (r.status in setOf(ReportStatus.PENDING, ReportStatus.VERIFIED) && now > expiryMs) {
+                r.copy(status = ReportStatus.RESOLVED, reason = "Auto-resolved: report expired after ${r.expiryHours} hours")
+            } else r
+        }
+        s.copy(reports = updatedReports)
+    }
+
+    suspend fun requestAssistance(nodeId: String, urgency: String, note: String) = mutate { s ->
+        val node = s.map.nodes.find { it.id == nodeId } ?: error("Node not found.")
+        val req = AssistanceRequest(
+            id = UUID.randomUUID().toString(),
+            nodeId = nodeId,
+            nodeName = node.name,
+            urgency = urgency,
+            note = note,
+            requestedAt = System.currentTimeMillis()
+        )
+        s.copy(
+            assistanceRequests = s.assistanceRequests + req,
+            audit = s.audit + event("Assistance Request", nodeId, "None", urgency, "Dispatched help request from ${node.name}")
+        )
+    }
+
+    suspend fun acknowledgeAssistance(requestId: String) = mutate { s ->
+        s.copy(assistanceRequests = s.assistanceRequests.map {
+            if (it.id == requestId) it.copy(status = "ACKNOWLEDGED") else it
+        })
+    }
+
     suspend fun review(id: String, target: ReportStatus, reason: String, expected: Long) = mutate(expected) { s ->
         val old = s.reports.find { it.id == id } ?: error("Report not found.")
         val next = ReportRules.review(old, target, reason, System.currentTimeMillis())
@@ -81,6 +137,24 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
         val nextMap = s.map.copy(nodes = s.map.nodes + node)
         MapValidator.validate(nextMap)
         s.copy(map = nextMap, audit = s.audit + event("Add landmark", node.id, "", node.name, "Custom landmark added"))
+    }
+    suspend fun editLandmark(nodeId: String, newName: String, newX: Double, newY: Double) = mutate { s ->
+        require(s.map.nodes.any { it.id == nodeId }) { "Landmark ID '$nodeId' not found." }
+        val old = s.map.nodes.first { it.id == nodeId }
+        val updatedNode = old.copy(name = newName.trim(), x = newX, y = newY)
+        val nextMap = s.map.copy(nodes = s.map.nodes.map { if (it.id == nodeId) updatedNode else it })
+        MapValidator.validate(nextMap)
+        s.copy(map = nextMap, audit = s.audit + event("Edit landmark", nodeId, old.name, newName, "Landmark updated"))
+    }
+    suspend fun deleteLandmark(nodeId: String) = mutate { s ->
+        require(s.map.nodes.any { it.id == nodeId }) { "Landmark ID '$nodeId' not found." }
+        require(s.current != nodeId && s.destination != nodeId) { "Cannot delete active start or destination node." }
+        val nextMap = s.map.copy(
+            nodes = s.map.nodes.filter { it.id != nodeId },
+            edges = s.map.edges.filter { it.from != nodeId && it.to != nodeId }
+        )
+        MapValidator.validate(nextMap)
+        s.copy(map = nextMap, audit = s.audit + event("Delete landmark", nodeId, nodeId, "Deleted", "Landmark removed"))
     }
     suspend fun addConnector(forward: Edge, twoWay: Boolean = true) = mutate { s ->
         require(s.map.edges.none { it.id == forward.id }) { "Segment ID '${forward.id}' already exists." }

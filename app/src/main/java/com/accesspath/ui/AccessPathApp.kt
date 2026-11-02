@@ -141,6 +141,7 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     var setup by rememberSaveable { mutableStateOf(false) }
     var position by rememberSaveable { mutableStateOf(false) }
     var qrScanner by rememberSaveable { mutableStateOf(false) }
+    var assistanceDialog by rememberSaveable { mutableStateOf(false) }
 
     // Guided navigation states
     var isGuiding by rememberSaveable { mutableStateOf(false) }
@@ -184,6 +185,39 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
                         label = { Text(node.name) }
                     )
                 }
+            }
+        }
+
+        // Nearest Facilities (1-Tap)
+        Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            Text(AppStrings.t("nearest_facilities", lang), style=MaterialTheme.typography.labelMedium, fontWeight=FontWeight.Bold)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "WASHROOM" to AppStrings.t("nearest_washroom", lang),
+                    "ELEVATOR" to AppStrings.t("nearest_lift", lang),
+                    "EXIT" to AppStrings.t("nearest_exit", lang)
+                ).forEach { (category, title) ->
+                    FilledTonalButton(
+                        onClick = {
+                            isGuiding = false
+                            guidedStepIndex = 0
+                            vm.findNearest(category)
+                        },
+                        enabled = !ui.busy
+                    ) {
+                        Text(title, style=MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.End) {
+            Button(
+                onClick = { assistanceDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                enabled = !ui.busy
+            ) {
+                Text(AppStrings.t("request_assistance", lang))
             }
         }
 
@@ -274,6 +308,37 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
             }
             Text(if(s.profile.mobility==Mobility.STANDARD) "Lowest score among currently open paths." else "Stairs excluded. Longer routes may offer suitable step-free access.")
             Text("${AppStrings.t("last_confirmed", lang)} ${r.nodes.first().name}", fontWeight=FontWeight.Medium)
+
+            if (r.explanation.isNotBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(AppStrings.t("route_explanation", lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Text(r.explanation, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
+            if (r.exceedsMaxWalkingDistance) {
+                Surface(
+                    color = Color(0xFFFEE2E2),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (lang == "hi") "⚠️ यह मार्ग आपकी अधिकतम चलने की सीमा (${s.profile.maxWalkingDistance?.let { number(it) }} मी.) से अधिक है!"
+                            else "⚠️ This route exceeds your maximum walking distance limit of ${s.profile.maxWalkingDistance?.let { number(it) }} m!",
+                            color = Color(0xFF991B1B),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
             
             Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 if (r.edges.isNotEmpty()) {
@@ -361,6 +426,10 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
         voice.speak(if (lang == "hi") "QR कोड स्कैन हुआ: वर्तमान स्थान ${node.name}।" else "QR scanned: current position set to ${node.name}.")
         qrScanner=false
     }
+    if(assistanceDialog) AssistanceRequestDialog(s, lang, onDismiss={assistanceDialog=false}) { urgency, note ->
+        vm.requestAssistance(urgency, note)
+        assistanceDialog = false
+    }
 }
 
 @Composable private fun QRScanDialog(s: AppSnapshot, lang: String, onDismiss: () -> Unit, onSelect: (Node) -> Unit) {
@@ -438,6 +507,7 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     var mobility by rememberSaveable {mutableStateOf(s.profile.mobility)}
     var width by rememberSaveable {mutableStateOf(s.profile.minWidth.toString())}
     var slope by rememberSaveable {mutableStateOf(s.profile.maxSlope.toString())}
+    var maxWalking by rememberSaveable {mutableStateOf(s.profile.maxWalkingDistance?.toString().orEmpty())}
     var start by rememberSaveable {mutableStateOf(s.current)}; var end by rememberSaveable {mutableStateOf(s.destination)}
     var picking by rememberSaveable {mutableIntStateOf(0)}; var error by remember {mutableStateOf<String?>(null)}
     AlertDialog(onDismissRequest=onDismiss, title={Text(AppStrings.t("plan_route", lang))}, text={
@@ -448,11 +518,19 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
             TextButton(onClick={val old=start; start=end; end=old}){Text(AppStrings.t("swap_start_end", lang).ifBlank { "Swap start and destination" })}
             OutlinedTextField(width, {width=it}, label={Text("Minimum clear width in metres")}, singleLine=true)
             OutlinedTextField(slope, {slope=it}, label={Text("Maximum ramp slope in percent")}, singleLine=true)
-            Text("Width and slope constrain wheelchair routes. These are your preferences, not a safety certification.", style=MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                maxWalking,
+                {maxWalking=it},
+                label={Text(if (lang == "hi") "अधिकतम चलने की सीमा (मीटर, वैकल्पिक)" else "Maximum walking distance in metres (optional)")},
+                placeholder={Text("e.g. 100")},
+                singleLine=true
+            )
+            Text("Width, slope and max distance constrain routes. These are your preferences, not a safety certification.", style=MaterialTheme.typography.bodySmall)
             error?.let{Text(it, color=MaterialTheme.colorScheme.error)}
         }
     }, confirmButton={Button(onClick={
-        val p=Profile(mobility, width.toDoubleOrNull()?:Double.NaN, slope.toDoubleOrNull()?:Double.NaN)
+        val mw = if (maxWalking.isBlank()) null else maxWalking.toDoubleOrNull()
+        val p=Profile(mobility, width.toDoubleOrNull()?:Double.NaN, slope.toDoubleOrNull()?:Double.NaN, maxWalkingDistance=mw)
         try {p.validate();onSave(p,start,end)}catch(e:IllegalArgumentException){error=e.message}
     }){Text("Find route")}}, dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
     if(picking!=0) PickNode(if(picking==1) "Choose starting point" else "Choose destination", s.map.nodes, {picking=0}) {
@@ -478,11 +556,16 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     reports.forEach { r -> Panel(r.category) {
         Text(AppStrings.labelReportStatus(r.status, lang), fontWeight=FontWeight.Bold, color=MaterialTheme.colorScheme.primary)
         Text(edgeLabel(s, r.edgeId)); Text(r.description)
-        Text("Reported ${time(r.createdAt)}", style=MaterialTheme.typography.bodySmall)
+        if (r.photoUri != null) Text("📷 Photo reference: ${r.photoUri}", style=MaterialTheme.typography.bodySmall)
+        if (r.hasVoiceNote) Text("🎙️ Voice memo recorded", style=MaterialTheme.typography.bodySmall)
+        Text("Reported ${time(r.createdAt)} · Auto-expires in ${r.expiryHours}h", style=MaterialTheme.typography.bodySmall)
         if(r.reason.isNotBlank()) Text("Decision: ${r.reason} · ${time(r.reviewedAt)}", style=MaterialTheme.typography.bodySmall)
         if(reviewer && r.status in setOf(ReportStatus.PENDING, ReportStatus.VERIFIED)) OutlinedButton(onClick={review=r}, enabled=!busy){Text(AppStrings.t("review_report", lang))}
     } }
-    if(create) ReportDialog(s, {create=false}){id,edge,category,text -> vm.action("Barrier report saved") {vm.repository.submit(id,edge,category,text)};create=false}
+    if(create) ReportDialog(s, {create=false}){id,edge,category,text,photo,voiceNote,expiry ->
+        vm.submitReportWithMedia(id,edge,category,text,photo,voiceNote,expiry)
+        create=false
+    }
     review?.let{r -> DecisionDialog(r, {review=null}){status,reason -> vm.action("Review saved") {vm.repository.review(r.id,status,reason,s.revision)};review=null}}
 }
 
@@ -491,16 +574,34 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
     return "${s.map.nodes.find{it.id==e.from}?.name} → ${s.map.nodes.find{it.id==e.to}?.name} (${label(e.type.name)})"
 }
 
-@Composable private fun ReportDialog(s:AppSnapshot, onDismiss:()->Unit, onSave:(String,String,String,String)->Unit) {
+@Composable private fun ReportDialog(
+    s:AppSnapshot,
+    onDismiss:()->Unit,
+    onSave:(String,String,String,String,String?,Boolean,Int)->Unit
+) {
     val submission=rememberSaveable{UUID.randomUUID().toString()}
     var edge by rememberSaveable{mutableStateOf(s.map.edges.firstOrNull()?.id.orEmpty())};var category by rememberSaveable{mutableStateOf(CampusRepository.categories.first())}
     var description by rememberSaveable{mutableStateOf("")}; var picking by remember{mutableStateOf(false)}
+    var photoUri by rememberSaveable{mutableStateOf("")}
+    var hasVoiceNote by rememberSaveable{mutableStateOf(false)}
+    var expiryHoursStr by rememberSaveable{mutableStateOf("24")}
+
     AlertDialog(onDismissRequest=onDismiss, title={Text("Report a barrier")}, text={Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement=Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick={picking=true}){Text(edgeLabel(s,edge))}
         ChoiceMenu("Issue type", category, CampusRepository.categories){category=it}
         OutlinedTextField(description, {if(it.length<=1000)description=it}, label={Text("Describe the barrier")}, minLines=3, supportingText={Text("${description.length}/1000 · minimum 5 characters")})
+        OutlinedTextField(photoUri, {photoUri=it}, label={Text("Photo file / reference (optional)")}, placeholder={Text("e.g. broken_lift_ground.jpg")}, singleLine=true)
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Checkbox(checked=hasVoiceNote, onCheckedChange={hasVoiceNote=it})
+            Text("Attach voice memo recording")
+        }
+        OutlinedTextField(expiryHoursStr, {expiryHoursStr=it}, label={Text("Temporary barrier expiry (hours, default 24)")}, singleLine=true)
         if(s.reports.any{it.edgeId==edge && it.status in setOf(ReportStatus.PENDING,ReportStatus.VERIFIED)}) Notice("This segment already has an active report. Submit only if this is a distinct observation.")
-    }}, confirmButton={Button(onClick={onSave(submission,edge,category,description)}, enabled=description.trim().length in 5..1000){Text("Submit report")}}, dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
+    }}, confirmButton={Button(onClick={
+        val exp = expiryHoursStr.toIntOrNull() ?: 24
+        val photo = if (photoUri.isBlank()) null else photoUri.trim()
+        onSave(submission,edge,category,description,photo,hasVoiceNote,exp)
+    }, enabled=description.trim().length in 5..1000){Text("Submit report")}}, dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
     if(picking) EdgePicker(s, {picking=false}){edge=it;picking=false}
 }
 
@@ -535,6 +636,7 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
 @Composable private fun ManagementScreen(s:AppSnapshot, vm:AccessViewModel, reviewer:Boolean, onRole:(Boolean)->Unit, busy:Boolean, lang:String) {
     var facility by remember{mutableStateOf<Facility?>(null)};var edgePicker by remember{mutableStateOf(false)};var reset by remember{mutableStateOf(false)}
     var addLandmarkDialog by remember{mutableStateOf(false)}; var addConnectorDialog by remember{mutableStateOf(false)}
+    var editLandmarkDialog by remember{mutableStateOf(false)}; var deleteLandmarkDialog by remember{mutableStateOf(false)}
 
     Heading(AppStrings.t("manage_eyebrow", lang), AppStrings.t("manage_title", lang), AppStrings.t("manage_detail", lang))
     Panel(AppStrings.t("demo_role", lang)) {
@@ -554,7 +656,22 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
                 Text(AppStrings.t("add_connector", lang))
             }
         }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick={editLandmarkDialog=true}, enabled=!busy && s.map.nodes.isNotEmpty(), modifier=Modifier.weight(1f)) {
+                Text(AppStrings.t("edit_landmark", lang))
+            }
+            OutlinedButton(onClick={deleteLandmarkDialog=true}, enabled=!busy && s.map.nodes.size > 2, modifier=Modifier.weight(1f)) {
+                Text(AppStrings.t("delete_landmark", lang))
+            }
+        }
     }
+
+    // Active Assistance Requests
+    AssistanceRequestsPanel(
+        requests = s.assistanceRequests,
+        busy = busy,
+        onAcknowledge = { vm.acknowledgeAssistance(it) }
+    )
 
     // Sensor Mapping & 2D Occupancy Grid
     SensorMappingCard(vm, s, lang, busy)
@@ -592,6 +709,16 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
     if(addConnectorDialog) AddConnectorDialog(s, onDismiss={addConnectorDialog=false}) { edge, twoWay ->
         vm.addConnector(edge, twoWay)
         addConnectorDialog = false
+    }
+
+    if(editLandmarkDialog) EditLandmarkDialog(s, onDismiss={editLandmarkDialog=false}) { id, name, x, y ->
+        vm.editLandmark(id, name, x, y)
+        editLandmarkDialog = false
+    }
+
+    if(deleteLandmarkDialog) DeleteLandmarkDialog(s, onDismiss={deleteLandmarkDialog=false}) { id ->
+        vm.deleteLandmark(id)
+        deleteLandmarkDialog = false
     }
 }
 

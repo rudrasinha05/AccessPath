@@ -1,6 +1,6 @@
 # R1 & Post-R1 Verification Record
 
-This record is updated with actual build/test outcomes before handover. Automated checks are being executed; no unrun manual checks are treated as passed.
+This record is updated with actual build/test outcomes before handover. Automated checks are executed; no unrun manual checks are treated as passed.
 
 ## Coverage
 
@@ -19,10 +19,14 @@ This record is updated with actual build/test outcomes before handover. Automate
 | Dynamic Landmark & Connector routing | RoutingTest: dynamicLandmarkAndConnectorRouting (PASSED) |
 | Sensor Dead-Reckoning & 2D Occupancy Grid | RoutingTest: mappingSessionDeadReckoningAndOccupancy (PASSED) |
 | Cloud Multi-Reviewer Safety-First Conflict Sync | RoutingTest: cloudSafetyFirstConflictResolution (PASSED) |
-| APK Compilation & Packaging | Gradle 8.11.1 assembleDebug: app-debug.apk (PASSED) |
-| Accessibility & Localization (Item 7) | Hindi UI, Voice Directions (TTS), QR Placards, Favourites (PASSED) |
-| Map Editor & Guided Navigation (Items 3, 5, 6) | Landmark Editor, 2-Way Corridor Editor, Guided Navigation Stepper & JSON Export (PASSED) |
-| Sensor Mapping & Cloud Sync (Items 1, 2, 4, 8) | IMU Dead-Reckoning, 2D Occupancy Grid & Cloud Conflict Resolver (PASSED) |
+| Nearest Accessible Facility Finder | RoutingTest: findNearestFacilityReturnsClosestAccessibleLocation (PASSED) |
+| Route Explanation & Max Walking Distance Warning | RoutingTest: routeExplanationAndMaxWalkingDistance (PASSED) |
+| Temporary Barrier Expiry Tracking | RoutingTest: temporaryReportExpiryTracking (PASSED) |
+| Assistance SOS Request & Acknowledgment | RoutingTest: assistanceRequestLifecycle (PASSED) |
+| APK Compilation & Packaging | Gradle 8.11.1 assembleDebug: app-debug.apk (26.4 MB) (PASSED) |
+| Accessibility & Localization | Hindi UI, Voice Directions (TTS), QR Placards, Favourites (PASSED) |
+| Map Editor & Guided Navigation | Landmark Editor, 2-Way Corridor Editor, Guided Navigation Stepper & JSON Export (PASSED) |
+| Sensor Mapping & Cloud Sync | IMU Dead-Reckoning, 2D Occupancy Grid & Cloud Conflict Resolver (PASSED) |
 
 ## Manual acceptance remaining
 

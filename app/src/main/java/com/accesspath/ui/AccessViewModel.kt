@@ -77,6 +77,14 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
         repository.addLandmark(node)
     }
 
+    fun editLandmark(nodeId: String, newName: String, newX: Double, newY: Double) = action("Landmark updated successfully") {
+        repository.editLandmark(nodeId, newName, newX, newY)
+    }
+
+    fun deleteLandmark(nodeId: String) = action("Landmark deleted successfully") {
+        repository.deleteLandmark(nodeId)
+    }
+
     fun addConnector(edge: Edge, twoWay: Boolean) = action("Connector added successfully") {
         repository.addConnector(edge, twoWay)
     }
@@ -92,5 +100,41 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
         require(nodes.isNotEmpty()) { "Record at least 2 steps before converting." }
         nodes.forEach { repository.addLandmark(it) }
         edges.forEach { repository.addConnector(it, twoWay = false) }
+    }
+
+    fun findNearest(category: String) {
+        val s = _ui.value.snapshot ?: return
+        val pair = Routing.findNearestFacility(s, category)
+        if (pair != null) {
+            val (node, _) = pair
+            action("Routed to nearest $category: ${node.name}") {
+                repository.select(s.profile, s.current, node.id, s.revision)
+            }
+        } else {
+            message("No accessible $category found from current location.")
+        }
+    }
+
+    fun requestAssistance(urgency: String, note: String) {
+        val s = _ui.value.snapshot ?: return
+        action("Assistance request dispatched to campus control desk") {
+            repository.requestAssistance(s.current, urgency, note)
+        }
+    }
+
+    fun acknowledgeAssistance(requestId: String) = action("Assistance request acknowledged") {
+        repository.acknowledgeAssistance(requestId)
+    }
+
+    fun submitReportWithMedia(
+        id: String,
+        edgeId: String,
+        category: String,
+        description: String,
+        photoUri: String?,
+        hasVoiceNote: Boolean,
+        expiryHours: Int
+    ) = action("Barrier report submitted with verification tracking") {
+        repository.submitReportWithMedia(id, edgeId, category, description, photoUri, hasVoiceNote, expiryHours)
     }
 }
