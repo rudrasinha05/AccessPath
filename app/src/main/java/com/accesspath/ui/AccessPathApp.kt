@@ -100,7 +100,7 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
         Text("From  ${s.map.nodes.find{it.id==s.current}?.name.orEmpty()}",style=MaterialTheme.typography.bodyLarge)
         Text("To       ${s.map.nodes.find{it.id==s.destination}?.name.orEmpty()}",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
         Button(onClick={setup=true},enabled=!ui.busy,modifier=Modifier.fillMaxWidth()) { Text("Plan a route") }
-        Text("Minimum width ${number(s.profile.minWidth)} m • Maximum ramp slope ${number(s.profile.maxSlope)}%",style=MaterialTheme.typography.bodySmall)
+        Text("Minimum width ${String.format(java.util.Locale.US,"%.2f",s.profile.minWidth)} m • Maximum ramp slope ${number(s.profile.maxSlope)}%",style=MaterialTheme.typography.bodySmall)
     }
     Panel {
         Text("Campus overview",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
@@ -150,6 +150,7 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
         Column { OutlinedTextField(query,{query=it},label={Text("Search locations")},modifier=Modifier.fillMaxWidth(),singleLine=true)
             Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())) {
                 nodes.filter{it.name.contains(query,true)}.forEach{n -> TextButton(onClick={onPick(n)},modifier=Modifier.fillMaxWidth()) {Text("${n.name} · ${n.floorId}")} }
+            }
         }
     },confirmButton={},dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
 }
@@ -184,7 +185,7 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     var review by remember {mutableStateOf<BarrierReport?>(null)}
     var filter by rememberSaveable {mutableStateOf("All")}
     Heading("Community care","Keep paths open.","Report barriers and follow their verification status.")
-    Button(onClick={create=true},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Report a barrier")}
+    Button(onClick={create=true},enabled=!busy && s.map.edges.isNotEmpty(),modifier=Modifier.fillMaxWidth()){Text("Report a barrier")}
     Notice("Pending reports create precautionary closures until reviewed. Reviewer controls are enabled from Manage.")
     Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         (listOf("All")+ReportStatus.entries.map{it.name}).forEach{v -> FilterChip(selected=filter==v,onClick={filter=v},label={Text(label(v))})}
@@ -207,7 +208,7 @@ private fun edgeLabel(s:AppSnapshot,id:String):String {
 }
 @Composable private fun ReportDialog(s:AppSnapshot,onDismiss:()->Unit,onSave:(String,String,String,String)->Unit) {
     val submission=rememberSaveable{UUID.randomUUID().toString()}
-    var edge by rememberSaveable{mutableStateOf(s.map.edges.first().id)};var category by rememberSaveable{mutableStateOf(CampusRepository.categories.first())}
+    var edge by rememberSaveable{mutableStateOf(s.map.edges.firstOrNull()?.id.orEmpty())};var category by rememberSaveable{mutableStateOf(CampusRepository.categories.first())}
     var description by rememberSaveable{mutableStateOf("")}; var picking by remember{mutableStateOf(false)}
     AlertDialog(onDismissRequest=onDismiss,title={Text("Report a barrier")},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick={picking=true}){Text(edgeLabel(s,edge))}
@@ -229,6 +230,7 @@ private fun edgeLabel(s:AppSnapshot,id:String):String {
         OutlinedTextField(query,{query=it},label={Text("Search segments")},singleLine=true)
         Column(Modifier.heightIn(max=320.dp).verticalScroll(rememberScrollState())) {
             s.map.edges.filter{edgeLabel(s,it.id).contains(query,true)}.forEach{e->TextButton(onClick={onPick(e.id)}){Text(edgeLabel(s,e.id))}}
+        }
     }},confirmButton={},dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}})
 }
 @Composable private fun DecisionDialog(report:BarrierReport,onDismiss:()->Unit,onSave:(ReportStatus,String)->Unit) {
