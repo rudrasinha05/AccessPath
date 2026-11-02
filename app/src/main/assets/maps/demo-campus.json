@@ -1,0 +1,1104 @@
+{
+  "schemaVersion": 1,
+  "version": "demo-1.0",
+  "name": "AccessPath Demonstration Campus",
+  "provenance": "Illustrative demo",
+  "buildings": [
+    {
+      "id": "a",
+      "name": "Academic block"
+    },
+    {
+      "id": "b",
+      "name": "Garden block"
+    }
+  ],
+  "floors": [
+    {
+      "id": "a0",
+      "buildingId": "a",
+      "label": "Ground",
+      "ordinal": 0
+    },
+    {
+      "id": "a1",
+      "buildingId": "a",
+      "label": "First floor",
+      "ordinal": 1
+    },
+    {
+      "id": "a2",
+      "buildingId": "a",
+      "label": "Second floor",
+      "ordinal": 2
+    },
+    {
+      "id": "b0",
+      "buildingId": "b",
+      "label": "Ground",
+      "ordinal": 0
+    }
+  ],
+  "nodes": [
+    {
+      "id": "gate",
+      "name": "Main gate",
+      "floorId": "a0",
+      "x": 5,
+      "y": 100,
+      "type": "ENTRANCE"
+    },
+    {
+      "id": "ramp",
+      "name": "Entrance ramp",
+      "floorId": "a0",
+      "x": 5,
+      "y": 70,
+      "type": "RAMP"
+    },
+    {
+      "id": "entry",
+      "name": "Reception",
+      "floorId": "a0",
+      "x": 5,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "lobby0",
+      "name": "Lobby 0",
+      "floorId": "a0",
+      "x": 35,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "liftA0",
+      "name": "Lift A 0",
+      "floorId": "a0",
+      "x": 35,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "liftB0",
+      "name": "Lift B 0",
+      "floorId": "a0",
+      "x": 90,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "stairs0",
+      "name": "Stairs 0",
+      "floorId": "a0",
+      "x": 65,
+      "y": 65,
+      "type": "STAIRS"
+    },
+    {
+      "id": "hall0",
+      "name": "East corridor 0",
+      "floorId": "a0",
+      "x": 90,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "west0",
+      "name": "West corridor 0",
+      "floorId": "a0",
+      "x": 35,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "junction0",
+      "name": "South junction 0",
+      "floorId": "a0",
+      "x": 90,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "lobby1",
+      "name": "Lobby 1",
+      "floorId": "a1",
+      "x": 35,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "liftA1",
+      "name": "Lift A 1",
+      "floorId": "a1",
+      "x": 35,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "liftB1",
+      "name": "Lift B 1",
+      "floorId": "a1",
+      "x": 90,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "stairs1",
+      "name": "Stairs 1",
+      "floorId": "a1",
+      "x": 65,
+      "y": 65,
+      "type": "STAIRS"
+    },
+    {
+      "id": "hall1",
+      "name": "East corridor 1",
+      "floorId": "a1",
+      "x": 90,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "west1",
+      "name": "West corridor 1",
+      "floorId": "a1",
+      "x": 35,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "junction1",
+      "name": "South junction 1",
+      "floorId": "a1",
+      "x": 90,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "lobby2",
+      "name": "Lobby 2",
+      "floorId": "a2",
+      "x": 35,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "liftA2",
+      "name": "Lift A 2",
+      "floorId": "a2",
+      "x": 35,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "liftB2",
+      "name": "Lift B 2",
+      "floorId": "a2",
+      "x": 90,
+      "y": 15,
+      "type": "ELEVATOR"
+    },
+    {
+      "id": "stairs2",
+      "name": "Stairs 2",
+      "floorId": "a2",
+      "x": 65,
+      "y": 65,
+      "type": "STAIRS"
+    },
+    {
+      "id": "hall2",
+      "name": "East corridor 2",
+      "floorId": "a2",
+      "x": 90,
+      "y": 40,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "west2",
+      "name": "West corridor 2",
+      "floorId": "a2",
+      "x": 35,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "junction2",
+      "name": "South junction 2",
+      "floorId": "a2",
+      "x": 90,
+      "y": 90,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "classroom",
+      "name": "Classroom 204",
+      "floorId": "a2",
+      "x": 120,
+      "y": 40,
+      "type": "ROOM"
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "floorId": "a1",
+      "x": 120,
+      "y": 40,
+      "type": "ROOM"
+    },
+    {
+      "id": "washroom",
+      "name": "Accessible washroom",
+      "floorId": "a0",
+      "x": 120,
+      "y": 40,
+      "type": "WASHROOM"
+    },
+    {
+      "id": "unknown",
+      "name": "Unverified studio",
+      "floorId": "a0",
+      "x": 120,
+      "y": 90,
+      "type": "ROOM"
+    },
+    {
+      "id": "isolated",
+      "name": "Closed annex",
+      "floorId": "b0",
+      "x": 90,
+      "y": 80,
+      "type": "ROOM"
+    },
+    {
+      "id": "garden",
+      "name": "Garden entrance",
+      "floorId": "b0",
+      "x": 10,
+      "y": 20,
+      "type": "LANDMARK"
+    },
+    {
+      "id": "help",
+      "name": "Help desk",
+      "floorId": "b0",
+      "x": 45,
+      "y": 20,
+      "type": "LANDMARK"
+    }
+  ],
+  "edges": [
+    {
+      "id": "toA0",
+      "from": "lobby0",
+      "to": "liftA0",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toA0_r",
+      "from": "liftA0",
+      "to": "lobby0",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB0",
+      "from": "hall0",
+      "to": "liftB0",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB0_r",
+      "from": "liftB0",
+      "to": "hall0",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall0",
+      "from": "lobby0",
+      "to": "hall0",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall0_r",
+      "from": "hall0",
+      "to": "lobby0",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor0",
+      "from": "lobby0",
+      "to": "stairs0",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor0_r",
+      "from": "stairs0",
+      "to": "lobby0",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west0",
+      "from": "lobby0",
+      "to": "west0",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west0_r",
+      "from": "west0",
+      "to": "lobby0",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south0",
+      "from": "west0",
+      "to": "junction0",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south0_r",
+      "from": "junction0",
+      "to": "west0",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return0",
+      "from": "junction0",
+      "to": "hall0",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return0_r",
+      "from": "hall0",
+      "to": "junction0",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toA1",
+      "from": "lobby1",
+      "to": "liftA1",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toA1_r",
+      "from": "liftA1",
+      "to": "lobby1",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB1",
+      "from": "hall1",
+      "to": "liftB1",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB1_r",
+      "from": "liftB1",
+      "to": "hall1",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall1",
+      "from": "lobby1",
+      "to": "hall1",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall1_r",
+      "from": "hall1",
+      "to": "lobby1",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor1",
+      "from": "lobby1",
+      "to": "stairs1",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor1_r",
+      "from": "stairs1",
+      "to": "lobby1",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west1",
+      "from": "lobby1",
+      "to": "west1",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west1_r",
+      "from": "west1",
+      "to": "lobby1",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south1",
+      "from": "west1",
+      "to": "junction1",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south1_r",
+      "from": "junction1",
+      "to": "west1",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return1",
+      "from": "junction1",
+      "to": "hall1",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return1_r",
+      "from": "hall1",
+      "to": "junction1",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toA2",
+      "from": "lobby2",
+      "to": "liftA2",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toA2_r",
+      "from": "liftA2",
+      "to": "lobby2",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB2",
+      "from": "hall2",
+      "to": "liftB2",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "toB2_r",
+      "from": "liftB2",
+      "to": "hall2",
+      "type": "CORRIDOR",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall2",
+      "from": "lobby2",
+      "to": "hall2",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "hall2_r",
+      "from": "hall2",
+      "to": "lobby2",
+      "type": "CORRIDOR",
+      "length": 18,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor2",
+      "from": "lobby2",
+      "to": "stairs2",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairdoor2_r",
+      "from": "stairs2",
+      "to": "lobby2",
+      "type": "CORRIDOR",
+      "length": 1,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west2",
+      "from": "lobby2",
+      "to": "west2",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "west2_r",
+      "from": "west2",
+      "to": "lobby2",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south2",
+      "from": "west2",
+      "to": "junction2",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "south2_r",
+      "from": "junction2",
+      "to": "west2",
+      "type": "CORRIDOR",
+      "length": 20,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return2",
+      "from": "junction2",
+      "to": "hall2",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "return2_r",
+      "from": "hall2",
+      "to": "junction2",
+      "type": "CORRIDOR",
+      "length": 12,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "classdoor",
+      "from": "hall2",
+      "to": "classroom",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "classdoor_r",
+      "from": "classroom",
+      "to": "hall2",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "librarydoor",
+      "from": "hall1",
+      "to": "library",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "librarydoor_r",
+      "from": "library",
+      "to": "hall1",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "washdoor",
+      "from": "hall0",
+      "to": "washroom",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "washdoor_r",
+      "from": "washroom",
+      "to": "hall0",
+      "type": "DOOR",
+      "length": 3,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "unknownpass",
+      "from": "junction0",
+      "to": "unknown",
+      "type": "DOOR",
+      "length": 4,
+      "width": null,
+      "slope": 0,
+      "stepFree": null,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "unknownpass_r",
+      "from": "unknown",
+      "to": "junction0",
+      "type": "DOOR",
+      "length": 4,
+      "width": null,
+      "slope": 0,
+      "stepFree": null,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "gardenpath",
+      "from": "gate",
+      "to": "garden",
+      "type": "OUTDOOR",
+      "length": 30,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "gardenpath_r",
+      "from": "garden",
+      "to": "gate",
+      "type": "OUTDOOR",
+      "length": 30,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "helpdoor",
+      "from": "garden",
+      "to": "help",
+      "type": "CORRIDOR",
+      "length": 8,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "helpdoor_r",
+      "from": "help",
+      "to": "garden",
+      "type": "CORRIDOR",
+      "length": 8,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "gate_ramp",
+      "from": "gate",
+      "to": "ramp",
+      "type": "OUTDOOR",
+      "length": 8,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "gate_ramp_r",
+      "from": "ramp",
+      "to": "gate",
+      "type": "OUTDOOR",
+      "length": 8,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "ramp_entry",
+      "from": "ramp",
+      "to": "entry",
+      "type": "RAMP",
+      "length": 6,
+      "width": 1.5,
+      "slope": 5,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "ramp_entry_r",
+      "from": "entry",
+      "to": "ramp",
+      "type": "RAMP",
+      "length": 6,
+      "width": 1.5,
+      "slope": 5,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "entry_lobby",
+      "from": "entry",
+      "to": "lobby0",
+      "type": "CORRIDOR",
+      "length": 5,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "entry_lobby_r",
+      "from": "lobby0",
+      "to": "entry",
+      "type": "CORRIDOR",
+      "length": 5,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "liftA_0",
+      "from": "liftA0",
+      "to": "liftA1",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftA"
+    },
+    {
+      "id": "liftA_0_r",
+      "from": "liftA1",
+      "to": "liftA0",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftA"
+    },
+    {
+      "id": "liftB_0",
+      "from": "liftB0",
+      "to": "liftB1",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftB"
+    },
+    {
+      "id": "liftB_0_r",
+      "from": "liftB1",
+      "to": "liftB0",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftB"
+    },
+    {
+      "id": "stairs_0",
+      "from": "stairs0",
+      "to": "stairs1",
+      "type": "STAIRS",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": false,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairs_0_r",
+      "from": "stairs1",
+      "to": "stairs0",
+      "type": "STAIRS",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": false,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "liftA_1",
+      "from": "liftA1",
+      "to": "liftA2",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftA"
+    },
+    {
+      "id": "liftA_1_r",
+      "from": "liftA2",
+      "to": "liftA1",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftA"
+    },
+    {
+      "id": "liftB_1",
+      "from": "liftB1",
+      "to": "liftB2",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftB"
+    },
+    {
+      "id": "liftB_1_r",
+      "from": "liftB2",
+      "to": "liftB1",
+      "type": "ELEVATOR",
+      "length": 3,
+      "width": 1.4,
+      "slope": 0,
+      "stepFree": true,
+      "wheelchairSuitable": true,
+      "facilityId": "liftB"
+    },
+    {
+      "id": "stairs_1",
+      "from": "stairs1",
+      "to": "stairs2",
+      "type": "STAIRS",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": false,
+      "wheelchairSuitable": true
+    },
+    {
+      "id": "stairs_1_r",
+      "from": "stairs2",
+      "to": "stairs1",
+      "type": "STAIRS",
+      "length": 4,
+      "width": 1.5,
+      "slope": 0,
+      "stepFree": false,
+      "wheelchairSuitable": true
+    }
+  ],
+  "facilities": [
+    {
+      "id": "liftA",
+      "name": "Lift A"
+    },
+    {
+      "id": "liftB",
+      "name": "Lift B"
+    }
+  ]
+}
