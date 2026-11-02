@@ -34,8 +34,8 @@ fun AssistanceRequestDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    if (lang == "hi") "स्थान: $currentNodeName\nकैंपस हेल्पडेस्क और उपलब्ध केयरगिवर को तुरंत अलर्ट भेजा जाएगा।"
-                    else "Location: $currentNodeName\nCampus helpdesk and designated caregivers will be notified immediately."
+                    if (lang == "hi") "स्थान: $currentNodeName\nकैंपस हेल्पडेस्क और उपलब्ध केयरगिवर को तुरंत अलर्ट भेजा जाएगा।\n\n[डेमो सिमुलेशन मोड] केवल स्थानीय लॉगिंग। वास्तविक आपातकाल में कैंपस सुरक्षा या 112 डायल करें।"
+                    else "Location: $currentNodeName\nCampus helpdesk and designated caregivers will be notified immediately.\n\n[Demo Simulation Mode] Local logging only. In real life emergencies, dial campus emergency contacts or 112."
                 )
 
                 Text(if (lang == "hi") "आपातकाल स्तर (Urgency):" else "Urgency Level:", fontWeight = FontWeight.Bold)

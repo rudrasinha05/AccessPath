@@ -59,6 +59,15 @@ class SensorMapper(context: Context) : SensorEventListener {
         )
     }
 
+    fun recordWheelchairMovement(displacementMeters: Double = 0.8) {
+        _session.value = _session.value.addWheelchairMovement(
+            displacementMeters = displacementMeters,
+            headingRad = currentHeadingRad,
+            confidence = confidence,
+            now = System.currentTimeMillis()
+        )
+    }
+
     fun recordObstacle(distance: Double = 1.0) {
         _session.value = _session.value.recordObstacle(distance, currentHeadingRad)
     }

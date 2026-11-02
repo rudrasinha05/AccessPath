@@ -96,10 +96,13 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun convertMappingSession(session: MappingSession) = action("Survey trail converted into navigation graph") {
+        val s = repository.snapshot()
         val (nodes, edges) = session.convertToNavigationElements()
         require(nodes.isNotEmpty()) { "Record at least 2 steps before converting." }
         nodes.forEach { repository.addLandmark(it) }
         edges.forEach { repository.addConnector(it, twoWay = false) }
+        val stitchEdges = session.stitchToCampus(s.map.nodes, nodes)
+        stitchEdges.forEach { repository.addConnector(it, twoWay = false) }
     }
 
     fun findNearest(category: String) {

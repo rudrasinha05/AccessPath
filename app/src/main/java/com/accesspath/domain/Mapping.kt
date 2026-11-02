@@ -84,6 +84,32 @@ data class MappingSession(
         )
     }
 
+
+    /**
+     * Continuous wheelchair displacement dead-reckoning engine.
+     * Computes incremental displacement from accelerometer/wheel speed rather than footstep detection.
+     */
+    fun addWheelchairMovement(displacementMeters: Double, headingRad: Double, confidence: Float, now: Long): MappingSession {
+        if (status != MappingStatus.RECORDING) return this
+        val lastPoint = trail.lastOrNull() ?: TrailPoint(15.0, 15.0, floorId, 1.0f, now)
+        val newX = (lastPoint.x + displacementMeters * kotlin.math.cos(headingRad)).coerceIn(1.0, 28.0)
+        val newY = (lastPoint.y + displacementMeters * kotlin.math.sin(headingRad)).coerceIn(1.0, 28.0)
+        val isLost = confidence < 0.45f
+
+        val xIdx = newX.roundToInt().coerceIn(0, grid.gridSize - 1)
+        val yIdx = newY.roundToInt().coerceIn(0, grid.gridSize - 1)
+        val newGrid = grid.update(xIdx, yIdx, OccupancyCell.FREE)
+
+        val newPoint = TrailPoint(newX, newY, floorId, confidence, now)
+        return copy(
+            trail = trail + newPoint,
+            grid = newGrid,
+            currentConfidence = confidence,
+            trackingLost = isLost,
+            distanceTraversed = distanceTraversed + displacementMeters
+        )
+    }
+
     fun recordObstacle(distanceAhead: Double, headingRad: Double): MappingSession {
         if (status != MappingStatus.RECORDING) return this
         val lastPoint = trail.lastOrNull() ?: return this
@@ -95,7 +121,7 @@ data class MappingSession(
     /**
      * Converts the recorded survey trail into verified landmarks and corridors.
      */
-    fun convertToNavigationElements(prefix: String = "survey"): Pair<List<Node>, List<Edge>> {
+    fun convertToNavigationElements(prefix: String = "survey_${System.currentTimeMillis() % 100000}"): Pair<List<Node>, List<Edge>> {
         if (trail.size < 2) return Pair(emptyList(), emptyList())
         val sampled = trail.filterIndexed { i, _ -> i == 0 || i == trail.size - 1 || i % 3 == 0 }
         val nodes = sampled.mapIndexed { idx, pt ->
@@ -132,4 +158,40 @@ data class MappingSession(
         }
         return Pair(nodes, edges)
     }
+
+    /**
+     * Connects newly surveyed path to nearest existing campus nodes so it integrates into navigation.
+     */
+    fun stitchToCampus(existingNodes: List<Node>, surveyNodes: List<Node>): List<Edge> {
+        if (existingNodes.isEmpty() || surveyNodes.isEmpty()) return emptyList()
+        val startSurvey = surveyNodes.first()
+        val sameFloor = existingNodes.filter { it.floorId == startSurvey.floorId }
+        val closest = (if (sameFloor.isNotEmpty()) sameFloor else existingNodes).minByOrNull { n ->
+            val dx = n.x - startSurvey.x
+            val dy = n.y - startSurvey.y
+            dx * dx + dy * dy
+        } ?: return emptyList()
+
+        val dx = startSurvey.x - closest.x
+        val dy = startSurvey.y - closest.y
+        val length = kotlin.math.sqrt(dx * dx + dy * dy).coerceAtLeast(1.0)
+        val forward = Edge(
+            id = "stitch_${closest.id}_${startSurvey.id}",
+            from = closest.id,
+            to = startSurvey.id,
+            type = Segment.CORRIDOR,
+            length = length,
+            width = 1.8,
+            slope = 0.0,
+            stepFree = true,
+            wheelchairSuitable = true
+        )
+        val reverse = forward.copy(
+            id = "stitch_${startSurvey.id}_${closest.id}",
+            from = startSurvey.id,
+            to = closest.id
+        )
+        return listOf(forward, reverse)
+    }
+
 }

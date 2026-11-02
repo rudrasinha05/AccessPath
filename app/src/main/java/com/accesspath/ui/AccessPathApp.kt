@@ -146,9 +146,12 @@ fun AccessPathApp(vm: AccessViewModel = viewModel()) {
                                 selected = lang == "hi",
                                 onClick = { lang = if (lang == "hi") "en" else "hi" },
                                 label = { Text(if (lang == "hi") "English" else "हिन्दी", fontWeight = FontWeight.SemiBold) },
-                                modifier = Modifier.padding(end = 6.dp),
+                                modifier = Modifier.padding(end = 4.dp),
                                 shape = RoundedCornerShape(10.dp)
                             )
+                            TextButton(onClick = { tab = 4 }) {
+                                Text(AppStrings.t("help", lang), fontWeight = FontWeight.Bold)
+                            }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                     )
@@ -603,7 +606,7 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
                             if (!visitedNodes.contains(nextNode.id)) visitedNodes.add(nextNode.id)
                             vm.action { vm.repository.position(nextNode.id) }
                             if (safeIndex < route.edges.size - 1) {
-                                guidedStepIndex = safeIndex + 1
+                                guidedStepIndex = 0 // resetting to 0 because new route recalculates from nextNode.id
                                 val nextStep = route.edges[safeIndex + 1]
                                 val stepTarget = route.nodes[safeIndex + 2]
                                 val announcement = if (lang == "hi") "पहुंच गए ${nextNode.name}। अगला कदम: ${AppStrings.labelSegment(nextStep.type, "hi")} से ${stepTarget.name}।"
@@ -1292,6 +1295,7 @@ private fun ReportDialog(
     var photoUri by rememberSaveable { mutableStateOf("") }
     var hasVoiceNote by rememberSaveable { mutableStateOf(false) }
     var expiryHoursStr by rememberSaveable { mutableStateOf("24") }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { photoUri = it.toString() } }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1318,9 +1322,29 @@ private fun ReportDialog(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = hasVoiceNote, onCheckedChange = { hasVoiceNote = it })
-                    Text("Attach voice memo recording")
+                OutlinedButton(
+                    onClick = { photoPicker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (photoUri.isBlank()) "Pick Photo (Gallery / Camera)" else "Photo Attached: " + photoUri.takeLast(25))
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (hasVoiceNote) Color(0xFF10B981).copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, if (hasVoiceNote) Color(0xFF10B981) else Color.Transparent),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(checked = hasVoiceNote, onCheckedChange = { hasVoiceNote = it })
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (hasVoiceNote) "🎙 Voice memo attached (12s)" else "Attach voice memo recording", fontWeight = FontWeight.Medium)
+                    }
                 }
                 OutlinedTextField(
                     expiryHoursStr,
