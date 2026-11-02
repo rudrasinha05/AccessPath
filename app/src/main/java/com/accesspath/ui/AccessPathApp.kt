@@ -163,27 +163,54 @@ fun AccessPathApp(vm: AccessViewModel = viewModel()) {
                         val tabs = listOf(
                             AppStrings.t("nav_tab", lang),
                             AppStrings.t("reports_tab", lang),
+                            AppStrings.t("map_tab", lang),
                             AppStrings.t("manage_tab", lang),
                             AppStrings.t("settings_tab", lang)
                         )
                         val tabIcons = listOf(
                             Icons.Default.LocationOn,
                             Icons.Default.Warning,
+                            Icons.Default.Place,
                             Icons.Default.Build,
                             Icons.Default.Settings
                         )
                         tabs.forEachIndexed { index, title ->
+                            val isCenterMap = index == 2
                             NavigationBarItem(
                                 selected = tab == index,
                                 onClick = { tab = index },
                                 icon = {
-                                    Icon(
-                                        imageVector = tabIcons[index],
-                                        contentDescription = title,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    if (isCenterMap) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (tab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                                            shadowElevation = if (tab == 2) 4.dp else 1.dp,
+                                            modifier = Modifier.size(34.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = tabIcons[index],
+                                                    contentDescription = title,
+                                                    tint = if (tab == 2) Color.White else MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Icon(
+                                            imageVector = tabIcons[index],
+                                            contentDescription = title,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
                                 },
-                                label = { Text(title, fontWeight = if (tab == index) FontWeight.Bold else FontWeight.Normal) }
+                                label = {
+                                    Text(
+                                        title,
+                                        fontWeight = if (tab == index) FontWeight.ExtraBold else FontWeight.Normal,
+                                        color = if (isCenterMap && tab == index) MaterialTheme.colorScheme.primary else Color.Unspecified
+                                    )
+                                }
                             )
                         }
                     }
@@ -200,22 +227,37 @@ fun AccessPathApp(vm: AccessViewModel = viewModel()) {
                     }
                 }
             } else {
-                Column(
-                    Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    if (ui.busy || ui.routing) LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
-                    when (tab) {
-                        0 -> NavigationScreen(ui, vm, lang, voice)
-                        1 -> ReportsScreen(state, vm, reviewer, ui.busy, lang)
-                        2 -> ManagementScreen(state, vm, reviewer, { reviewer = it }, ui.busy, lang)
-                        3 -> SettingsScreen(state, vm, ui.busy, lang) { lang = it }
+                if (tab == 2) {
+                    Box(Modifier.padding(padding).fillMaxSize()) {
+                        MapScreen(
+                            state = state,
+                            vm = vm,
+                            ui = ui,
+                            lang = lang,
+                            onNavigateTo = { targetNode ->
+                                vm.action { vm.repository.select(state.profile, state.current, targetNode.id, state.revision) }
+                                tab = 0
+                            }
+                        )
                     }
-                    Spacer(Modifier.height(16.dp))
+                } else {
+                    Column(
+                        Modifier
+                            .padding(padding)
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (ui.busy || ui.routing) LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
+                        when (tab) {
+                            0 -> NavigationScreen(ui, vm, lang, voice, onOpenMap = { tab = 2 })
+                            1 -> ReportsScreen(state, vm, reviewer, ui.busy, lang)
+                            3 -> ManagementScreen(state, vm, reviewer, { reviewer = it }, ui.busy, lang)
+                            4 -> SettingsScreen(state, vm, ui.busy, lang) { lang = it }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
                 }
             }
         }
@@ -311,7 +353,7 @@ private fun Notice(text: String, isWarning: Boolean = false) {
 }
 
 @Composable
-private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String, voice: VoiceNavigator) {
+private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String, voice: VoiceNavigator, onOpenMap: () -> Unit = {}) {
     val s = ui.snapshot!!
     var setup by rememberSaveable { mutableStateOf(false) }
     var position by rememberSaveable { mutableStateOf(false) }
@@ -321,7 +363,6 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
     var showWorldwideDialog by rememberSaveable { mutableStateOf(false) }
     var selectedNode by remember { mutableStateOf<Node?>(null) }
     var mapSearchQuery by rememberSaveable { mutableStateOf("") }
-    var selectedCategoryFilter by rememberSaveable { mutableStateOf("ALL") }
 
     // Active geofence detection
     val currentPosNode = s.map.nodes.find { it.id == s.current }
@@ -681,8 +722,18 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
             }
         }
 
-        // Worldwide Campus & Geofence Quick Floating Bar
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Worldwide Campus, Full Map & Geofence Quick Floating Bar
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(
+                onClick = onOpenMap,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1.2f).height(40.dp)
+            ) {
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Text("🗺️ Fullscreen Map", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+            }
             Surface(
                 onClick = { showWorldwideDialog = true },
                 shape = RoundedCornerShape(12.dp),
@@ -690,17 +741,17 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
                 modifier = Modifier.weight(1f).height(40.dp)
             ) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Text("🌍 Worldwide Directory", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("🌍 Campuses", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
             Surface(
                 onClick = { showGeofenceDialog = true },
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.weight(1f).height(40.dp)
+                modifier = Modifier.weight(0.9f).height(40.dp)
             ) {
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Text("🛡️ Geofences (${s.geofences.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                    Text("🛡️ (${s.geofences.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

@@ -50,6 +50,7 @@ object AppStrings {
         val hi = mapOf(
             "nav_tab" to "नेविगेट",
             "reports_tab" to "रिपोर्ट्स",
+            "map_tab" to "नक्शा",
             "manage_tab" to "प्रबंधन",
             "settings_tab" to "सेटिंग्स",
             "tagline" to "कैंपस का सुलभ व सुगम रास्ता",
@@ -128,6 +129,7 @@ object AppStrings {
         return if (lang == "hi") hi[key] ?: key else when(key) {
             "nav_tab" -> "Navigate"
             "reports_tab" -> "Reports"
+            "map_tab" -> "Map"
             "manage_tab" -> "Manage"
             "settings_tab" -> "Settings"
             "tagline" -> "A clearer way through campus"
