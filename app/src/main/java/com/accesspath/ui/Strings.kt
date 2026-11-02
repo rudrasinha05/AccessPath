@@ -94,6 +94,18 @@ object AppStrings {
             "map_editor" to "मैप एडिटर (Landmark & Connector Editor)",
             "add_landmark" to "+ नया लैंडमार्क / कमरा जोड़ें",
             "add_connector" to "+ नया रास्ता / कॉरिडोर जोड़ें",
+            "sensor_mapping" to "सेंसर व 2D ऑक्यूपेंसी मैपिंग (Mapping Engine)",
+            "start_mapping" to "सर्वेक्षण सत्र शुरू करें",
+            "pause_mapping" to "सत्र रोकें",
+            "resume_mapping" to "सत्र पुनः शुरू करें",
+            "stop_mapping" to "सत्र समाप्त करें",
+            "record_step" to "कदम जोड़ें ▶",
+            "record_obstacle" to "बाधा दर्ज करें 🧱",
+            "convert_to_graph" to "सर्वेक्षण को नेविगेशन ग्राफ में बदलें",
+            "tracking_lost" to "⚠️ ट्रैकिंग सिग्नल खो गया है (Tracking Lost)",
+            "cloud_sync" to "क्लाउड सिंक व बहु-समीक्षक (Multi-Reviewer Sync)",
+            "publish_cloud" to "कैंपस मैप क्लाउड पर प्रकाशित करें",
+            "sync_cloud" to "रिमोट क्लाउड से सिंक करें (Safety-First Merge)",
             "simulate_lifts_down" to "सभी लिफ्ट बंद होने का सिमुलेशन चलाएं",
             "restore_lifts" to "सभी लिफ्ट पुनः चालू करें",
             "block_path" to "एक रास्ता अवरुद्ध करें",
@@ -152,6 +164,18 @@ object AppStrings {
             "map_editor" -> "Map Editor (Landmark & Connector Editor)"
             "add_landmark" -> "+ Add Landmark / Room"
             "add_connector" -> "+ Add Path / Corridor"
+            "sensor_mapping" -> "Sensor & 2D Occupancy Mapping"
+            "start_mapping" -> "Start Survey Session"
+            "pause_mapping" -> "Pause"
+            "resume_mapping" -> "Resume"
+            "stop_mapping" -> "Stop & Save"
+            "record_step" -> "Record Step ▶"
+            "record_obstacle" -> "Mark Obstacle 🧱"
+            "convert_to_graph" -> "Convert Survey to Navigation Graph"
+            "tracking_lost" -> "⚠️ TRACKING LOSS DETECTED"
+            "cloud_sync" -> "Cloud Sync & Multi-Reviewer"
+            "publish_cloud" -> "Publish Map to Cloud"
+            "sync_cloud" -> "Sync with Remote Cloud (Safety-First Merge)"
             "simulate_lifts_down" -> "Simulate all lifts unavailable"
             "restore_lifts" -> "Restore all lifts"
             "block_path" -> "Block a path"

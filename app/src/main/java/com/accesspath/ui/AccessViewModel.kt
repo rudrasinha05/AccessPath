@@ -10,11 +10,22 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.encodeToString
 
-data class ScreenState(val snapshot: AppSnapshot? = null, val route: RouteResult? = null, val routing: Boolean = false, val busy: Boolean = false, val message: String? = null)
+data class ScreenState(
+    val snapshot: AppSnapshot? = null,
+    val route: RouteResult? = null,
+    val routing: Boolean = false,
+    val busy: Boolean = false,
+    val message: String? = null,
+    val syncConflicts: List<ConflictRecord> = emptyList()
+)
+
 class AccessViewModel(application: Application) : AndroidViewModel(application) {
     val repository = (application as AccessPathApplication).repository
+    val sensorMapper = SensorMapper(application)
+
     private val _ui = MutableStateFlow(ScreenState())
     val ui = _ui.asStateFlow()
+
     init {
         action { repository.initialize() }
         viewModelScope.launch {
@@ -26,6 +37,7 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
     fun action(success: String? = null, work: suspend () -> Unit) {
         if(_ui.value.busy) return
         _ui.update { it.copy(busy=true) }
@@ -36,6 +48,7 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
             finally { _ui.update { it.copy(busy=false) } }
         }
     }
+
     fun message(text: String?) { _ui.update { it.copy(message=text) } }
     
     fun importMap(uri: Uri) = action {
@@ -66,5 +79,18 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
 
     fun addConnector(edge: Edge, twoWay: Boolean) = action("Connector added successfully") {
         repository.addConnector(edge, twoWay)
+    }
+
+    fun syncRemoteWithConflicts(remotePayload: SyncPayload, account: ReviewerAccount) = action {
+        val conflicts = repository.syncRemote(remotePayload, account)
+        _ui.update { it.copy(syncConflicts = conflicts) }
+        message("Synced. ${conflicts.size} conflict(s) resolved with safety-first rules.")
+    }
+
+    fun convertMappingSession(session: MappingSession) = action("Survey trail converted into navigation graph") {
+        val (nodes, edges) = session.convertToNavigationElements()
+        require(nodes.isNotEmpty()) { "Record at least 2 steps before converting." }
+        nodes.forEach { repository.addLandmark(it) }
+        edges.forEach { repository.addConnector(it, twoWay = false) }
     }
 }

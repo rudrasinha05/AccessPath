@@ -93,6 +93,36 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
         MapValidator.validate(nextMap)
         s.copy(map = nextMap, audit = s.audit + event("Add connector", forward.id, "", "${forward.from} -> ${forward.to}", "Custom connector added"))
     }
+    suspend fun syncRemote(remotePayload: SyncPayload, account: ReviewerAccount): List<ConflictRecord> = withContext(Dispatchers.IO) {
+        require(account.authToken.isNotBlank()) { "Authentication required for reviewer sync." }
+        val allConflicts = mutableListOf<ConflictRecord>()
+        mutate { s ->
+            val (resolvedFacilities, facilityConflicts) = ConflictResolver.resolveFacilities(s.map.facilities, remotePayload.facilities)
+            val (resolvedReports, reportConflicts) = ConflictResolver.resolveReports(s.reports, remotePayload.reports)
+            allConflicts.addAll(facilityConflicts)
+            allConflicts.addAll(reportConflicts)
+
+            val updatedMap = s.map.copy(facilities = resolvedFacilities)
+            val auditMessage = "Synced with ${remotePayload.publisher}. ${allConflicts.size} conflicts resolved."
+            s.copy(
+                map = updatedMap,
+                reports = resolvedReports,
+                audit = s.audit + event("Remote Sync", "Cloud", s.map.version, remotePayload.mapVersion, auditMessage)
+            )
+        }
+        allConflicts
+    }
+    suspend fun createPublishPayload(account: ReviewerAccount): SyncPayload = withContext(Dispatchers.IO) {
+        require(account.authToken.isNotBlank()) { "Authentication required to publish." }
+        val s = snapshot()
+        SyncPayload(
+            mapVersion = s.map.version,
+            facilities = s.map.facilities,
+            reports = s.reports,
+            exportedAt = System.currentTimeMillis(),
+            publisher = account.displayName
+        )
+    }
     suspend fun importMap(json: String): List<String> = withContext(Dispatchers.IO) {
         require(json.toByteArray().size <= 10 * 1024 * 1024) { "Map must be at most 10 MB." }
         val map = MapJson.decodeFromString<CampusMap>(json); val warnings = MapValidator.validate(map)

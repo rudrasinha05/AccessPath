@@ -1,4 +1,4 @@
-# R1 verification record
+# R1 & Post-R1 Verification Record
 
 This record is updated with actual build/test outcomes before handover. Automated checks are being executed; no unrun manual checks are treated as passed.
 
@@ -17,9 +17,12 @@ This record is updated with actual build/test outcomes before handover. Automate
 | UI route setup, report entry and help | AppSmokeTest on Android |
 | 1,000-node/5,000-edge warm routing latency | RoutingTest: warm p95 < 500 ms (PASSED) |
 | Dynamic Landmark & Connector routing | RoutingTest: dynamicLandmarkAndConnectorRouting (PASSED) |
+| Sensor Dead-Reckoning & 2D Occupancy Grid | RoutingTest: mappingSessionDeadReckoningAndOccupancy (PASSED) |
+| Cloud Multi-Reviewer Safety-First Conflict Sync | RoutingTest: cloudSafetyFirstConflictResolution (PASSED) |
 | APK Compilation & Packaging | Gradle 8.11.1 assembleDebug: app-debug.apk (PASSED) |
 | Accessibility & Localization (Item 7) | Hindi UI, Voice Directions (TTS), QR Placards, Favourites (PASSED) |
 | Map Editor & Guided Navigation (Items 3, 5, 6) | Landmark Editor, 2-Way Corridor Editor, Guided Navigation Stepper & JSON Export (PASSED) |
+| Sensor Mapping & Cloud Sync (Items 1, 2, 4, 8) | IMU Dead-Reckoning, 2D Occupancy Grid & Cloud Conflict Resolver (PASSED) |
 
 ## Manual acceptance remaining
 

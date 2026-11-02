@@ -108,4 +108,42 @@ class RoutingTest {
         assertTrue(route is RouteResult.Found)
         assertEquals("new_lab", (route as RouteResult.Found).nodes.last().id)
     }
+    @Test fun mappingSessionDeadReckoningAndOccupancy() {
+        var session = MappingSession("sess_01", "a0", MappingStatus.RECORDING, MappingConsent(true, 1000L, "Test Device"))
+        for (i in 1..4) {
+            session = session.addStep(0.8, 0.0, 0.95f, 1000L + i * 100)
+        }
+        assertEquals(4, session.trail.size)
+        assertTrue(session.distanceTraversed > 3.0)
+        assertTrue(session.grid.freeCount > 0)
+        assertFalse(session.trackingLost)
+
+        // Obstacle detection
+        session = session.recordObstacle(1.0, 0.0)
+        assertTrue(session.grid.obstacleCount > 0)
+
+        // Tracking loss
+        session = session.addStep(0.8, 0.0, 0.3f, 2000L)
+        assertTrue(session.trackingLost)
+
+        // Conversion to navigation graph
+        val (nodes, edges) = session.convertToNavigationElements()
+        assertTrue(nodes.size >= 2)
+        assertTrue(edges.isNotEmpty())
+        assertTrue(edges.all { it.stepFree == true && it.wheelchairSuitable == true })
+    }
+
+    @Test fun cloudSafetyFirstConflictResolution() {
+        val localFac = listOf(Facility("liftA", "Lift A", Availability.AVAILABLE))
+        val remoteFac = listOf(Facility("liftA", "Lift A", Availability.UNAVAILABLE, "Remote report"))
+        val (resolvedFac, facConflicts) = ConflictResolver.resolveFacilities(localFac, remoteFac)
+        assertEquals(1, facConflicts.size)
+        assertEquals(Availability.UNAVAILABLE, resolvedFac.first().availability)
+
+        val localRep = listOf(BarrierReport("r1", "hall0", "Blocked path", "Debris", 1, status = ReportStatus.PENDING))
+        val remoteRep = listOf(BarrierReport("r1", "hall0", "Blocked path", "Debris", 1, status = ReportStatus.VERIFIED, reason = "Field inspected"))
+        val (resolvedRep, repConflicts) = ConflictResolver.resolveReports(localRep, remoteRep)
+        assertEquals(1, repConflicts.size)
+        assertEquals(ReportStatus.VERIFIED, resolvedRep.first().status)
+    }
 }

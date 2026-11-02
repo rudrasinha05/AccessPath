@@ -556,6 +556,12 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
         }
     }
 
+    // Sensor Mapping & 2D Occupancy Grid
+    SensorMappingCard(vm, s, lang, busy)
+
+    // Cloud Multi-Reviewer Synchronization
+    CloudSyncCard(vm, s, lang, busy)
+
     s.map.facilities.forEach{f->Panel(f.name){
         Text(AppStrings.labelAvailability(f.availability, lang), fontWeight=FontWeight.Bold, color=if(f.availability==Availability.AVAILABLE)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Text(f.reason);Text("${f.source} · ${time(f.updatedAt)}", style=MaterialTheme.typography.bodySmall)
