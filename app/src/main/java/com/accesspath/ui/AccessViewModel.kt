@@ -137,4 +137,25 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
     ) = action("Barrier report submitted with verification tracking") {
         repository.submitReportWithMedia(id, edgeId, category, description, photoUri, hasVoiceNote, expiryHours)
     }
+
+    fun setMapStyle(style: MapStyle) = action("Map layer switched to ${style.name}") {
+        repository.setMapStyle(style)
+    }
+
+    fun addGeofence(zone: GeofenceZone) = action("Geofence zone active: ${zone.name}") {
+        repository.addGeofence(zone)
+    }
+
+    fun deleteGeofence(zoneId: String) = action("Geofence removed") {
+        repository.deleteGeofence(zoneId)
+    }
+
+    fun switchCampus(campusId: String) = action("Loading worldwide campus map") {
+        repository.switchCampus(campusId)
+    }
+
+    fun publishCampusToWorld() = action {
+        val result = repository.publishCampusToWorld()
+        message(result)
+    }
 }

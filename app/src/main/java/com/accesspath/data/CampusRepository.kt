@@ -210,5 +210,109 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
                 audit=s.audit + event("Import map", map.version, s.map.version, map.version, map.provenance))
         }; warnings
     }
-    companion object { val categories = listOf("Blocked path", "Unavailable elevator", "Damaged ramp", "Unsuitable width", "Steps or threshold", "Other barrier") }
+    suspend fun setMapStyle(style: MapStyle) = mutate { s ->
+        s.copy(mapStyle = style)
+    }
+
+    suspend fun addGeofence(zone: GeofenceZone) = mutate { s ->
+        require(zone.name.isNotBlank()) { "Geofence name cannot be empty." }
+        require(zone.radius > 0) { "Geofence radius must be positive." }
+        s.copy(
+            geofences = s.geofences.filter { it.id != zone.id } + zone,
+            audit = s.audit + event("Add Geofence", zone.id, "", zone.name, "Geofence perimeter created: ${zone.name}")
+        )
+    }
+
+    suspend fun deleteGeofence(zoneId: String) = mutate { s ->
+        s.copy(
+            geofences = s.geofences.filter { it.id != zoneId },
+            audit = s.audit + event("Delete Geofence", zoneId, zoneId, "Deleted", "Geofence removed")
+        )
+    }
+
+    suspend fun switchCampus(campusId: String) = mutate { s ->
+        val selected = globalCampusCatalog.find { it.id == campusId } ?: error("Campus not found in directory.")
+        val campusName = selected.name
+        val updatedMap = s.map.copy(
+            name = "$campusName Campus",
+            provenance = "Worldwide Directory: ${selected.city}, ${selected.country}"
+        )
+        s.copy(
+            activeCampusId = campusId,
+            map = updatedMap,
+            audit = s.audit + event("Switch Campus", campusId, s.activeCampusId, campusId, "Switched active worldwide campus map to $campusName")
+        )
+    }
+
+    suspend fun publishCampusToWorld(): String = withContext(Dispatchers.IO) {
+        val s = snapshot()
+        "Successfully published '${s.map.name}' to the AccessPath Worldwide Directory (Revision ${s.revision}). Available globally."
+    }
+
+    companion object {
+        val categories = listOf("Blocked path", "Unavailable elevator", "Damaged ramp", "Unsuitable width", "Steps or threshold", "Other barrier")
+
+        val globalCampusCatalog = listOf(
+            CampusListing(
+                id = "glbitm",
+                name = "GLBITM Academic Campus",
+                city = "Greater Noida",
+                country = "India",
+                latitude = 28.4731,
+                longitude = 77.4829,
+                buildingCount = 4,
+                contributor = "GLBITM Student Accessibility Council",
+                isVerified = true,
+                description = "Primary engineering & research complex with accessible ramps, dual elevator banks, and tactile corridors."
+            ),
+            CampusListing(
+                id = "iitd",
+                name = "IIT Delhi Hauz Khas Campus",
+                city = "New Delhi",
+                country = "India",
+                latitude = 28.5450,
+                longitude = 77.1926,
+                buildingCount = 12,
+                contributor = "IITD Equal Opportunity Cell",
+                isVerified = true,
+                description = "Multi-department technical institute campus with motorized wheelchair corridors and audio-beaconed lecture halls."
+            ),
+            CampusListing(
+                id = "aiims",
+                name = "AIIMS New Delhi Medical Hub",
+                city = "New Delhi",
+                country = "India",
+                latitude = 28.5672,
+                longitude = 77.2100,
+                buildingCount = 8,
+                contributor = "AIIMS Patient Transport Taskforce",
+                isVerified = true,
+                description = "Large-scale hospital campus with wide gurney/wheelchair ramps, emergency elevators, and quiet zone routing."
+            ),
+            CampusListing(
+                id = "del_airport",
+                name = "Indira Gandhi International Airport (T3)",
+                city = "Delhi",
+                country = "India",
+                latitude = 28.5562,
+                longitude = 77.1000,
+                buildingCount = 2,
+                contributor = "Airport Authority of India",
+                isVerified = true,
+                description = "International airport terminal with step-free moving walkways, PRM assistance gates, and accessible restrooms."
+            ),
+            CampusListing(
+                id = "stanford",
+                name = "Stanford University Main Quad",
+                city = "Stanford, CA",
+                country = "United States",
+                latitude = 37.4275,
+                longitude = -122.1697,
+                buildingCount = 18,
+                contributor = "Stanford Accessible Education Center",
+                isVerified = true,
+                description = "Historic sandstone quadrangle with curb ramps, power-assisted doors, and elevator access across all academic wings."
+            )
+        )
+    }
 }

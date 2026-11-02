@@ -317,6 +317,20 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
     var position by rememberSaveable { mutableStateOf(false) }
     var qrScanner by rememberSaveable { mutableStateOf(false) }
     var assistanceDialog by rememberSaveable { mutableStateOf(false) }
+    var showGeofenceDialog by rememberSaveable { mutableStateOf(false) }
+    var showWorldwideDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedNode by remember { mutableStateOf<Node?>(null) }
+    var mapSearchQuery by rememberSaveable { mutableStateOf("") }
+    var selectedCategoryFilter by rememberSaveable { mutableStateOf("ALL") }
+
+    // Active geofence detection
+    val currentPosNode = s.map.nodes.find { it.id == s.current }
+    val activeGf = if (currentPosNode != null) {
+        s.geofences.find { gf ->
+            gf.active && gf.floorId == currentPosNode.floorId &&
+            Math.hypot(currentPosNode.x - gf.centerX, currentPosNode.y - gf.centerY) <= gf.radius
+        }
+    } else null
 
     // Guided navigation states
     var isGuiding by rememberSaveable { mutableStateOf(false) }
@@ -580,7 +594,118 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
     }
 
     // --- Interactive Campus Map Panel ---
-    Panel(title = AppStrings.t("campus_overview", lang)) {
+    Panel(
+        title = AppStrings.t("campus_overview", lang),
+        badge = when (s.mapStyle) {
+            MapStyle.BLUEPRINT -> "📐 Blueprint"
+            MapStyle.SATELLITE_HYBRID -> "🛰️ Satellite"
+            MapStyle.ACCESSIBILITY_HEATMAP -> "🌡️ Heatmap"
+            MapStyle.NIGHT_CYBER -> "⚡ Cyber OLED"
+        }
+    ) {
+        // Active Geofence Alert Banner
+        if (activeGf != null) {
+            Surface(
+                color = when (activeGf.type) {
+                    GeofenceType.SAFE_ZONE -> Color(0xFF10B981).copy(alpha = 0.15f)
+                    GeofenceType.HAZARD -> Color(0xFFEF4444).copy(alpha = 0.15f)
+                    GeofenceType.ACCESSIBLE_FACILITY -> Color(0xFF3B82F6).copy(alpha = 0.15f)
+                },
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, when (activeGf.type) {
+                    GeofenceType.SAFE_ZONE -> Color(0xFF10B981)
+                    GeofenceType.HAZARD -> Color(0xFFEF4444)
+                    GeofenceType.ACCESSIBLE_FACILITY -> Color(0xFF3B82F6)
+                }),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("🛡️", fontSize = 16.sp)
+                    Column {
+                        Text("Active Geofence: ${activeGf.name}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                        if (activeGf.alertMessage.isNotBlank()) Text(activeGf.alertMessage, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+
+        // Search Bar for Map Navigation
+        OutlinedTextField(
+            value = mapSearchQuery,
+            onValueChange = { mapSearchQuery = it },
+            label = { Text("🔍 Search campus rooms, labs, washrooms, lifts...") },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Instant Autocomplete Search Results Dropdown
+        if (mapSearchQuery.isNotBlank()) {
+            val matching = s.map.nodes.filter {
+                it.name.contains(mapSearchQuery, ignoreCase = true) ||
+                it.id.contains(mapSearchQuery, ignoreCase = true) ||
+                it.type.contains(mapSearchQuery, ignoreCase = true)
+            }.take(5)
+
+            if (matching.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(6.dp)) {
+                        matching.forEach { node ->
+                            TextButton(
+                                onClick = {
+                                    selectedNode = node
+                                    mapSearchQuery = ""
+                                    if (s.selectedFloor != node.floorId) {
+                                        vm.action { vm.repository.floor(node.floorId) }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("📍 ${node.name}", fontWeight = FontWeight.Bold)
+                                    Text("Floor ${node.floorId}", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Worldwide Campus & Geofence Quick Floating Bar
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(
+                onClick = { showWorldwideDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.weight(1f).height(40.dp)
+            ) {
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Text("🌍 Worldwide Directory", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Surface(
+                onClick = { showGeofenceDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.weight(1f).height(40.dp)
+            ) {
+                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                    Text("🛡️ Geofences (${s.geofences.size})", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        // Floor Switcher Chips
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             s.map.floors.forEach { f ->
                 val isSelected = s.selectedFloor == f.id
@@ -593,13 +718,39 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
                 )
             }
         }
+
+        // Interactive Map Canvas Engine
         CampusCanvas(
             s = s,
             route = route,
             guidedStepIndex = if (isGuiding) guidedStepIndex else null,
-            visitedNodes = visitedNodes.toSet()
+            visitedNodes = visitedNodes.toSet(),
+            selectedNode = selectedNode,
+            onNodeSelected = { selectedNode = it },
+            onStyleChange = { vm.setMapStyle(it) }
         )
-        Text(AppStrings.t("map_legend", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+        // Interactive Landmark Details Bottom Sheet / Card
+        if (selectedNode != null) {
+            LandmarkDetailsCard(
+                node = selectedNode!!,
+                currentPos = currentPosNode,
+                lang = lang,
+                onNavigate = { targetNode ->
+                    isGuiding = false
+                    guidedStepIndex = 0
+                    vm.action { vm.repository.select(s.profile, s.current, targetNode.id, s.revision) }
+                    selectedNode = null
+                },
+                onClose = { selectedNode = null }
+            )
+        }
+
+        Text(
+            "Tap any room or landmark on the map to inspect accessibility details and navigate directly.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 
     // --- Route Result Display ---
@@ -780,6 +931,21 @@ private fun NavigationScreen(ui: ScreenState, vm: AccessViewModel, lang: String,
         vm.requestAssistance(urgency, note)
         assistanceDialog = false
     }
+    if (showGeofenceDialog) GeofenceManagerDialog(
+        s = s,
+        onDismiss = { showGeofenceDialog = false },
+        onAddGeofence = { vm.addGeofence(it) },
+        onDeleteGeofence = { vm.deleteGeofence(it) }
+    )
+    if (showWorldwideDialog) WorldwideCampusExplorerDialog(
+        s = s,
+        onDismiss = { showWorldwideDialog = false },
+        onSelectCampus = { campusId ->
+            vm.switchCampus(campusId)
+            showWorldwideDialog = false
+        },
+        onPublishCurrent = { vm.publishCampusToWorld() }
+    )
 }
 
 @Composable

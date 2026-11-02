@@ -59,12 +59,46 @@ val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefault
 )
 @Serializable data class AuditEvent(val id: String, val action: String, val target: String, val before: String,
     val after: String, val reason: String, val time: Long, val actor: String = "Local demo reviewer")
+enum class MapStyle { BLUEPRINT, SATELLITE_HYBRID, ACCESSIBILITY_HEATMAP, NIGHT_CYBER }
+
+enum class GeofenceType { SAFE_ZONE, HAZARD, ACCESSIBLE_FACILITY }
+
+@Serializable
+data class GeofenceZone(
+    val id: String,
+    val name: String,
+    val floorId: String,
+    val centerX: Double,
+    val centerY: Double,
+    val radius: Double,
+    val type: GeofenceType = GeofenceType.SAFE_ZONE,
+    val alertMessage: String = "",
+    val active: Boolean = true
+)
+
+@Serializable
+data class CampusListing(
+    val id: String,
+    val name: String,
+    val city: String,
+    val country: String,
+    val latitude: Double,
+    val longitude: Double,
+    val buildingCount: Int,
+    val contributor: String,
+    val isVerified: Boolean = true,
+    val description: String = ""
+)
+
 @Serializable data class AppSnapshot(
     val map: CampusMap, val revision: Long = 0, val reports: List<BarrierReport> = emptyList(),
     val audit: List<AuditEvent> = emptyList(), val blockedEdges: Set<String> = emptySet(),
     val profile: Profile = Profile(), val start: String = "gate", val destination: String = "classroom",
     val current: String = "gate", val selectedFloor: String = "a0",
-    val assistanceRequests: List<AssistanceRequest> = emptyList()
+    val assistanceRequests: List<AssistanceRequest> = emptyList(),
+    val geofences: List<GeofenceZone> = emptyList(),
+    val mapStyle: MapStyle = MapStyle.BLUEPRINT,
+    val activeCampusId: String = "glbitm"
 )
 
 object MapValidator {

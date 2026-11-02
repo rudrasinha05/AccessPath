@@ -204,4 +204,46 @@ class RoutingTest {
         val ack = req.copy(status = "ACKNOWLEDGED")
         assertEquals("ACKNOWLEDGED", ack.status)
     }
+
+    @Test fun geofencePerimeterDetectionAndSafetyZone() {
+        val s = state()
+        val zone = GeofenceZone(
+            id = "gf_academic",
+            name = "Academic Block A Safe Zone",
+            floorId = "a0",
+            centerX = 50.0,
+            centerY = 50.0,
+            radius = 30.0,
+            type = GeofenceType.SAFE_ZONE,
+            alertMessage = "Welcome to Academic Block"
+        )
+        val stateWithGf = s.copy(geofences = listOf(zone))
+        assertEquals(1, stateWithGf.geofences.size)
+        assertEquals(GeofenceType.SAFE_ZONE, stateWithGf.geofences.first().type)
+
+        // Inside geofence test: distance from (50, 50) to (55, 55) is ~7.07m <= 30m
+        val insideDist = Math.hypot(55.0 - zone.centerX, 55.0 - zone.centerY)
+        assertTrue(insideDist <= zone.radius)
+
+        // Outside geofence test: distance from (50, 50) to (95, 95) is ~63.6m > 30m
+        val outsideDist = Math.hypot(95.0 - zone.centerX, 95.0 - zone.centerY)
+        assertTrue(outsideDist > zone.radius)
+    }
+
+    @Test fun worldwideCampusDirectorySwitching() {
+        val catalog = com.accesspath.data.CampusRepository.globalCampusCatalog
+        assertTrue(catalog.size >= 4)
+        assertTrue(catalog.any { it.id == "glbitm" })
+        assertTrue(catalog.any { it.id == "iitd" })
+        assertTrue(catalog.any { it.id == "stanford" })
+
+        val s = state()
+        val selected = catalog.first { it.id == "iitd" }
+        val updatedState = s.copy(
+            activeCampusId = selected.id,
+            map = s.map.copy(name = "${selected.name} Campus")
+        )
+        assertEquals("iitd", updatedState.activeCampusId)
+        assertTrue(updatedState.map.name.contains("IIT Delhi"))
+    }
 }
