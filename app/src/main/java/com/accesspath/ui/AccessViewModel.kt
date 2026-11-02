@@ -8,6 +8,7 @@ import com.accesspath.AccessPathApplication
 import com.accesspath.domain.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.serialization.encodeToString
 
 data class ScreenState(val snapshot: AppSnapshot? = null, val route: RouteResult? = null, val routing: Boolean = false, val busy: Boolean = false, val message: String? = null)
 class AccessViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,6 +37,7 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
     fun message(text: String?) { _ui.update { it.copy(message=text) } }
+    
     fun importMap(uri: Uri) = action {
         val text = withContext(Dispatchers.IO) {
             getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
@@ -46,5 +48,23 @@ class AccessViewModel(application: Application) : AndroidViewModel(application) 
         }
         val warnings=repository.importMap(text)
         message("Map imported. " + warnings.joinToString())
+    }
+
+    fun exportMap(uri: Uri) = action("Map exported successfully") {
+        val s = repository.snapshot()
+        val json = MapJson.encodeToString(s.map)
+        withContext(Dispatchers.IO) {
+            getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(json.toByteArray(Charsets.UTF_8))
+            } ?: error("Unable to write file.")
+        }
+    }
+
+    fun addLandmark(node: Node) = action("Landmark '${node.name}' added successfully") {
+        repository.addLandmark(node)
+    }
+
+    fun addConnector(edge: Edge, twoWay: Boolean) = action("Connector added successfully") {
+        repository.addConnector(edge, twoWay)
     }
 }

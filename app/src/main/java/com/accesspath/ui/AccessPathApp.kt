@@ -142,6 +142,13 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     var position by rememberSaveable { mutableStateOf(false) }
     var qrScanner by rememberSaveable { mutableStateOf(false) }
 
+    // Guided navigation states
+    var isGuiding by rememberSaveable { mutableStateOf(false) }
+    var guidedStepIndex by rememberSaveable { mutableIntStateOf(0) }
+    val visitedNodes = remember { mutableStateListOf<String>() }
+
+    val route = ui.route as? RouteResult.Found
+
     Heading(AppStrings.t("nav_eyebrow", lang), AppStrings.t("nav_title", lang), AppStrings.t("nav_detail", lang))
     Notice("${s.map.provenance} • ${s.map.name} • Offline, last-known facility status")
     
@@ -169,6 +176,8 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
                     AssistChip(
                         onClick = {
                             if (s.destination != targetId) {
+                                isGuiding = false
+                                guidedStepIndex = 0
                                 vm.action { vm.repository.select(s.profile, s.current, targetId, s.revision) }
                             }
                         },
@@ -181,49 +190,125 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
         Text("Minimum width ${String.format(java.util.Locale.US,"%.2f",s.profile.minWidth)} m • Maximum ramp slope ${number(s.profile.maxSlope)}%", style=MaterialTheme.typography.bodySmall)
     }
 
+    // Guided Mode Banner & Interactive Stepper
+    if (isGuiding && route != null && route.edges.isNotEmpty()) {
+        val safeIndex = guidedStepIndex.coerceIn(0, route.edges.size - 1)
+        val currentEdge = route.edges[safeIndex]
+        val currentNode = route.nodes[safeIndex]
+        val nextNode = route.nodes[safeIndex + 1]
+        val nextFloor = s.map.floors.first { it.id == nextNode.floorId }
+        val remainingDist = route.edges.drop(safeIndex).sumOf { it.length }
+
+        Panel("🧭 Guided Navigation Active") {
+            Text("Step ${safeIndex + 1} of ${route.edges.size} · Remaining: ${number(remainingDist)} m", fontWeight=FontWeight.Bold, color=MaterialTheme.colorScheme.primary)
+            Text(
+                "${AppStrings.labelSegment(currentEdge.type, lang)}: ${currentNode.name} → ${nextNode.name}",
+                style=MaterialTheme.typography.titleMedium,
+                fontWeight=FontWeight.Bold
+            )
+            Text("${number(currentEdge.length)} m · Floor: ${nextFloor.label}", style=MaterialTheme.typography.bodyMedium)
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if (safeIndex > 0) {
+                    OutlinedButton(onClick={
+                        guidedStepIndex = safeIndex - 1
+                    }, modifier=Modifier.weight(1f)) {
+                        Text(AppStrings.t("prev_step", lang))
+                    }
+                }
+                Button(onClick={
+                    if (!visitedNodes.contains(currentNode.id)) visitedNodes.add(currentNode.id)
+                    if (!visitedNodes.contains(nextNode.id)) visitedNodes.add(nextNode.id)
+                    vm.action { vm.repository.position(nextNode.id) }
+                    
+                    if (safeIndex < route.edges.size - 1) {
+                        guidedStepIndex = safeIndex + 1
+                        val nextStep = route.edges[safeIndex + 1]
+                        val stepTarget = route.nodes[safeIndex + 2]
+                        val announcement = if (lang == "hi") "पहुंच गए ${nextNode.name}। अगला कदम: ${AppStrings.labelSegment(nextStep.type, "hi")} से ${stepTarget.name}।"
+                            else "Reached ${nextNode.name}. Next step: ${label(nextStep.type.name)} to ${stepTarget.name}."
+                        voice.speak(announcement)
+                    } else {
+                        isGuiding = false
+                        guidedStepIndex = 0
+                        val completion = if (lang == "hi") "बधाई हो! आप अपनी मंज़िल ${nextNode.name} पर पहुंच चुके हैं।"
+                            else "You have arrived at your destination: ${nextNode.name}!"
+                        voice.speak(completion)
+                    }
+                }, modifier=Modifier.weight(1f)) {
+                    Text(if (safeIndex < route.edges.size - 1) AppStrings.t("next_step", lang) else "Finish Journey")
+                }
+            }
+            TextButton(onClick={ isGuiding = false; guidedStepIndex = 0 }) {
+                Text(AppStrings.t("stop_guided_nav", lang))
+            }
+        }
+    }
+
     Panel {
         Text(AppStrings.t("campus_overview", lang), style=MaterialTheme.typography.titleMedium, fontWeight=FontWeight.Bold)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             s.map.floors.forEach { f -> FilterChip(selected=s.selectedFloor==f.id, onClick={vm.action {vm.repository.floor(f.id)}},
                 label={Text("${s.map.buildings.find{it.id==f.buildingId}?.name} · ${f.label}")}, enabled=!ui.busy) }
         }
-        CampusCanvas(s, ui.route as? RouteResult.Found)
+        CampusCanvas(
+            s = s,
+            route = route,
+            guidedStepIndex = if (isGuiding) guidedStepIndex else null,
+            visitedNodes = visitedNodes.toSet()
+        )
         Text(AppStrings.t("map_legend", lang), style=MaterialTheme.typography.bodySmall)
     }
 
-    when(val route = ui.route) {
-        is RouteResult.Found -> Panel(if(route.edges.isEmpty()) AppStrings.t("reached_destination", lang) else AppStrings.t("accessible_journey", lang)) {
+    when(val r = ui.route) {
+        is RouteResult.Found -> Panel(if(r.edges.isEmpty()) AppStrings.t("reached_destination", lang) else AppStrings.t("accessible_journey", lang)) {
             Row(horizontalArrangement=Arrangement.spacedBy(24.dp)) {
                 Column {
-                    Text("${number(route.distance)} m", style=MaterialTheme.typography.headlineSmall, fontWeight=FontWeight.Bold)
+                    Text("${number(r.distance)} m", style=MaterialTheme.typography.headlineSmall, fontWeight=FontWeight.Bold)
                     Text(AppStrings.t("distance", lang), style=MaterialTheme.typography.labelMedium)
                 }
                 Column {
-                    Text(number(route.score), style=MaterialTheme.typography.headlineSmall, fontWeight=FontWeight.Bold)
+                    Text(number(r.score), style=MaterialTheme.typography.headlineSmall, fontWeight=FontWeight.Bold)
                     Text(AppStrings.t("score", lang), style=MaterialTheme.typography.labelMedium)
                 }
             }
             Text(if(s.profile.mobility==Mobility.STANDARD) "Lowest score among currently open paths." else "Stairs excluded. Longer routes may offer suitable step-free access.")
-            Text("${AppStrings.t("last_confirmed", lang)} ${route.nodes.first().name}", fontWeight=FontWeight.Medium)
+            Text("${AppStrings.t("last_confirmed", lang)} ${r.nodes.first().name}", fontWeight=FontWeight.Medium)
             
-            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if (r.edges.isNotEmpty()) {
+                    Button(onClick={
+                        isGuiding = true
+                        guidedStepIndex = 0
+                        visitedNodes.clear()
+                        visitedNodes.add(r.nodes.first().id)
+                        val startSpeech = if (lang == "hi") "मार्गदर्शन शुरू। पहला कदम: ${AppStrings.labelSegment(r.edges.first().type, "hi")} से ${r.nodes[1].name}।"
+                            else "Starting guidance. Step 1: ${label(r.edges.first().type.name)} to ${r.nodes[1].name}."
+                        voice.speak(startSpeech)
+                    }, enabled=!ui.busy, modifier=Modifier.weight(1f)) {
+                        Text(AppStrings.t("start_guided_nav", lang))
+                    }
+                }
                 OutlinedButton(onClick={position=true}, enabled=!ui.busy) {
                     Text(AppStrings.t("set_current", lang))
                 }
+            }
+
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(onClick={
                     val stepsSpeech = if (lang == "hi") {
                         val destinationName = s.map.nodes.find { it.id == s.destination }?.name.orEmpty()
-                        val text = StringBuilder("गंतव्य ${destinationName} के लिए मार्ग। कुल दूरी ${number(route.distance)} मीटर। ")
-                        route.edges.forEachIndexed { i, e ->
-                            val toNode = route.nodes[i+1]
+                        val text = StringBuilder("गंतव्य ${destinationName} के लिए मार्ग। कुल दूरी ${number(r.distance)} मीटर। ")
+                        r.edges.forEachIndexed { i, e ->
+                            val toNode = r.nodes[i+1]
                             text.append("कदम ${i+1}: ${AppStrings.labelSegment(e.type, "hi")} से ${toNode.name}। ")
                         }
                         text.toString()
                     } else {
                         val destinationName = s.map.nodes.find { it.id == s.destination }?.name.orEmpty()
-                        val text = StringBuilder("Accessible route to ${destinationName}. Distance: ${number(route.distance)} meters. ")
-                        route.edges.forEachIndexed { i, e ->
-                            val toNode = route.nodes[i+1]
+                        val text = StringBuilder("Accessible route to ${destinationName}. Distance: ${number(r.distance)} meters. ")
+                        r.edges.forEachIndexed { i, e ->
+                            val toNode = r.nodes[i+1]
                             text.append("Step ${i+1}: ${label(e.type.name)} to ${toNode.name}, ${number(e.length)} meters. ")
                         }
                         text.toString()
@@ -237,8 +322,8 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
                 }
             }
 
-            route.edges.forEachIndexed { i, e ->
-                val to = route.nodes[i+1]; val floor = s.map.floors.first { it.id == to.floorId }
+            r.edges.forEachIndexed { i, e ->
+                val to = r.nodes[i+1]; val floor = s.map.floors.first { it.id == to.floorId }
                 HorizontalDivider()
                 Text("${i+1}. ${AppStrings.labelSegment(e.type, lang)} → ${to.name}", fontWeight=FontWeight.Bold)
                 Text("${number(e.length)} m · ${floor.label}", style=MaterialTheme.typography.bodySmall)
@@ -249,11 +334,11 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
                     Text("${AppStrings.t("i_reached", lang)} ${to.name}")
                 }
             }
-            Text("Map ${route.mapVersion} • State revision ${route.revision}", style=MaterialTheme.typography.labelSmall)
+            Text("Map ${r.mapVersion} • State revision ${r.revision}", style=MaterialTheme.typography.labelSmall)
         }
         is RouteResult.Unavailable -> Panel(AppStrings.t("no_route", lang)) {
             Text(AppStrings.t("no_route_sub", lang))
-            route.reasons.forEach { Text("• $it", style=MaterialTheme.typography.bodySmall) }
+            r.reasons.forEach { Text("• $it", style=MaterialTheme.typography.bodySmall) }
             OutlinedButton(onClick={position=true}, enabled=!ui.busy) {
                 Text(AppStrings.t("set_current", lang))
             }
@@ -262,12 +347,16 @@ internal fun number(value: Double) = String.format(java.util.Locale.US, "%.1f", 
     }
 
     if(setup) RouteSetup(s, lang, onDismiss={setup=false}) { profile, start, end ->
+        isGuiding = false
+        guidedStepIndex = 0
         vm.action("Route preferences saved") { vm.repository.select(profile, start, end, s.revision) }; setup=false
     }
     if(position) PickNode(AppStrings.t("set_current", lang), s.map.nodes, onDismiss={position=false}) { node ->
         vm.action { vm.repository.position(node.id) }; position=false
     }
     if(qrScanner) QRScanDialog(s, lang, onDismiss={qrScanner=false}) { node ->
+        isGuiding = false
+        guidedStepIndex = 0
         vm.action("Location updated via QR placard: ${node.name}") { vm.repository.position(node.id) }
         voice.speak(if (lang == "hi") "QR कोड स्कैन हुआ: वर्तमान स्थान ${node.name}।" else "QR scanned: current position set to ${node.name}.")
         qrScanner=false
@@ -445,12 +534,28 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
 
 @Composable private fun ManagementScreen(s:AppSnapshot, vm:AccessViewModel, reviewer:Boolean, onRole:(Boolean)->Unit, busy:Boolean, lang:String) {
     var facility by remember{mutableStateOf<Facility?>(null)};var edgePicker by remember{mutableStateOf(false)};var reset by remember{mutableStateOf(false)}
+    var addLandmarkDialog by remember{mutableStateOf(false)}; var addConnectorDialog by remember{mutableStateOf(false)}
+
     Heading(AppStrings.t("manage_eyebrow", lang), AppStrings.t("manage_title", lang), AppStrings.t("manage_detail", lang))
     Panel(AppStrings.t("demo_role", lang)) {
         Row(verticalAlignment=Alignment.CenterVertically) {Text("Enable reviewer controls", Modifier.weight(1f));Switch(checked=reviewer, onCheckedChange=onRole)}
         Text("This switch demonstrates a review workflow. It is not secure authentication or shared administration.", style=MaterialTheme.typography.bodySmall)
     }
-    if(!reviewer) {Notice("Enable local demo reviewer mode to update facilities, verify reports and simulate failures.");return}
+    if(!reviewer) {Notice("Enable local demo reviewer mode to update facilities, verify reports, edit map data, and simulate failures.");return}
+
+    // Map Editor Section
+    Panel(AppStrings.t("map_editor", lang)) {
+        Text("Add new accessible landmarks and corridors to the live graph with full constraints validation.")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Button(onClick={addLandmarkDialog=true}, enabled=!busy, modifier=Modifier.weight(1f)) {
+                Text(AppStrings.t("add_landmark", lang))
+            }
+            OutlinedButton(onClick={addConnectorDialog=true}, enabled=!busy && s.map.nodes.size >= 2, modifier=Modifier.weight(1f)) {
+                Text(AppStrings.t("add_connector", lang))
+            }
+        }
+    }
+
     s.map.facilities.forEach{f->Panel(f.name){
         Text(AppStrings.labelAvailability(f.availability, lang), fontWeight=FontWeight.Bold, color=if(f.availability==Availability.AVAILABLE)MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         Text(f.reason);Text("${f.source} · ${time(f.updatedAt)}", style=MaterialTheme.typography.bodySmall)
@@ -472,6 +577,133 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
     if(edgePicker) EdgePicker(s, {edgePicker=false}){vm.action("Path blocked in both directions") {vm.repository.block(it,true)};edgePicker=false}
     if(reset) AlertDialog(onDismissRequest={reset=false}, title={Text("Reset demo data?")}, text={Text("This removes demo reports and audit history, restores facilities and resets your route preferences. Imported maps are not reset.")},
         confirmButton={TextButton(onClick={vm.action("Demo reset") {vm.repository.resetDemo()};reset=false}){Text("Reset demo")}}, dismissButton={TextButton(onClick={reset=false}){Text("Cancel")}})
+
+    if(addLandmarkDialog) AddLandmarkDialog(s, onDismiss={addLandmarkDialog=false}) { node ->
+        vm.addLandmark(node)
+        addLandmarkDialog = false
+    }
+
+    if(addConnectorDialog) AddConnectorDialog(s, onDismiss={addConnectorDialog=false}) { edge, twoWay ->
+        vm.addConnector(edge, twoWay)
+        addConnectorDialog = false
+    }
+}
+
+@Composable private fun AddLandmarkDialog(s: AppSnapshot, onDismiss: () -> Unit, onSave: (Node) -> Unit) {
+    var id by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var floorId by rememberSaveable { mutableStateOf(s.map.floors.firstOrNull()?.id.orEmpty()) }
+    var xStr by rememberSaveable { mutableStateOf("50.0") }
+    var yStr by rememberSaveable { mutableStateOf("50.0") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Accessible Landmark") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(id, { id = it.trim() }, label={ Text("Node ID (unique, e.g. room205)") }, singleLine=true)
+                OutlinedTextField(name, { name = it }, label={ Text("Landmark Name (e.g. Physics Lab 205)") }, singleLine=true)
+                ChoiceMenu("Floor", floorId, s.map.floors.map { it.id }) { floorId = it }
+                OutlinedTextField(xStr, { xStr = it }, label={ Text("X coordinate (0 - 1000)") }, singleLine=true)
+                OutlinedTextField(yStr, { yStr = it }, label={ Text("Y coordinate (0 - 1000)") }, singleLine=true)
+                error?.let { Text(it, color=MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val x = xStr.toDoubleOrNull()
+                    val y = yStr.toDoubleOrNull()
+                    if (id.isBlank() || name.isBlank() || x == null || y == null) {
+                        error = "Please fill all fields with valid numbers."
+                        return@Button
+                    }
+                    onSave(Node(id, floorId, name, x, y, "LANDMARK"))
+                },
+                enabled = id.isNotBlank() && name.isNotBlank()
+            ) {
+                Text("Save Landmark")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable private fun AddConnectorDialog(s: AppSnapshot, onDismiss: () -> Unit, onSave: (Edge, Boolean) -> Unit) {
+    var id by rememberSaveable { mutableStateOf("") }
+    var from by rememberSaveable { mutableStateOf(s.map.nodes.firstOrNull()?.id.orEmpty()) }
+    var to by rememberSaveable { mutableStateOf(s.map.nodes.getOrNull(1)?.id.orEmpty()) }
+    var segmentType by rememberSaveable { mutableStateOf(Segment.CORRIDOR) }
+    var lengthStr by rememberSaveable { mutableStateOf("10.0") }
+    var widthStr by rememberSaveable { mutableStateOf("1.5") }
+    var slopeStr by rememberSaveable { mutableStateOf("0.0") }
+    var stepFree by rememberSaveable { mutableStateOf(true) }
+    var wheelchairSuitable by rememberSaveable { mutableStateOf(true) }
+    var twoWay by rememberSaveable { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Path / Corridor") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(id, { id = it.trim() }, label={ Text("Connector ID (e.g. corridor_205)") }, singleLine=true)
+                ChoiceMenu("From", from, s.map.nodes.map { it.id }) { from = it }
+                ChoiceMenu("To", to, s.map.nodes.map { it.id }) { to = it }
+                ChoiceMenu("Type", segmentType.name, Segment.entries.map { it.name }) { segmentType = Segment.valueOf(it) }
+                OutlinedTextField(lengthStr, { lengthStr = it }, label={ Text("Length in metres") }, singleLine=true)
+                OutlinedTextField(widthStr, { widthStr = it }, label={ Text("Clear width in metres") }, singleLine=true)
+                OutlinedTextField(slopeStr, { slopeStr = it }, label={ Text("Ramp slope in percent") }, singleLine=true)
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Checkbox(checked=stepFree, onCheckedChange={ stepFree = it })
+                    Text("Step-free access")
+                }
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Checkbox(checked=wheelchairSuitable, onCheckedChange={ wheelchairSuitable = it })
+                    Text("Wheelchair suitable")
+                }
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Checkbox(checked=twoWay, onCheckedChange={ twoWay = it })
+                    Text("Two-way (walkable in both directions)")
+                }
+                error?.let { Text(it, color=MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val len = lengthStr.toDoubleOrNull()
+                    val w = widthStr.toDoubleOrNull()
+                    val slope = slopeStr.toDoubleOrNull()
+                    if (id.isBlank() || from == to || len == null || len <= 0) {
+                        error = "Check endpoints and enter positive length."
+                        return@Button
+                    }
+                    val edge = Edge(
+                        id = id,
+                        from = from,
+                        to = to,
+                        type = segmentType,
+                        length = len,
+                        width = w,
+                        slope = slope,
+                        stepFree = stepFree,
+                        wheelchairSuitable = wheelchairSuitable
+                    )
+                    onSave(edge, twoWay)
+                },
+                enabled = id.isNotBlank() && from != to
+            ) {
+                Text("Save Connector")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable private fun FacilityDialog(f:Facility, onDismiss:()->Unit, onSave:(Availability,String)->Unit) {
@@ -483,7 +715,9 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
 }
 
 @Composable private fun SettingsScreen(s:AppSnapshot, vm:AccessViewModel, busy:Boolean, lang:String, onLangChange:(String)->Unit) {
-    val importer=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->uri?.let{vm.importMap(it)}}
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->uri?.let{vm.importMap(it)}}
+    val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")){uri->uri?.let{vm.exportMap(it)}}
+
     Heading(AppStrings.t("settings_eyebrow", lang), AppStrings.t("settings_title", lang), AppStrings.t("settings_detail", lang))
     
     Panel(AppStrings.t("language", lang)) {
@@ -504,11 +738,18 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
     Panel("Map and data") {
         Text("${s.map.name}\nVersion ${s.map.version} • Schema ${s.map.schemaVersion}\n${s.map.nodes.size} nodes · ${s.map.edges.size} directed segments")
         Text("${s.map.provenance}\nVerified: ${time(s.map.verifiedAt)}", style=MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick={importer.launch(arrayOf("application/json","text/plain","application/octet-stream"))}, enabled=!busy){Text(AppStrings.t("import_map", lang))}
-        Text("Imports are validated before replacement. Reports remain attached to their segment IDs; incompatible replacements are rejected.", style=MaterialTheme.typography.bodySmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick={importer.launch(arrayOf("application/json","text/plain","application/octet-stream"))}, enabled=!busy, modifier=Modifier.weight(1f)){
+                Text(AppStrings.t("import_map", lang))
+            }
+            Button(onClick={exporter.launch("${s.map.name.lowercase().replace(' ','-')}-v${s.map.version}.json")}, enabled=!busy, modifier=Modifier.weight(1f)){
+                Text(AppStrings.t("export_map", lang))
+            }
+        }
+        Text("Imports and live additions are validated against connectivity and accessibility rules before commit.", style=MaterialTheme.typography.bodySmall)
     }
     Panel("How to use AccessPath") {
-        Text("1. Open Navigate and choose Plan a route.\n2. Select your mobility profile, start and destination.\n3. Read the route by floor and follow the landmark steps.\n4. Confirm locations as you reach them or scan QR placards.\n5. Use 'Speak directions' for audio assistance.\n6. Report barriers from Reports.\n7. In Manage, enable demo reviewer mode to verify reports and simulate failures.")
+        Text("1. Open Navigate and choose Plan a route or tap Quick Destinations.\n2. Tap 'Start guided navigation' for step-by-step turn guidance with breadcrumb visual tracking.\n3. Read the route by floor and follow the landmark steps.\n4. Confirm locations as you reach them or scan QR placards.\n5. Use 'Speak directions' for audio assistance in English or Hindi.\n6. In Manage, enable demo reviewer mode to add landmarks/paths, verify reports and simulate failures.\n7. In Settings, export surveyed maps to JSON.")
     }
     Panel("Privacy and limitations") {
         Text("Your map, reports, profile and audit history are stored on this device. This build uses no camera, microphone, GPS, account or remote analytics. It does not track your live location.")
@@ -517,7 +758,7 @@ private fun edgeLabel(s:AppSnapshot, id:String):String {
         Text("To remove all local app data, use Android Settings → Apps → AccessPath → Storage → Clear storage. This deletes imported maps, reports and preferences.", style=MaterialTheme.typography.bodySmall)
     }
     Panel("Build information") {
-        Text("AccessPath 1.0.0-demo\nNative Android · Kotlin · Compose · Room\nDijkstra routing with hard accessibility constraints\nFeatures: Hindi UI, Voice Directions (TTS), QR Start Points, Quick Favourites")
+        Text("AccessPath 1.0.0-demo\nNative Android · Kotlin · Compose · Room\nDijkstra routing with hard accessibility constraints\nFeatures: Guided Navigation & Breadcrumb Trail, Hindi UI, Voice Directions (TTS), QR Start Points, Map Editor, JSON Export")
         Text("Source: github.com/rudrasinha05/AccessPath", style=MaterialTheme.typography.bodySmall)
     }
 }

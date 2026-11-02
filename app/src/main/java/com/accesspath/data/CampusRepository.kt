@@ -64,7 +64,6 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
     }
     suspend fun block(edgeId: String, blocked: Boolean) = mutate { s ->
         val e = s.map.edges.find { it.id == edgeId } ?: error("Segment not found.")
-        // A physical corridor closure affects both directions, when the reverse exists.
         val ids = s.map.edges.filter { (it.from == e.from && it.to == e.to) || (it.from == e.to && it.to == e.from) }.map { it.id }.toSet()
         s.copy(blockedEdges=if(blocked) s.blockedEdges + ids else s.blockedEdges - ids,
             audit=s.audit + event("Simulate path closure", edgeId, if(edgeId in s.blockedEdges) "Blocked" else "Open", if(blocked) "Blocked" else "Open", "Failure simulation"))
@@ -76,6 +75,23 @@ class CampusRepository(private val db: AccessDatabase, private val seed: () -> S
     }
     suspend fun resetDemo() = mutate { s ->
         require(s.map.provenance == "Illustrative demo") { "Reset is only available for the bundled demo. Imported data was preserved." }; fresh()
+    }
+    suspend fun addLandmark(node: Node) = mutate { s ->
+        require(s.map.nodes.none { it.id == node.id }) { "Landmark ID '${node.id}' already exists." }
+        val nextMap = s.map.copy(nodes = s.map.nodes + node)
+        MapValidator.validate(nextMap)
+        s.copy(map = nextMap, audit = s.audit + event("Add landmark", node.id, "", node.name, "Custom landmark added"))
+    }
+    suspend fun addConnector(forward: Edge, twoWay: Boolean = true) = mutate { s ->
+        require(s.map.edges.none { it.id == forward.id }) { "Segment ID '${forward.id}' already exists." }
+        val reverseId = "${forward.id}_r"
+        if (twoWay) require(s.map.edges.none { it.id == reverseId }) { "Reverse segment ID '${reverseId}' already exists." }
+        val edgesToAdd = if (twoWay) {
+            listOf(forward, forward.copy(id = reverseId, from = forward.to, to = forward.from))
+        } else listOf(forward)
+        val nextMap = s.map.copy(edges = s.map.edges + edgesToAdd)
+        MapValidator.validate(nextMap)
+        s.copy(map = nextMap, audit = s.audit + event("Add connector", forward.id, "", "${forward.from} -> ${forward.to}", "Custom connector added"))
     }
     suspend fun importMap(json: String): List<String> = withContext(Dispatchers.IO) {
         require(json.toByteArray().size <= 10 * 1024 * 1024) { "Map must be at most 10 MB." }

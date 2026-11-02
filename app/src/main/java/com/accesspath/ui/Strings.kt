@@ -63,7 +63,7 @@ object AppStrings {
             "plan_route" to "रूट प्लान करें",
             "qr_scan" to "QR कोड स्कैन करें",
             "campus_overview" to "कैंपस का नक्शा",
-            "map_legend" to "हरा: मार्ग · लाल डैश: प्रतिबंधित · धूसर: अन्य रास्ते\nज़ूम करने के लिए पिंच करें, ड्रैग करें।",
+            "map_legend" to "हरा: मार्ग · नारंगी: सक्रिय कदम · लाल डैश: प्रतिबंधित · धूसर: अन्य रास्ते\nज़ूम करने के लिए पिंच करें, ड्रैग करें।",
             "reached_destination" to "आप पहले से ही अपनी मंज़िल पर हैं",
             "accessible_journey" to "आपका सुगम सफर",
             "distance" to "मार्ग दूरी",
@@ -74,6 +74,10 @@ object AppStrings {
             "speak_directions" to "🔊 आवाज़ में सुनें",
             "stop_speech" to "⏹ आवाज़ बंद करें",
             "quick_destinations" to "त्वरित स्थान (Quick Favourites):",
+            "start_guided_nav" to "🧭 मार्गदर्शन शुरू करें",
+            "stop_guided_nav" to "⏹ मार्गदर्शन समाप्त करें",
+            "next_step" to "अगला कदम ▶",
+            "prev_step" to "◀ पिछला कदम",
             "no_route" to "कोई सुगम मार्ग उपलब्ध नहीं है",
             "no_route_sub" to "आपकी सुरक्षा बाधाओं के कारण कोई मान्य रास्ता नहीं मिला। स्थान की पुष्टि करें या लिफ्ट स्थिति देखें।",
             "reports_eyebrow" to "कैंपस सुरक्षा",
@@ -87,6 +91,9 @@ object AppStrings {
             "manage_title" to "कैंपस प्रबंधन",
             "manage_detail" to "सुविधाओं की स्थिति की जांच करें और आपातकालीन सिमुलेशन चलाएं।",
             "demo_role" to "लोकल समीक्षक मोड",
+            "map_editor" to "मैप एडिटर (Landmark & Connector Editor)",
+            "add_landmark" to "+ नया लैंडमार्क / कमरा जोड़ें",
+            "add_connector" to "+ नया रास्ता / कॉरिडोर जोड़ें",
             "simulate_lifts_down" to "सभी लिफ्ट बंद होने का सिमुलेशन चलाएं",
             "restore_lifts" to "सभी लिफ्ट पुनः चालू करें",
             "block_path" to "एक रास्ता अवरुद्ध करें",
@@ -95,7 +102,8 @@ object AppStrings {
             "settings_title" to "सरल और सुरक्षित",
             "settings_detail" to "ऑफ़लाइन नेविगेशन। कोई डेटा संग्रह नहीं। खाता अनावश्यक।",
             "language" to "भाषा / Language",
-            "import_map" to "कैंपस JSON मैप आयात करें"
+            "import_map" to "कैंपस JSON मैप आयात (Import) करें",
+            "export_map" to "कैंपस JSON मैप निर्यात (Export) करें"
         )
         return if (lang == "hi") hi[key] ?: key else when(key) {
             "nav_tab" -> "Navigate"
@@ -113,7 +121,7 @@ object AppStrings {
             "plan_route" -> "Plan a route"
             "qr_scan" -> "Scan QR placard"
             "campus_overview" -> "Campus overview"
-            "map_legend" -> "Green: route · Red dashed: restricted · Grey: other paths\nPinch to zoom, drag to pan. Directions below provide a text alternative."
+            "map_legend" -> "Green: route · Amber: current step · Red dashed: restricted · Grey: other paths\nPinch to zoom, drag to pan. Directions below provide a text alternative."
             "reached_destination" -> "You are already at the destination"
             "accessible_journey" -> "Your accessible journey"
             "distance" -> "Route distance"
@@ -124,6 +132,10 @@ object AppStrings {
             "speak_directions" -> "🔊 Speak directions"
             "stop_speech" -> "⏹ Stop voice"
             "quick_destinations" -> "Quick destinations:"
+            "start_guided_nav" -> "🧭 Start guided navigation"
+            "stop_guided_nav" -> "⏹ Exit guidance"
+            "next_step" -> "Next step ▶"
+            "prev_step" -> "◀ Previous step"
             "no_route" -> "No accessible route available"
             "no_route_sub" -> "Your requirements have not been relaxed. Confirm your location, choose another destination or review facility status."
             "reports_eyebrow" -> "Community care"
@@ -137,6 +149,9 @@ object AppStrings {
             "manage_title" -> "Stay one step ahead."
             "manage_detail" -> "Review facility conditions and demonstrate changing routes."
             "demo_role" -> "Local demo role"
+            "map_editor" -> "Map Editor (Landmark & Connector Editor)"
+            "add_landmark" -> "+ Add Landmark / Room"
+            "add_connector" -> "+ Add Path / Corridor"
             "simulate_lifts_down" -> "Simulate all lifts unavailable"
             "restore_lifts" -> "Restore all lifts"
             "block_path" -> "Block a path"
@@ -146,6 +161,7 @@ object AppStrings {
             "settings_detail" -> "Offline navigation. Clear limitations. No account needed."
             "language" -> "Language"
             "import_map" -> "Import campus JSON map"
+            "export_map" -> "Export campus JSON map"
             else -> key
         }
     }

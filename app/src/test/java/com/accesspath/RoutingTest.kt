@@ -97,4 +97,15 @@ class RoutingTest {
         println("1000 nodes / 5000 directed edges: warm p95=${ms[28]} ms")
         assertTrue("Routing exceeded 500 ms warm p95",ms[28]<500)
     }
+    @Test fun dynamicLandmarkAndConnectorRouting() {
+        val s = state()
+        val newNode = Node("new_lab", "a0", "Robotics Lab", 150.0, 150.0)
+        val forwardEdge = Edge("to_lab", "lobby0", "new_lab", Segment.CORRIDOR, 12.0, 1.5, 0.0, true, true)
+        val reverseEdge = forwardEdge.copy(id="to_lab_r", from="new_lab", to="lobby0")
+        val updatedMap = s.map.copy(nodes = s.map.nodes + newNode, edges = s.map.edges + listOf(forwardEdge, reverseEdge))
+        MapValidator.validate(updatedMap)
+        val route = Routing.calculate(s.copy(map = updatedMap, destination = "new_lab"))
+        assertTrue(route is RouteResult.Found)
+        assertEquals("new_lab", (route as RouteResult.Found).nodes.last().id)
+    }
 }
