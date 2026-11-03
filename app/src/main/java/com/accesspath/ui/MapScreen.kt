@@ -39,6 +39,7 @@ fun MapScreen(
     vm: AccessViewModel,
     ui: ScreenState,
     lang: String,
+    onLanguageToggle: () -> Unit = {},
     onNavigateTo: (Node) -> Unit
 ) {
     var selectedNode by remember { mutableStateOf<Node?>(null) }
@@ -187,6 +188,18 @@ fun MapScreen(
                     if (searchQuery.isNotBlank()) {
                         IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
                             Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    // Language Switcher Chip
+                    Surface(
+                        onClick = onLanguageToggle,
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp)) {
+                            Text(if (lang == "hi") "English" else "हिन्दी", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
 
@@ -580,15 +593,16 @@ fun MapScreen(
                             }
                         }
                     }
-                } else {
-                    // Peek State (~72dp) with Quick Action Chips
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                }
+
+                // Quick Action Chips Row - Always available
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                         Button(
                             onClick = { showRoutePlannerSheet = true },
                             shape = RoundedCornerShape(14.dp),
@@ -601,8 +615,14 @@ fun MapScreen(
                             onClick = { showReportsSheet = true },
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("Barrier Reports", fontWeight = FontWeight.Bold)
+                            Text("Reports", fontWeight = FontWeight.Bold)
                         }
+
+                        AssistChip(
+                            onClick = { showHelpDialog = true },
+                            label = { Text("Help", fontWeight = FontWeight.Bold) },
+                            shape = RoundedCornerShape(14.dp)
+                        )
 
                         AssistChip(
                             onClick = {
@@ -637,7 +657,6 @@ fun MapScreen(
                             shape = RoundedCornerShape(14.dp)
                         )
                     }
-                }
             }
         }
     }
@@ -915,8 +934,6 @@ fun MapScreen(
                         val destNode = state.map.nodes.find { it.id == "entry" } ?: state.map.nodes.last()
                         vm.action { vm.repository.select(updatedProfile, originNode.id, destNode.id, state.revision) }
                         showRoutePlannerSheet = false
-                        isNavigating = true
-                        navStepIndex = 0
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandTeal),
                     shape = RoundedCornerShape(10.dp)

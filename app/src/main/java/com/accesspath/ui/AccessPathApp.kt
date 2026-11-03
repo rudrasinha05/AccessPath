@@ -86,182 +86,33 @@ fun AccessPathApp(vm: AccessViewModel = viewModel()) {
 
     MaterialTheme(colorScheme = colors) {
         val ui by vm.ui.collectAsStateWithLifecycle()
-        var tab by rememberSaveable { mutableIntStateOf(0) }
-        var reviewer by rememberSaveable { mutableStateOf(false) }
         val snackbar = remember { SnackbarHostState() }
         LaunchedEffect(ui.message) { ui.message?.let { snackbar.showSnackbar(it); vm.message(null) } }
-        BackHandler(tab != 0) { tab = 0 }
 
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, if (dark) SlateBorderDark else SlateBorderLight),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    TopAppBar(
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    modifier = Modifier.size(38.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            Icons.Default.LocationOn,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                }
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text("AccessPath", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                        ) {
-                                            Text(
-                                                "PRO",
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    }
-                                    Text(
-                                        AppStrings.t("tagline", lang),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        },
-                        actions = {
-                            FilterChip(
-                                selected = lang == "hi",
-                                onClick = { lang = if (lang == "hi") "en" else "hi" },
-                                label = { Text(if (lang == "hi") "English" else "हिन्दी", fontWeight = FontWeight.SemiBold) },
-                                modifier = Modifier.padding(end = 4.dp),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            TextButton(onClick = { tab = 4 }) {
-                                Text(AppStrings.t("help", lang), fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                    )
+        val state = ui.snapshot
+        if (state == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Text(AppStrings.t("preparing", lang), fontWeight = FontWeight.Medium)
                 }
-            },
-            bottomBar = {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, if (dark) SlateBorderDark else SlateBorderLight)
-                ) {
-                    NavigationBar(containerColor = Color.Transparent) {
-                        val tabs = listOf(
-                            AppStrings.t("nav_tab", lang),
-                            AppStrings.t("reports_tab", lang),
-                            AppStrings.t("map_tab", lang),
-                            AppStrings.t("manage_tab", lang),
-                            AppStrings.t("settings_tab", lang)
-                        )
-                        val tabIcons = listOf(
-                            Icons.Default.LocationOn,
-                            Icons.Default.Warning,
-                            Icons.Default.Place,
-                            Icons.Default.Build,
-                            Icons.Default.Settings
-                        )
-                        tabs.forEachIndexed { index, title ->
-                            val isCenterMap = index == 2
-                            NavigationBarItem(
-                                selected = tab == index,
-                                onClick = { tab = index },
-                                icon = {
-                                    if (isCenterMap) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (tab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
-                                            shadowElevation = if (tab == 2) 4.dp else 1.dp,
-                                            modifier = Modifier.size(34.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = tabIcons[index],
-                                                    contentDescription = title,
-                                                    tint = if (tab == 2) Color.White else MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        Icon(
-                                            imageVector = tabIcons[index],
-                                            contentDescription = title,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                },
-                                label = {
-                                    Text(
-                                        title,
-                                        fontWeight = if (tab == index) FontWeight.ExtraBold else FontWeight.Normal,
-                                        color = if (isCenterMap && tab == index) MaterialTheme.colorScheme.primary else Color.Unspecified
-                                    )
-                                }
-                            )
-                        }
+            }
+        } else {
+            Box(Modifier.fillMaxSize()) {
+                MapScreen(
+                    state = state,
+                    vm = vm,
+                    ui = ui,
+                    lang = lang,
+                    onLanguageToggle = { lang = if (lang == "hi") "en" else "hi" },
+                    onNavigateTo = { targetNode ->
+                        vm.action { vm.repository.select(state.profile, state.current, targetNode.id, state.revision) }
                     }
-                }
-            },
-            snackbarHost = { SnackbarHost(snackbar) }
-        ) { padding ->
-            val state = ui.snapshot
-            if (state == null) {
-                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        Text(AppStrings.t("preparing", lang), fontWeight = FontWeight.Medium)
-                    }
-                }
-            } else {
-                if (tab == 2) {
-                    Box(Modifier.padding(padding).fillMaxSize()) {
-                        MapScreen(
-                            state = state,
-                            vm = vm,
-                            ui = ui,
-                            lang = lang,
-                            onNavigateTo = { targetNode ->
-                                vm.action { vm.repository.select(state.profile, state.current, targetNode.id, state.revision) }
-                                tab = 0
-                            }
-                        )
-                    }
-                } else {
-                    Column(
-                        Modifier
-                            .padding(padding)
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        if (ui.busy || ui.routing) LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
-                        when (tab) {
-                            0 -> NavigationScreen(ui, vm, lang, voice, onOpenMap = { tab = 2 })
-                            1 -> ReportsScreen(state, vm, reviewer, ui.busy, lang)
-                            3 -> ManagementScreen(state, vm, reviewer, { reviewer = it }, ui.busy, lang)
-                            4 -> SettingsScreen(state, vm, ui.busy, lang) { lang = it }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                    }
-                }
+                )
+                SnackbarHost(
+                    hostState = snackbar,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 85.dp)
+                )
             }
         }
     }
