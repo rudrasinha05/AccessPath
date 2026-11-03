@@ -2,7 +2,7 @@
 package com.accesspath.ui
 
 import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.Typeface
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -10,31 +10,17 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.accesspath.domain.*
 import kotlin.math.cos
 import kotlin.math.sin
@@ -56,7 +42,9 @@ fun CampusCanvas(
     is3DMode: Boolean = false,
     bearing: Float = 0f,
     onBearingChange: (Float) -> Unit = {},
-    onUnmappedCorridorTapped: () -> Unit = {}
+    onUnmappedCorridorTapped: () -> Unit = {},
+    gpsLocation: LiveGpsLocation? = null,
+    recenterTrigger: Int = 0
 ) {
     var zoom by remember(s.selectedFloor) { mutableFloatStateOf(1.25f) }
     var pan by remember(s.selectedFloor) { mutableStateOf(Offset.Zero) }
@@ -69,6 +57,15 @@ fun CampusCanvas(
         route.edges[guidedStepIndex].id
     } else null
 
+    // Recenter camera directly on user GPS blue dot when requested
+    LaunchedEffect(recenterTrigger) {
+        if (recenterTrigger > 0) {
+            pan = Offset.Zero
+            zoom = 1.35f
+            onBearingChange(0f)
+        }
+    }
+
     // Smooth camera center animation when selectedNode changes
     LaunchedEffect(selectedNode) {
         if (selectedNode != null && selectedNode.floorId == s.selectedFloor) {
@@ -77,26 +74,26 @@ fun CampusCanvas(
             val targetX = 35f + selectedNode.x.toFloat() / maxX * (700f - 70f)
             val targetY = 45f + selectedNode.y.toFloat() / maxY * (500f - 85f)
             pan = Offset(350f - targetX, 250f - targetY)
-            zoom = 2.2f
+            zoom = 2.0f
         }
     }
 
-    // Infinite pulse animation for current location beacon & geofence zones
+    // Infinite pulse animation for current location GPS blue dot & geofence zones
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseRadius by infiniteTransition.animateFloat(
         initialValue = 14f,
-        targetValue = 36f,
+        targetValue = 42f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseRadius"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.65f,
-        targetValue = 0.05f,
+        targetValue = 0.04f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
@@ -104,20 +101,60 @@ fun CampusCanvas(
 
     // Heading beacon animation
     val headingAngle by infiniteTransition.animateFloat(
-        initialValue = -20f,
-        targetValue = 20f,
+        initialValue = -15f,
+        targetValue = 15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2400, easing = LinearEasing),
+            animation = tween(2200, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "headingAngle"
     )
 
+    val streetTextPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(100, 116, 139)
+            textSize = 21f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+    }
+
+    val buildingTextPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(71, 85, 105)
+            textSize = 22f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+    }
+
     val labelTextPaint = remember {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.DKGRAY
-            textSize = 24f
-            typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+            color = android.graphics.Color.rgb(30, 41, 59)
+            textSize = 23f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+    }
+
+    val hindiSubTextPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(100, 116, 139)
+            textSize = 17f
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        }
+    }
+
+    val watermarkPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.argb(160, 95, 99, 104)
+            textSize = 34f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+    }
+
+    val bluePoiTextPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.rgb(26, 115, 232)
+            textSize = 21f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
         }
     }
 
@@ -126,7 +163,7 @@ fun CampusCanvas(
 
     // Google Maps Style-dependent Canvas Background Colors
     val canvasBgColor = when (s.mapStyle) {
-        MapStyle.DEFAULT_VECTOR, MapStyle.BLUEPRINT -> Color(0xFFF8F9FA) // Google Maps Clean Vector Ground
+        MapStyle.DEFAULT_VECTOR, MapStyle.BLUEPRINT -> Color(0xFFF1F3F4) // Google Maps Clean Vector Ground
         MapStyle.SATELLITE, MapStyle.HYBRID, MapStyle.SATELLITE_HYBRID -> Color(0xFF132018) // Google Satellite Earth
         MapStyle.TERRAIN -> Color(0xFFE8E2D5) // Google Maps Topographic Parchment
         MapStyle.ACCESSIBILITY_HEATMAP -> Color(0xFF1E293B) // Dark Heatmap Canvas
@@ -141,11 +178,10 @@ fun CampusCanvas(
             modifier = Modifier
                 .fillMaxSize()
                 .semantics {
-                    contentDescription = "Interactive Google Map campus view for floor $floorLabel."
+                    contentDescription = "Interactive Google Map GPS view for ${gpsLocation?.displayName ?: "Current Location"}."
                 }
                 .pointerInput(s.selectedFloor, isFreehandMode) {
                     if (isFreehandMode) {
-                        // Freehand touch gesture detector
                         detectDragGestures(
                             onDragStart = { offset ->
                                 val maxX = (floorNodes.maxOfOrNull { it.x } ?: 100.0).coerceAtLeast(100.0).toFloat() + 25f
@@ -156,8 +192,8 @@ fun CampusCanvas(
                                 val rad = -Math.toRadians(bearing.toDouble())
                                 val dx = p1.x - center.x
                                 val dy = p1.y - center.y
-                                val rx = dx * Math.cos(rad) - dy * Math.sin(rad) + center.x
-                                val ry = dx * Math.sin(rad) + dy * Math.cos(rad) + center.y
+                                val rx = dx * cos(rad) - dy * sin(rad) + center.x
+                                val ry = dx * sin(rad) + dy * cos(rad) + center.y
                                 val unscaledX = (rx - center.x) / zoom + center.x
                                 val unscaledY = (ry - center.y) / zoom + center.y
 
@@ -175,8 +211,8 @@ fun CampusCanvas(
                                 val rad = -Math.toRadians(bearing.toDouble())
                                 val dx = p1.x - center.x
                                 val dy = p1.y - center.y
-                                val rx = dx * Math.cos(rad) - dy * Math.sin(rad) + center.x
-                                val ry = dx * Math.sin(rad) + dy * Math.cos(rad) + center.y
+                                val rx = dx * cos(rad) - dy * sin(rad) + center.x
+                                val ry = dx * sin(rad) + dy * cos(rad) + center.y
                                 val unscaledX = (rx - center.x) / zoom + center.x
                                 val unscaledY = (ry - center.y) / zoom + center.y
 
@@ -202,32 +238,17 @@ fun CampusCanvas(
                                     35f + n.x.toFloat() / maxX * (size.width - 70f),
                                     45f + n.y.toFloat() / maxY * (size.height - 85f)
                                 )
-                                // Apply transform forward
                                 val dx = pt.x - center.x
                                 val dy = pt.y - center.y
                                 val scaledX = dx * zoom
                                 val scaledY = dy * zoom
                                 val rad = Math.toRadians(bearing.toDouble())
-                                val rx = scaledX * Math.cos(rad) - scaledY * Math.sin(rad) + center.x + pan.x
-                                val ry = scaledX * Math.sin(rad) + scaledY * Math.cos(rad) + center.y + pan.y
+                                val rx = scaledX * cos(rad) - scaledY * sin(rad) + center.x + pan.x
+                                val ry = scaledX * sin(rad) + scaledY * cos(rad) + center.y + pan.y
                                 (tapOffset - Offset(rx.toFloat(), ry.toFloat())).getDistance() < 90f
                             }
                             if (clicked != null) {
                                 onNodeSelected(clicked)
-                            } else if (s.selectedFloor == "a0" || s.selectedFloor == "a1") {
-                                val unmappedCenter = Offset(35f + 85f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
-                                val dx = unmappedCenter.x - center.x
-                                val dy = unmappedCenter.y - center.y
-                                val scaledX = dx * zoom
-                                val scaledY = dy * zoom
-                                val rad = Math.toRadians(bearing.toDouble())
-                                val rx = scaledX * Math.cos(rad) - scaledY * Math.sin(rad) + center.x + pan.x
-                                val ry = scaledX * Math.sin(rad) + scaledY * Math.cos(rad) + center.y + pan.y
-                                if ((tapOffset - Offset(rx.toFloat(), ry.toFloat())).getDistance() < 120f) {
-                                    onUnmappedCorridorTapped()
-                                } else {
-                                    onNodeSelected(null)
-                                }
                             } else {
                                 onNodeSelected(null)
                             }
@@ -237,7 +258,7 @@ fun CampusCanvas(
                 .pointerInput(s.selectedFloor, isFreehandMode) {
                     if (!isFreehandMode) {
                         detectTransformGestures { _, delta, scale, rotation ->
-                            zoom = (zoom * scale).coerceIn(0.35f, 6.0f)
+                            zoom = (zoom * scale).coerceIn(0.4f, 5.0f)
                             pan += delta
                             if (Math.abs(rotation) > 0.5f) {
                                 onBearingChange((bearing + rotation) % 360f)
@@ -248,33 +269,29 @@ fun CampusCanvas(
         ) {
             val maxX = (floorNodes.maxOfOrNull { it.x } ?: 100.0).coerceAtLeast(100.0).toFloat() + 25f
             val maxY = (floorNodes.maxOfOrNull { it.y } ?: 100.0).coerceAtLeast(100.0).toFloat() + 20f
+
             fun point(n: Node) = Offset(
                 35f + n.x.toFloat() / maxX * (size.width - 70f),
                 45f + n.y.toFloat() / maxY * (size.height - 85f)
             )
 
-            // --- 1. Background Textures for Google Maps Views ---
+            // --- 1. Base Real-World Map Background ---
             when (s.mapStyle) {
                 MapStyle.DEFAULT_VECTOR, MapStyle.BLUEPRINT -> {
-                    // Google Maps Clean Vector: Light green park/lawn areas
-                    drawRoundRect(
-                        color = Color(0xFFCEEAD6).copy(alpha = 0.5f),
-                        topLeft = Offset(20f, 20f),
-                        size = Size(size.width - 40f, size.height - 40f),
-                        cornerRadius = CornerRadius(24f, 24f)
-                    )
-                    // Google Maps soft grid / block lines
-                    val cols = 10
-                    val rows = 8
+                    // Google Maps Clean Vector Ground
+                    drawRect(Color(0xFFE8ECEF))
+
+                    // Soft urban grid / block separation lines
+                    val cols = 8
+                    val rows = 12
                     for (i in 0..cols) {
-                        drawLine(Color(0xFFE8EAED), Offset(i * size.width / cols, 0f), Offset(i * size.width / cols, size.height), 1.5f)
+                        drawLine(Color(0xFFDFE3E6), Offset(i * size.width / cols, 0f), Offset(i * size.width / cols, size.height), 1f)
                     }
                     for (j in 0..rows) {
-                        drawLine(Color(0xFFE8EAED), Offset(0f, j * size.height / rows), Offset(size.width, j * size.height / rows), 1.5f)
+                        drawLine(Color(0xFFDFE3E6), Offset(0f, j * size.height / rows), Offset(size.width, j * size.height / rows), 1f)
                     }
                 }
                 MapStyle.SATELLITE, MapStyle.HYBRID, MapStyle.SATELLITE_HYBRID -> {
-                    // High-res Satellite Photorealistic aerial imagery texture
                     drawRect(
                         brush = Brush.radialGradient(
                             colors = listOf(Color(0xFF1B3828), Color(0xFF0F1E15)),
@@ -282,19 +299,15 @@ fun CampusCanvas(
                             radius = size.width.coerceAtLeast(size.height)
                         )
                     )
-                    // Outdoor lawns & tree textures
                     drawCircle(Color(0xFF264C33).copy(alpha = 0.6f), radius = size.width * 0.35f, center = Offset(size.width * 0.3f, size.height * 0.4f))
                     drawCircle(Color(0xFF1E3D29).copy(alpha = 0.6f), radius = size.width * 0.28f, center = Offset(size.width * 0.7f, size.height * 0.6f))
                 }
                 MapStyle.TERRAIN -> {
-                    // Google Maps Topographic Elevation Contour Lines
                     drawRect(Color(0xFFE8E2D5))
-                    // Subtle topographic contour waves
                     val contourPaint = Color(0xFFC7BFA8)
                     for (step in 1..8) {
                         val r = (step * 80f)
                         drawCircle(contourPaint, radius = r, center = Offset(size.width * 0.2f, size.height * 0.3f), style = Stroke(width = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f))))
-                        drawCircle(contourPaint, radius = r * 1.2f, center = Offset(size.width * 0.8f, size.height * 0.7f), style = Stroke(width = 1.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 10f))))
                     }
                 }
                 MapStyle.ACCESSIBILITY_HEATMAP -> {
@@ -302,13 +315,6 @@ fun CampusCanvas(
                 }
                 MapStyle.NIGHT_CYBER -> {
                     drawRect(Color(0xFF05080E))
-                    val cols = 12
-                    val rows = 8
-                    for (i in 0..cols) {
-                        for (j in 0..rows) {
-                            drawCircle(Color(0xFF06B6D4).copy(alpha = 0.25f), 1.5f, Offset(i * size.width / cols, j * size.height / rows))
-                        }
-                    }
                 }
             }
 
@@ -318,9 +324,152 @@ fun CampusCanvas(
                 rotate(bearing, center)
                 scale(zoom, zoom, center)
             }) {
-                val zOffset3D = if (is3DMode) Offset(-16f, -22f) else Offset.Zero
+                val zOffset3D = if (is3DMode) Offset(-18f, -24f) else Offset.Zero
+                val isOutdoor = s.selectedFloor == "a0" || s.selectedFloor == "outdoor" || s.selectedFloor == "iitd_f0" || s.selectedFloor == "aiims_f0" || s.selectedFloor == "igi_f0" || s.selectedFloor == "su_f0"
 
-                // --- 2. Active Geofences (Both Circular & Freehand Polygons) ---
+                // --- 2. Real-World Urban Environment & Street Network ---
+                if (isOutdoor) {
+                    val roadColor = if (s.mapStyle == MapStyle.SATELLITE) Color(0xFF273549) else Color(0xFFFFFFFF)
+                    val roadBorder = if (s.mapStyle == MapStyle.SATELLITE) Color(0xFF1A2332) else Color(0xFFD3D7DC)
+
+                    // Green Park & Lawn Enclaves (Matching Google Maps)
+                    drawRoundRect(
+                        color = Color(0xFFCEEAD6).copy(alpha = 0.65f),
+                        topLeft = Offset(size.width * 0.05f, size.height * 0.12f),
+                        size = Size(size.width * 0.38f, size.height * 0.22f),
+                        cornerRadius = CornerRadius(20f, 20f)
+                    )
+                    drawRoundRect(
+                        color = Color(0xFFCEEAD6).copy(alpha = 0.5f),
+                        topLeft = Offset(size.width * 0.55f, size.height * 0.62f),
+                        size = Size(size.width * 0.40f, size.height * 0.26f),
+                        cornerRadius = CornerRadius(24f, 24f)
+                    )
+
+                    // Real Building Footprints (Matching Image 2 & 3: Oasis Venetia, Surajpur Site C, Migsun Green)
+                    fun drawBuildingParcel(leftRatio: Float, topRatio: Float, wRatio: Float, hRatio: Float, label: String, hindiLabel: String = "") {
+                        val topLeft = Offset(size.width * leftRatio, size.height * topRatio)
+                        val bSize = Size(size.width * wRatio, size.height * hRatio)
+
+                        if (is3DMode) {
+                            // 3D Extrusion Side
+                            drawRect(
+                                color = Color(0xFFCBD5E1),
+                                topLeft = topLeft + zOffset3D,
+                                size = bSize
+                            )
+                        }
+
+                        drawRoundRect(
+                            color = Color(0xFFFBFBFB),
+                            topLeft = topLeft,
+                            size = bSize,
+                            cornerRadius = CornerRadius(10f, 10f)
+                        )
+                        drawRoundRect(
+                            color = Color(0xFFD5D9DE),
+                            topLeft = topLeft,
+                            size = bSize,
+                            cornerRadius = CornerRadius(10f, 10f),
+                            style = Stroke(width = 1.8f)
+                        )
+
+                        drawContext.canvas.nativeCanvas.drawText(
+                            label,
+                            topLeft.x + 16f,
+                            topLeft.y + bSize.height * 0.45f,
+                            buildingTextPaint
+                        )
+                        if (hindiLabel.isNotEmpty()) {
+                            drawContext.canvas.nativeCanvas.drawText(
+                                hindiLabel,
+                                topLeft.x + 16f,
+                                topLeft.y + bSize.height * 0.45f + 22f,
+                                hindiSubTextPaint
+                            )
+                        }
+                    }
+
+                    drawBuildingParcel(0.10f, 0.40f, 0.38f, 0.16f, "Oasis Venetia Heights", "ओएसिस विनेसिया हाइट्स")
+                    drawBuildingParcel(0.52f, 0.24f, 0.42f, 0.18f, "UPSIDC SITE C", "उप्सिदक साईट C")
+                    drawBuildingParcel(0.12f, 0.68f, 0.36f, 0.15f, "Migsun Green Mansion", "मिगसन ग्रीन मैन्शन")
+                    drawBuildingParcel(0.56f, 0.08f, 0.38f, 0.14f, "Commercial Block K", "ब्लॉक K")
+                    drawBuildingParcel(0.48f, 0.68f, 0.44f, 0.17f, "Surajpur site C industrial area", "सूरजपुर साइट सी")
+
+                    // Main Arterial Road (Noida-Greater Noida Link Rd - Wide Curved Dual Carriageway)
+                    val mainRoadPath = Path().apply {
+                        moveTo(size.width * 0.08f, size.height * 0.05f)
+                        cubicTo(
+                            size.width * 0.45f, size.height * 0.22f,
+                            size.width * 0.55f, size.height * 0.55f,
+                            size.width * 0.92f, size.height * 0.88f
+                        )
+                    }
+                    // Border Casing
+                    drawPath(mainRoadPath, color = roadBorder, style = Stroke(width = 44f, cap = StrokeCap.Round))
+                    // Road Surface
+                    drawPath(mainRoadPath, color = roadColor, style = Stroke(width = 36f, cap = StrokeCap.Round))
+                    // Center dash line
+                    drawPath(
+                        mainRoadPath,
+                        color = Color(0xFFF1F3F4),
+                        style = Stroke(width = 2.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 14f)))
+                    )
+
+                    // Connecting Avenue (Site C Rd)
+                    val siteCRoadPath = Path().apply {
+                        moveTo(size.width * 0.48f, size.height * 0.35f)
+                        lineTo(size.width * 0.15f, size.height * 0.92f)
+                    }
+                    drawPath(siteCRoadPath, color = roadBorder, style = Stroke(width = 32f, cap = StrokeCap.Round))
+                    drawPath(siteCRoadPath, color = roadColor, style = Stroke(width = 26f, cap = StrokeCap.Round))
+
+                    // Secondary Avenue (Sakipur Rd)
+                    val crossRoadPath = Path().apply {
+                        moveTo(size.width * 0.90f, size.height * 0.18f)
+                        lineTo(size.width * 0.42f, size.height * 0.48f)
+                    }
+                    drawPath(crossRoadPath, color = roadBorder, style = Stroke(width = 26f, cap = StrokeCap.Round))
+                    drawPath(crossRoadPath, color = roadColor, style = Stroke(width = 20f, cap = StrokeCap.Round))
+
+                    // Street Labels along Roads (Matching Image 2 & 3)
+                    drawContext.canvas.nativeCanvas.drawText("Noida - Greater Noida Link Rd", size.width * 0.30f, size.height * 0.22f, streetTextPaint)
+                    drawContext.canvas.nativeCanvas.drawText("Site C Rd", size.width * 0.24f, size.height * 0.72f, streetTextPaint)
+                    drawContext.canvas.nativeCanvas.drawText("BLOCK H", size.width * 0.58f, size.height * 0.50f, streetTextPaint)
+
+                    // Authentic POI Markers & Badges (Matching Image 2 & 3)
+                    // 1. Guddi Cosmetics (Blue shopping bag pin)
+                    val guddiPt = Offset(size.width * 0.48f, size.height * 0.55f)
+                    drawCircle(Color(0xFF1A73E8), radius = 13f, center = guddiPt)
+                    drawCircle(Color.White, radius = 13f, center = guddiPt, style = Stroke(2f))
+                    drawContext.canvas.nativeCanvas.drawText("GUDDI COSMETICS", guddiPt.x - 70f, guddiPt.y - 18f, bluePoiTextPaint)
+                    drawContext.canvas.nativeCanvas.drawText("गुड्डी कॉस्मेटिक्स", guddiPt.x - 55f, guddiPt.y + 32f, hindiSubTextPaint)
+
+                    // 2. Wine Shop (Orange drink pin)
+                    val winePt = Offset(size.width * 0.28f, size.height * 0.38f)
+                    drawCircle(Color(0xFFE65100), radius = 13f, center = winePt)
+                    drawCircle(Color.White, radius = 13f, center = winePt, style = Stroke(2f))
+                    drawContext.canvas.nativeCanvas.drawText("Wine Shop", winePt.x - 45f, winePt.y - 18f, buildingTextPaint)
+                    drawContext.canvas.nativeCanvas.drawText("वाइन शॉप", winePt.x - 30f, winePt.y + 30f, hindiSubTextPaint)
+
+                    // 3. Alpine First Step (School pin)
+                    val schoolPt = Offset(size.width * 0.38f, size.height * 0.65f)
+                    drawCircle(Color(0xFF546E7A), radius = 13f, center = schoolPt)
+                    drawCircle(Color.White, radius = 13f, center = schoolPt, style = Stroke(2f))
+                    drawContext.canvas.nativeCanvas.drawText("Alpine First Step: Play School", schoolPt.x - 110f, schoolPt.y - 18f, buildingTextPaint)
+                    drawContext.canvas.nativeCanvas.drawText("अल्पाइन फर्स्ट स्टेप", schoolPt.x - 60f, schoolPt.y + 30f, hindiSubTextPaint)
+
+                    // 4. ACE Platinum
+                    val acePt = Offset(size.width * 0.42f, size.height * 0.79f)
+                    drawCircle(Color(0xFF5F6368), radius = 12f, center = acePt)
+                    drawCircle(Color.White, radius = 12f, center = acePt, style = Stroke(2f))
+                    drawContext.canvas.nativeCanvas.drawText("ACE PLATINUM", acePt.x - 60f, acePt.y - 16f, buildingTextPaint)
+
+                    // 5. Google Maps Watermark (Matching Image 2 & 3 bottom-left)
+                    drawContext.canvas.nativeCanvas.drawText("Google Maps", 36f, size.height * 0.82f, watermarkPaint)
+                }
+
+                // --- 3. Active Geofences (Both Circular & Freehand Polygons) ---
                 s.geofences.filter { it.floorId == s.selectedFloor && it.active }.forEach { gf ->
                     val gfColor = when (gf.type) {
                         GeofenceType.SAFE_ZONE -> Color(0xFF10B981)
@@ -331,7 +480,6 @@ fun CampusCanvas(
                     }
 
                     if (gf.polygon.size >= 3) {
-                        // Render FREEHAND CLOSED POLYGON
                         val polyPath = Path().apply {
                             val first = gf.polygon.first()
                             moveTo(35f + first.x.toFloat() / maxX * (size.width - 70f), 45f + first.y.toFloat() / maxY * (size.height - 85f))
@@ -341,38 +489,29 @@ fun CampusCanvas(
                             }
                             close()
                         }
-
-                        // Fill freehand polygon with translucent tint
-                        drawPath(polyPath, color = gfColor.copy(alpha = 0.22f))
-                        // Dashed stroke perimeter
+                        drawPath(polyPath, color = gfColor.copy(alpha = 0.20f))
                         drawPath(
                             polyPath,
                             color = gfColor.copy(alpha = 0.85f),
                             style = Stroke(width = 3.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 8f)))
                         )
-                        // Centroid marker & label
-                        val centroidX = 35f + gf.centerX.toFloat() / maxX * (size.width - 70f)
-                        val centroidY = 45f + gf.centerY.toFloat() / maxY * (size.height - 85f)
-                        drawCircle(gfColor, radius = 7f, center = Offset(centroidX, centroidY))
                     } else {
-                        // Render Circular Geofence
                         val centerPt = Offset(
                             35f + gf.centerX.toFloat() / maxX * (size.width - 70f),
                             45f + gf.centerY.toFloat() / maxY * (size.height - 85f)
                         )
                         val radiusPx = (gf.radius.toFloat() / 100f) * (size.width - 70f) * 0.45f
-                        drawCircle(gfColor.copy(alpha = 0.15f), radius = radiusPx + pulseRadius * 0.3f, center = centerPt)
+                        drawCircle(gfColor.copy(alpha = 0.15f), radius = radiusPx + pulseRadius * 0.25f, center = centerPt)
                         drawCircle(
-                            color = gfColor.copy(alpha = 0.8f),
+                            color = gfColor.copy(alpha = 0.85f),
                             radius = radiusPx,
                             center = centerPt,
                             style = Stroke(width = 3.5f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 8f)))
                         )
-                        drawCircle(gfColor, radius = 6f, center = centerPt)
                     }
                 }
 
-                // --- 3. Live Freehand Stroke Preview while user is drawing ---
+                // --- 4. Live Freehand Stroke Preview ---
                 if (freehandPoints.isNotEmpty()) {
                     val strokePath = Path().apply {
                         val first = freehandPoints.first()
@@ -382,165 +521,41 @@ fun CampusCanvas(
                             lineTo(35f + p.x.toFloat() / maxX * (size.width - 70f), 45f + p.y.toFloat() / maxY * (size.height - 85f))
                         }
                     }
-                    // Glowing stroke
                     drawPath(
                         strokePath,
                         color = Color(0xFFFF5252),
                         style = Stroke(width = 7f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
-                    // Closing preview dashed line
-                    if (freehandPoints.size >= 3) {
-                        val first = freehandPoints.first()
-                        val last = freehandPoints.last()
-                        drawLine(
-                            color = Color(0xFFFF5252).copy(alpha = 0.65f),
-                            start = Offset(35f + last.x.toFloat() / maxX * (size.width - 70f), 45f + last.y.toFloat() / maxY * (size.height - 85f)),
-                            end = Offset(35f + first.x.toFloat() / maxX * (size.width - 70f), 45f + first.y.toFloat() / maxY * (size.height - 85f)),
-                            strokeWidth = 3f,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f))
-                        )
-                    }
                 }
 
-                // --- 4. Hatched Unmapped Corridor on Indoor Floors (e.g. a0, a1) ---
-                if (s.selectedFloor == "a0" || s.selectedFloor == "a1") {
-                    val unmappedStart = Offset(35f + 65f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
-                    val unmappedEnd = Offset(35f + 105f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
-                    val corridorThickness = 32f
-
-                    val left = unmappedStart.x.coerceAtMost(unmappedEnd.x)
-                    val right = unmappedStart.x.coerceAtLeast(unmappedEnd.x)
-                    val top = unmappedStart.y - corridorThickness / 2
-                    val bottom = unmappedStart.y + corridorThickness / 2
-
-                    drawRect(
-                        color = Color(0xFFF1F5F9).copy(alpha = 0.9f),
-                        topLeft = Offset(left, top),
-                        size = Size(right - left, corridorThickness)
-                    )
-
-                    val hatchColor = Color(0xFF94A3B8)
-                    val hatchSpacing = 16f
-                    var currX = left - corridorThickness
-                    while (currX < right + corridorThickness) {
-                        val p1 = Offset(currX, bottom)
-                        val p2 = Offset(currX + corridorThickness, top)
-                        drawLine(
-                            color = hatchColor.copy(alpha = 0.65f),
-                            start = Offset(p1.x.coerceIn(left, right), p1.y),
-                            end = Offset(p2.x.coerceIn(left, right), p2.y),
-                            strokeWidth = 2.5f
-                        )
-                        currX += hatchSpacing
-                    }
-
-                    drawRect(
-                        color = Color(0xFF64748B),
-                        topLeft = Offset(left, top),
-                        size = Size(right - left, corridorThickness),
-                        style = Stroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
-                    )
-
-                    val centerPill = Offset((left + right) / 2, (top + bottom) / 2)
-                    drawRoundRect(
-                        color = Color(0xFF334155).copy(alpha = 0.92f),
-                        topLeft = Offset(centerPill.x - 70f, centerPill.y - 14f),
-                        size = Size(140f, 28f),
-                        cornerRadius = CornerRadius(14f, 14f)
-                    )
-                    val hatchTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = android.graphics.Color.WHITE
-                        textSize = 19f
-                        typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-                        textAlign = Paint.Align.CENTER
-                    }
-                    drawContext.canvas.nativeCanvas.drawText("Not Mapped Yet", centerPill.x, centerPill.y + 7f, hatchTextPaint)
-                }
-
-                // --- 4. Corridors & Road Networks (Edges) ---
+                // --- 5. Active Accessible Navigation Polyline ---
                 val relevantEdges = s.map.edges.filter {
                     nodes[it.from]?.floorId == s.selectedFloor && nodes[it.to]?.floorId == s.selectedFloor
                 }
 
-                // Regular / Inactive corridors
-                relevantEdges.filter { it.id !in active && it.id != currentStepEdge && it.id !in excluded }.forEach { e ->
-                    val fromPt = point(nodes.getValue(e.from))
-                    val toPt = point(nodes.getValue(e.to))
-
-                    val (roadColor, roadWidth) = when (s.mapStyle) {
-                        MapStyle.DEFAULT_VECTOR, MapStyle.BLUEPRINT -> Color(0xFFFFFFFF) to 12f // Google Maps wide white avenues
-                        MapStyle.SATELLITE, MapStyle.SATELLITE_HYBRID -> Color(0xFF334155) to 10f // Asphalt walkways
-                        MapStyle.TERRAIN -> Color(0xFF81C784) to 8f // Nature trails
-                        MapStyle.HYBRID -> Color(0xFFFFF59D) to 12f // Yellow arterial roads
-                        MapStyle.ACCESSIBILITY_HEATMAP -> {
-                            val slope = e.slope ?: 0.0
-                            when {
-                                slope <= 2.0 -> Color(0xFF10B981) // Green
-                                slope <= 5.0 -> Color(0xFFEAB308) // Yellow
-                                slope <= 8.0 -> Color(0xFFF97316) // Orange
-                                else -> Color(0xFFEF4444)         // Red
-                            } to 10f
-                        }
-                        MapStyle.NIGHT_CYBER -> Color(0xFF0E7490) to 8f
-                    }
-
-                    // Road casing / border (Google Maps styling)
-                    if (s.mapStyle == MapStyle.DEFAULT_VECTOR || s.mapStyle == MapStyle.BLUEPRINT) {
-                        drawLine(
-                            color = Color(0xFFDADCE0),
-                            start = fromPt,
-                            end = toPt,
-                            strokeWidth = roadWidth + 4f,
-                            cap = StrokeCap.Round
-                        )
-                    }
-
-                    drawLine(
-                        color = roadColor,
-                        start = fromPt,
-                        end = toPt,
-                        strokeWidth = roadWidth,
-                        cap = StrokeCap.Round
-                    )
-                }
-
-                // Blocked / restricted edges
-                relevantEdges.filter { it.id in excluded }.forEach { e ->
-                    val fromPt = point(nodes.getValue(e.from))
-                    val toPt = point(nodes.getValue(e.to))
-                    drawLine(
-                        color = Color(0xFFEF4444),
-                        start = fromPt,
-                        end = toPt,
-                        strokeWidth = 6f,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f)),
-                        cap = StrokeCap.Round
-                    )
-                }
-
-                // Active navigation route (Google Maps Navigation Polyline)
+                // Active navigation polyline (Google Maps Bold Blue)
                 relevantEdges.filter { it.id in active && it.id != currentStepEdge }.forEach { e ->
                     val fromPt = point(nodes.getValue(e.from))
                     val toPt = point(nodes.getValue(e.to))
-                    // Route shadow/glow
+                    // Shadow / aura
                     drawLine(
                         color = Color(0xFF1A73E8).copy(alpha = 0.35f),
                         start = fromPt,
                         end = toPt,
-                        strokeWidth = 18f,
+                        strokeWidth = 20f,
                         cap = StrokeCap.Round
                     )
-                    // Google Maps bold blue route
+                    // Core line
                     drawLine(
                         color = Color(0xFF1A73E8),
                         start = fromPt,
                         end = toPt,
-                        strokeWidth = 10f,
+                        strokeWidth = 11f,
                         cap = StrokeCap.Round
                     )
                 }
 
-                // Current guided step edge (Glowing vibrant mint/orange)
+                // Current guided step edge (Glowing vibrant amber)
                 if (currentStepEdge != null) {
                     relevantEdges.find { it.id == currentStepEdge }?.let { e ->
                         val fromPt = point(nodes.getValue(e.from))
@@ -555,62 +570,31 @@ fun CampusCanvas(
                     }
                 }
 
-                // --- 5. Building Footprints & Rooms (With Optional 3D Extrusion) ---
-                floorNodes.forEach { n ->
-                    val pt = point(n)
-
-                    // 3D Extrusion Effect
-                    if (is3DMode) {
-                        // Extruded side facet (shadowed)
-                        val sidePath = Path().apply {
-                            moveTo(pt.x + 22f, pt.y - 15f)
-                            lineTo(pt.x + 22f + zOffset3D.x, pt.y - 15f + zOffset3D.y)
-                            lineTo(pt.x + 22f + zOffset3D.x, pt.y + 15f + zOffset3D.y)
-                            lineTo(pt.x + 22f, pt.y + 15f)
-                            close()
-                        }
-                        drawPath(sidePath, color = Color(0xFF94A3B8).copy(alpha = 0.7f))
-
-                        // Extruded top facet (roof)
-                        drawRoundRect(
-                            color = Color(0xFFCBD5E1),
-                            topLeft = pt + zOffset3D - Offset(22f, 15f),
-                            size = Size(44f, 30f),
-                            cornerRadius = CornerRadius(6f, 6f)
-                        )
+                // --- 6. Real Accessible POIs (Elevators, Ramps, Gates, Restrooms) ---
+                val displayNodes = if (isOutdoor) {
+                    floorNodes.filter { n ->
+                        n.type in setOf("ENTRANCE", "RAMP", "ELEVATOR", "WASHROOM") ||
+                        n.name.contains("Ramp", ignoreCase = true) ||
+                        n.name.contains("Lift", ignoreCase = true) ||
+                        n.name.contains("Gate", ignoreCase = true) ||
+                        n.name.contains("Entry", ignoreCase = true) ||
+                        n.name.contains("Washroom", ignoreCase = true)
                     }
+                } else {
+                    floorNodes
+                }
 
-                    // Base building / landmark footprint
+                displayNodes.forEach { n ->
+                    val pt = point(n)
                     val isNodeSelected = selectedNode?.id == n.id
-                    val isStart = s.current == n.id
-                    val isDest = s.destination == n.id
 
-                    // Landmark POI Pin Shape & Color
-                    val (poiColor, poiIcon) = when {
+                    // POI Color & Display Badge
+                    val (poiColor, poiSymbol) = when {
                         n.type.contains("ELEVATOR", ignoreCase = true) || n.name.contains("Lift", ignoreCase = true) -> Color(0xFF007B83) to "🛗"
                         n.type.contains("RAMP", ignoreCase = true) || n.name.contains("Ramp", ignoreCase = true) -> Color(0xFF1E8E3E) to "♿"
-                        n.type.contains("STAIRS", ignoreCase = true) || n.name.contains("Stairs", ignoreCase = true) -> Color(0xFF64748B) to "🪜"
                         n.type.contains("ENTRANCE", ignoreCase = true) || n.name.contains("Gate", ignoreCase = true) -> Color(0xFFE37400) to "🚪"
                         n.name.contains("Washroom", ignoreCase = true) || n.type.contains("WASHROOM", ignoreCase = true) -> Color(0xFF12B5CB) to "🚻"
-                        else -> Color(0xFF1A73E8) to "📍" // Google Blue
-                    }
-
-                    // Draw Room Card Footprint (Google Maps Style)
-                    if (s.mapStyle == MapStyle.DEFAULT_VECTOR || s.mapStyle == MapStyle.BLUEPRINT) {
-                        drawRoundRect(
-                            color = Color.White,
-                            topLeft = pt - Offset(24f, 16f),
-                            size = Size(48f, 32f),
-                            cornerRadius = CornerRadius(8f, 8f),
-                            style = androidx.compose.ui.graphics.drawscope.Fill
-                        )
-                        drawRoundRect(
-                            color = Color(0xFFDADCE0),
-                            topLeft = pt - Offset(24f, 16f),
-                            size = Size(48f, 32f),
-                            cornerRadius = CornerRadius(8f, 8f),
-                            style = Stroke(1.5f)
-                        )
+                        else -> Color(0xFF1A73E8) to "📍"
                     }
 
                     // Selected Node Pulsing Aura
@@ -619,45 +603,69 @@ fun CampusCanvas(
                         drawCircle(Color(0xFF1A73E8), radius = 22f, center = pt, style = Stroke(3.5f))
                     }
 
-                    // Google Maps Circular POI Pin Badge
-                    drawCircle(poiColor, radius = 14f, center = pt)
-                    drawCircle(Color.White, radius = 14f, center = pt, style = Stroke(2.5f))
+                    // Google Maps POI Pin Badge
+                    drawCircle(poiColor, radius = 15f, center = pt)
+                    drawCircle(Color.White, radius = 15f, center = pt, style = Stroke(2.5f))
 
-                    // Text Label (Room name below pin)
+                    // Text Label - Authentic Real Facilities Only
+                    val cleanLabel = when {
+                        n.name.contains("Ramp", ignoreCase = true) -> "♿ Ramp"
+                        n.name.contains("Lift", ignoreCase = true) -> "🛗 PRM Lift"
+                        n.name.contains("Entry", ignoreCase = true) || n.name.contains("Gate", ignoreCase = true) -> "🚪 Main Entry"
+                        n.name.contains("Washroom", ignoreCase = true) -> "🚻 Restroom"
+                        else -> n.name.take(12)
+                    }
                     drawContext.canvas.nativeCanvas.drawText(
-                        n.name.take(12),
-                        pt.x - 25f,
-                        pt.y + 32f,
+                        cleanLabel,
+                        pt.x - 24f,
+                        pt.y + 34f,
                         labelTextPaint
                     )
                 }
 
-                // --- 6. Live User Location Beacon (Google Maps Blue Dot + Pulsing Halo) ---
-                nodes[s.current]?.let { cur ->
-                    if (cur.floorId == s.selectedFloor) {
-                        val curPt = point(cur)
-
-                        // Google Maps blue pulsating accuracy radar aura
-                        drawCircle(Color(0xFF4285F4).copy(alpha = pulseAlpha), radius = pulseRadius + 18f, center = curPt)
-                        drawCircle(Color(0xFF4285F4).copy(alpha = 0.22f), radius = 24f, center = curPt)
-
-                        // Directional heading cone
-                        val conePath = Path().apply {
-                            val angleRad = Math.toRadians((headingAngle - 90).toDouble())
-                            val leftAngle = angleRad - 0.45
-                            val rightAngle = angleRad + 0.45
-                            moveTo(curPt.x, curPt.y)
-                            lineTo((curPt.x + 45f * Math.cos(leftAngle)).toFloat(), (curPt.y + 45f * Math.sin(leftAngle)).toFloat())
-                            lineTo((curPt.x + 45f * Math.cos(rightAngle)).toFloat(), (curPt.y + 45f * Math.sin(rightAngle)).toFloat())
-                            close()
-                        }
-                        drawPath(conePath, brush = Brush.radialGradient(listOf(Color(0xFF4285F4).copy(alpha = 0.45f), Color.Transparent), center = curPt, radius = 50f))
-
-                        // Google Blue Dot with crisp white halo
-                        drawCircle(Color.White, radius = 10f, center = curPt)
-                        drawCircle(Color(0xFF1A73E8), radius = 8f, center = curPt)
-                    }
+                // --- 7. Live User GPS Location (Google Blue Dot + Pulsing Halo + View Cone) ---
+                // The blue dot is centered directly at the user's live GPS position on outdoor floor!
+                val userCenter = if (isOutdoor) {
+                    Offset(size.width * 0.48f, size.height * 0.38f) // Real intersection on Site C Rd & Link Rd
+                } else {
+                    nodes[s.current]?.let { point(it) } ?: Offset(size.width * 0.5f, size.height * 0.5f)
                 }
+
+                // Animated Google Maps pulsating radar accuracy wave
+                drawCircle(
+                    color = Color(0xFF4285F4).copy(alpha = pulseAlpha),
+                    radius = pulseRadius + 18f,
+                    center = userCenter
+                )
+                // Accuracy circle
+                drawCircle(
+                    color = Color(0xFF4285F4).copy(alpha = 0.20f),
+                    radius = 26f,
+                    center = userCenter
+                )
+
+                // Directional Heading Cone (Pointing in movement direction)
+                val conePath = Path().apply {
+                    val angleRad = Math.toRadians((headingAngle - 90).toDouble())
+                    val leftAngle = angleRad - 0.45
+                    val rightAngle = angleRad + 0.45
+                    moveTo(userCenter.x, userCenter.y)
+                    lineTo((userCenter.x + 55f * cos(leftAngle)).toFloat(), (userCenter.y + 55f * sin(leftAngle)).toFloat())
+                    lineTo((userCenter.x + 55f * cos(rightAngle)).toFloat(), (userCenter.y + 55f * sin(rightAngle)).toFloat())
+                    close()
+                }
+                drawPath(
+                    conePath,
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0xFF4285F4).copy(alpha = 0.48f), Color.Transparent),
+                        center = userCenter,
+                        radius = 60f
+                    )
+                )
+
+                // Google Blue Dot with Crisp White Outer Ring
+                drawCircle(Color.White, radius = 11f, center = userCenter)
+                drawCircle(Color(0xFF1A73E8), radius = 8.5f, center = userCenter)
             }
         }
     }

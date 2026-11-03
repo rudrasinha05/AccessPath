@@ -84,11 +84,19 @@ fun MapScreen(
     var barrierDesc by rememberSaveable { mutableStateOf("") }
     var barrierCategory by rememberSaveable { mutableStateOf("Blocked path") }
 
-    // Star rating for recent route in Contribute tab
-    var ratingStars by rememberSaveable { mutableIntStateOf(0) }
+    // Star ratings for recent places in Contribute tab (Matching Image 4 & 5)
+    var ratingStars1 by rememberSaveable { mutableIntStateOf(0) }
+    var ratingStars2 by rememberSaveable { mutableIntStateOf(0) }
+    var timelineTurnedOn by rememberSaveable { mutableStateOf(false) }
 
-    val route = remember(state, ui.route) {
-        (ui.route as? RouteResult.Found) ?: (Routing.calculate(state) as? RouteResult.Found)
+    // Live GPS Location & Recenter Trigger
+    val liveGps by rememberLiveGpsLocation()
+    var recenterTrigger by remember { mutableIntStateOf(0) }
+
+    val route = remember(state, ui.route, isNavigating) {
+        if (isNavigating || ui.route is RouteResult.Found) {
+            (ui.route as? RouteResult.Found) ?: (Routing.calculate(state) as? RouteResult.Found)
+        } else null
     }
 
     val matchingNodes = remember(searchQuery, selectedCategory, state.map.nodes, state.selectedFloor) {
@@ -239,7 +247,9 @@ fun MapScreen(
                             },
                             onUnmappedCorridorTapped = {
                                 showUnmappedPrompt = true
-                            }
+                            },
+                            gpsLocation = liveGps,
+                            recenterTrigger = recenterTrigger
                         )
 
                         // 2. Top Google Maps Search Bar & Category Chips (Matching Image 1, 2, 3)
@@ -279,7 +289,7 @@ fun MapScreen(
                                         onValueChange = { searchQuery = it },
                                         placeholder = {
                                             Text(
-                                                if (lang == "hi") "यहाँ खोजें / कमरा, लिफ्ट खोजें" else "Search here",
+                                                if (lang == "hi") "यहाँ खोजें" else "Search here",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = Color(0xFF64748B),
                                                 maxLines = 1
@@ -344,7 +354,7 @@ fun MapScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // ✨ Ask Maps (Blue Sparkle Pill)
+                                // ✨ Ask Maps (Blue Sparkle Pill - Image 1, 2, 3)
                                 Surface(
                                     onClick = { showHelpDialog = true },
                                     shape = RoundedCornerShape(16.dp),
@@ -358,6 +368,60 @@ fun MapScreen(
                                     ) {
                                         Text("✨", fontSize = 13.sp)
                                         Text("Ask Maps", fontWeight = FontWeight.Bold, color = GoogleBlue, fontSize = 13.sp)
+                                    }
+                                }
+
+                                // 🍴 Restaurants (Image 1, 2, 3)
+                                Surface(
+                                    onClick = { },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, SlateBorderLight),
+                                    shadowElevation = 1.dp
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("🍴", fontSize = 13.sp)
+                                        Text("Restaurants", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+
+                                // ⛽ Petrol (Image 1, 2, 3)
+                                Surface(
+                                    onClick = { },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, SlateBorderLight),
+                                    shadowElevation = 1.dp
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("⛽", fontSize = 13.sp)
+                                        Text("Petrol", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+
+                                // 🛏️ Hotels (Image 1, 2, 3)
+                                Surface(
+                                    onClick = { },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, SlateBorderLight),
+                                    shadowElevation = 1.dp
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("🛏️", fontSize = 13.sp)
+                                        Text("Hotels", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     }
                                 }
 
@@ -488,36 +552,39 @@ fun MapScreen(
                             }
                         }
 
-                        // 3. Vertical Indoor Floor Selector (Left Side)
-                        Surface(
-                            shape = RoundedCornerShape(22.dp),
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                            shadowElevation = 6.dp,
-                            border = BorderStroke(1.dp, SlateBorderLight),
-                            modifier = Modifier
-                                .align(Alignment.CenterStart)
-                                .padding(start = 14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                        // 3. Vertical Indoor Floor Selector (Left Side - Visible only when exploring indoor buildings)
+                        val isIndoorFloor = state.selectedFloor != "a0" && state.selectedFloor != "outdoor"
+                        if (isIndoorFloor) {
+                            Surface(
+                                shape = RoundedCornerShape(22.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                shadowElevation = 6.dp,
+                                border = BorderStroke(1.dp, SlateBorderLight),
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(start = 14.dp)
                             ) {
-                                state.map.floors.reversed().forEach { f ->
-                                    val isActive = state.selectedFloor == f.id
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isActive) BrandTeal else Color.Transparent,
-                                        modifier = Modifier.size(38.dp),
-                                        onClick = { vm.action { vm.repository.floor(f.id) } }
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text(
-                                                f.label.take(2).uppercase(),
-                                                fontWeight = if (isActive) FontWeight.Black else FontWeight.Bold,
-                                                color = if (isActive) Color.White else Color(0xFF334155),
-                                                fontSize = 12.sp
-                                            )
+                                Column(
+                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    state.map.floors.reversed().forEach { f ->
+                                        val isActive = state.selectedFloor == f.id
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isActive) BrandTeal else Color.Transparent,
+                                            modifier = Modifier.size(38.dp),
+                                            onClick = { vm.action { vm.repository.floor(f.id) } }
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    f.label.take(2).uppercase(),
+                                                    fontWeight = if (isActive) FontWeight.Black else FontWeight.Bold,
+                                                    color = if (isActive) Color.White else Color(0xFF334155),
+                                                    fontSize = 12.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -616,6 +683,7 @@ fun MapScreen(
                             // Location Recenter Button (White circle with blue bullseye)
                             Surface(
                                 onClick = {
+                                    recenterTrigger++
                                     val cur = state.map.nodes.find { it.id == state.current }
                                     if (cur != null) selectedNode = cur
                                 },
@@ -810,20 +878,23 @@ fun MapScreen(
                                         }
                                     }
                                 } else {
-                                    // Header row in Peek state (Matching Image 2 & 3: Local vibe / Campus name + Weather)
+                                    // Header row in Peek state (Matching Image 2 & 3: Real GPS Locality + Weather)
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("Bharti School Campus", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                        Column {
+                                            Text("Zeta I", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge, fontSize = 21.sp)
+                                            Text("${liveGps.subLocality.ifEmpty { "Surajpur Site C" }} • ${String.format(java.util.Locale.US, "%.4f", liveGps.latitude)}° N, ${String.format(java.util.Locale.US, "%.4f", liveGps.longitude)}° E", fontSize = 11.sp, color = Color(0xFF64748B))
+                                        }
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("☀️ 28°", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Text("☀️ 29°", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             Surface(
                                                 shape = RoundedCornerShape(6.dp),
                                                 color = Color(0xFFECFDF5)
                                             ) {
-                                                Text("🟢 100% Step-free", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 11.sp, color = Color(0xFF047857), fontWeight = FontWeight.Bold)
+                                                Text("🟢 175 NAQI", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontSize = 11.sp, color = Color(0xFF047857), fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -860,10 +931,10 @@ fun MapScreen(
 
                                     AssistChip(
                                         onClick = {
-                                            val bharti = state.map.nodes.find { it.id == "entry" } ?: state.map.nodes.firstOrNull()
-                                            selectedNode = bharti
+                                            val locNode = state.map.nodes.firstOrNull()
+                                            selectedNode = locNode
                                         },
-                                        label = { Text("Bharti School", fontWeight = FontWeight.Medium) },
+                                        label = { Text(liveGps.locality, fontWeight = FontWeight.Medium) },
                                         shape = RoundedCornerShape(14.dp)
                                     )
 
@@ -992,9 +1063,9 @@ fun MapScreen(
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text("Saved Places & Frequent Routes", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                                 listOf(
-                                    "Bharti School Main Entrance" to "Floor outdoor • Step-free entry",
-                                    "Central Library East Wing" to "Floor a0 • Lift B access",
-                                    "Accessible Ramp North" to "Floor a1 • 4.1° slope gradient"
+                                    "${liveGps.locality} Main Entrance" to "Live GPS Location • Step-free entry",
+                                    "PRM Metro Accessible Lift" to "Street Level • 24x7 operational",
+                                    "Accessible Ramp North" to "Plaza Access • 3.8° slope gradient"
                                 ).forEach { (title, subtitle) ->
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         Text("🔖", fontSize = 16.sp)
@@ -1030,57 +1101,178 @@ fun MapScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text("Contribute", fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineMedium)
+                        // Drag handle pill at top
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .width(36.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFFCBD5E1))
+                        )
 
-                        // 1. Rate this place / Recent Route Card (Image 4 & 5)
+                        Text("Contribute", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium, fontSize = 24.sp)
+
+                        // --- CARD 1: Migsun Green Mansion Review (Image 4 & 5) ---
                         Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = Color(0xFFF8FAFC),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
                             border = BorderStroke(1.dp, SlateBorderLight),
+                            shadowElevation = 2.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Rate your recent accessible route", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    (1..5).forEach { star ->
-                                        IconButton(onClick = { ratingStars = star }) {
-                                            Text(if (star <= ratingStars) "★" else "☆", fontSize = 28.sp, color = if (star <= ratingStars) GoogleYellow else Color(0xFF94A3B8))
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFFE2E8F0),
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("🏢", fontSize = 24.sp)
+                                            }
+                                        }
+                                        Column {
+                                            Text("Migsun Green Mansion", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("You got directions 2 days ago", fontSize = 12.sp, color = Color(0xFF64748B))
                                         }
                                     }
-                                    TextButton(onClick = { ratingStars = 0 }) {
-                                        Text("Skip", fontWeight = FontWeight.Bold, color = BrandTeal)
+                                    IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                                        Text("⋮", fontSize = 20.sp, color = Color(0xFF64748B))
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFFF8FAFC),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("Rate this place", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                (1..5).forEach { star ->
+                                                    Text(
+                                                        if (star <= ratingStars1) "★" else "☆",
+                                                        fontSize = 30.sp,
+                                                        color = if (star <= ratingStars1) GoogleYellow else Color(0xFF94A3B8),
+                                                        modifier = Modifier.clickable { ratingStars1 = star }
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                "Skip",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF007A87),
+                                                fontSize = 14.sp,
+                                                modifier = Modifier.clickable { ratingStars1 = 0 }
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        // 2. All-Time Views Card (Image 4)
+                        // --- CARD 2: AQUALIS Whisper of Water Sound Review (Image 5) ---
                         Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = Color(0xFFF8FAFC),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
                             border = BorderStroke(1.dp, SlateBorderLight),
+                            shadowElevation = 2.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column {
-                                        Text("All-time accessibility views", style = MaterialTheme.typography.labelMedium, color = Color(0xFF64748B))
-                                        Text("6,054", fontWeight = FontWeight.ExtraBold, fontSize = 28.sp)
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color(0xFFE2E8F0),
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("🌊", fontSize = 24.sp)
+                                            }
+                                        }
+                                        Column {
+                                            Text("AQUALIS - Whisper of Water Sound", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("You got directions 1 week ago", fontSize = 12.sp, color = Color(0xFF64748B))
+                                        }
                                     }
-                                    TextButton(onClick = { showARScannerHUD = true }) {
-                                        Text("+ Add survey", fontWeight = FontWeight.Bold, color = BrandTeal)
+                                    IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                                        Text("⋮", fontSize = 20.sp, color = Color(0xFF64748B))
                                     }
                                 }
 
-                                // Views Sparkline Chart
-                                Canvas(modifier = Modifier.fillMaxWidth().height(40.dp)) {
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFFF8FAFC),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("Rate this place", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                (1..5).forEach { star ->
+                                                    Text(
+                                                        if (star <= ratingStars2) "★" else "☆",
+                                                        fontSize = 30.sp,
+                                                        color = if (star <= ratingStars2) GoogleYellow else Color(0xFF94A3B8),
+                                                        modifier = Modifier.clickable { ratingStars2 = star }
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                "Skip",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF007A87),
+                                                fontSize = 14.sp,
+                                                modifier = Modifier.clickable { ratingStars2 = 0 }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- CARD 3: All-Time Photo Views Metric & Sparkline (Image 4) ---
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, SlateBorderLight),
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("All-time photo views", fontSize = 13.sp, color = Color(0xFF64748B))
+                                    Text("Add photo", fontWeight = FontWeight.Bold, color = Color(0xFF007A87), fontSize = 14.sp, modifier = Modifier.clickable { showARScannerHUD = true })
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                                    Text("6,054", fontWeight = FontWeight.ExtraBold, fontSize = 32.sp)
+                                    Text("6.06k", fontSize = 11.sp, color = Color(0xFF64748B))
+                                }
+
+                                Canvas(modifier = Modifier.fillMaxWidth().height(16.dp)) {
                                     val w = size.width
                                     val h = size.height
                                     drawLine(GoogleYellow, Offset(0f, h * 0.5f), Offset(w, h * 0.5f), strokeWidth = 3f)
@@ -1094,28 +1286,81 @@ fun MapScreen(
                             }
                         }
 
-                        // 3. Level Progress Card (Image 4)
+                        // --- CARD 4: Local Guide / Points Progress (Image 4) ---
                         Surface(
-                            shape = RoundedCornerShape(18.dp),
-                            color = Color(0xFFF8FAFC),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
                             border = BorderStroke(1.dp, SlateBorderLight),
+                            shadowElevation = 2.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                LinearProgressIndicator(
-                                    progress = { 0.75f },
-                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                                    color = BrandTeal
-                                )
-                                Text("93 points away from Level 4 Contributor", style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
-                                Text("Add 9 reviews to reach Level 4", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                TextButton(onClick = { showReportBarrierForm = true }) {
-                                    Text("Add a barrier report", fontWeight = FontWeight.Bold, color = BrandTeal)
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(modifier = Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFFE0F2FE))) {
+                                        Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.72f).clip(RoundedCornerShape(4.dp)).background(Color(0xFF007A87)))
+                                    }
+                                    Spacer(Modifier.width(10.dp))
+                                    Surface(shape = CircleShape, color = Color(0xFFE0F2FE), modifier = Modifier.size(22.dp)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("★", fontSize = 13.sp, color = Color(0xFF007A87))
+                                        }
+                                    }
+                                    IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                                        Text("⋮", fontSize = 20.sp, color = Color(0xFF64748B))
+                                    }
                                 }
+
+                                Text("93 points away from Level 4", fontSize = 12.sp, color = Color(0xFF64748B))
+                                Text("Add 9 reviews to reach Level 4", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Add a review", fontWeight = FontWeight.Bold, color = Color(0xFF007A87), fontSize = 14.sp, modifier = Modifier.clickable { showReportBarrierForm = true })
                             }
                         }
 
-                        // 4. Quick Action Cards (Report Barrier & AR Survey)
+                        // --- CARD 5: Get Better Suggestions / Timeline (Image 5) ---
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, SlateBorderLight),
+                            shadowElevation = 2.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("Get better suggestions", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text(
+                                        "Get suggestions based on the places you've been when you turn on Timeline",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                    Surface(
+                                        onClick = { timelineTurnedOn = !timelineTurnedOn },
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = Color(0xFF007A87)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(if (timelineTurnedOn) "Turned on" else "Turn on", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Text("📱📍", fontSize = 36.sp)
+                            }
+                        }
+
+                        // --- Accessibility Action Buttons ---
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Button(
                                 onClick = { showReportBarrierForm = true },
@@ -1369,7 +1614,7 @@ fun MapScreen(
             },
             text = {
                 Text(
-                    "You have arrived at Bharti School Main Entrance. Outdoor guidance is complete. Would you like to explore the indoor floor plan, accessible elevators, and rooms?",
+                    "You have arrived at your destination near ${liveGps.locality}. Outdoor guidance is complete. Would you like to explore the indoor floor plan, accessible elevators, and rooms?",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -1577,7 +1822,7 @@ fun MapScreen(
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Origin: Main Gate (Ground Floor)", fontWeight = FontWeight.Bold)
-                            Text("Destination: Reception / Bharti School", fontWeight = FontWeight.Bold, color = BrandTeal)
+                            Text("Destination: ${selectedNode?.name ?: "${liveGps.locality} Accessible Plaza"}", fontWeight = FontWeight.Bold, color = BrandTeal)
                             Text("Preferences: Step-free corridors, maximum slope 8.0%", style = MaterialTheme.typography.labelSmall)
                         }
                     }
