@@ -1,1 +1,227 @@
-<resources><string name="app_name">AccessPath</string></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">AccessPath</string>
+    <string name="loading">Preparing the campus map…</string>
+
+    <!-- Tabs -->
+    <string name="tab_navigate">Navigate</string>
+    <string name="tab_reports">Reports</string>
+    <string name="tab_manage">Manage</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
+    <string name="change">Change</string>
+    <string name="update">Update</string>
+    <string name="metres">%1$s m</string>
+    <string name="never">never</string>
+    <string name="value_range_error">Enter a number from %1$s to %2$s</string>
+
+    <!-- Mobility -->
+    <string name="mobility_standard">Walking</string>
+    <string name="mobility_avoid_stairs">Avoid stairs</string>
+    <string name="mobility_wheelchair">Wheelchair</string>
+    <string name="mobility_standard_desc">Shortest route. Stairs allowed.</string>
+    <string name="mobility_avoid_stairs_desc">No stairs. Lifts and ramps allowed.</string>
+    <string name="mobility_wheelchair_desc">Step-free only. Checks passage width, ramp slope and lift suitability.</string>
+    <string name="profile_title">Mobility settings</string>
+    <string name="profile_intro">Routes only use paths that match these settings. AccessPath never relaxes them on its own.</string>
+    <string name="profile_min_width">Minimum passage width (m)</string>
+    <string name="profile_max_slope" formatted="false">Maximum ramp slope (%)</string>
+    <string name="profile_max_distance">Preferred maximum distance (m, optional)</string>
+    <string name="profile_summary_wheelchair">Width ≥ %1$s m · ramp ≤ %2$s%%</string>
+    <string name="profile_summary_limit">Max. %1$s m</string>
+
+    <!-- Navigate -->
+    <string name="where_to">Where to?</string>
+    <string name="from_label">You are at</string>
+    <string name="to_label">Going to</string>
+    <string name="swap">Swap start and destination</string>
+    <string name="pick_from_title">Where are you now?</string>
+    <string name="pick_to_title">Where do you want to go?</string>
+    <string name="search_places">Search places</string>
+    <string name="no_places">No matching places</string>
+    <string name="place_floor">%1$s · %2$s</string>
+    <string name="nearest_title">Nearest accessible</string>
+    <string name="nearby_washroom">Washroom</string>
+    <string name="nearby_lift">Lift</string>
+    <string name="nearby_exit">Exit</string>
+    <string name="nearest_set">Going to the nearest: %1$s</string>
+    <string name="nearest_none">None reachable from here with your settings.</string>
+    <string name="position_set">Position confirmed: %1$s</string>
+    <string name="destination_set">Destination: %1$s</string>
+
+    <string name="map_title">Floor plan</string>
+    <string name="map_hint">Pinch to zoom, drag to move. Tap a place for options.</string>
+    <string name="map_a11y">Floor plan of %1$s. The directions list gives the same route as text.</string>
+    <string name="legend_route">Your route</string>
+    <string name="legend_closed">Closed now</string>
+    <string name="legend_unsuitable">Not suitable for you</string>
+    <string name="legend_you">You</string>
+    <string name="legend_destination">Destination</string>
+    <string name="go_here">Go here</string>
+    <string name="im_here">I\'m here</string>
+
+    <string name="routing">Finding a route…</string>
+    <string name="route_summary">%1$s · %2$d steps</string>
+    <string name="route_step_free">Step-free route</string>
+    <string name="route_no_stairs">No stairs on this route</string>
+    <string name="route_uses_lift">Uses a lift</string>
+    <string name="route_uses_ramp">Uses a ramp</string>
+    <string name="route_uses_stairs">Uses stairs</string>
+    <string name="route_extra">%1$s longer than the shortest route with stairs.</string>
+    <string name="route_over_limit">Longer than your preferred maximum of %1$s.</string>
+    <string name="arrived_title">You have arrived</string>
+    <string name="arrived_body">You are at %1$s.</string>
+    <string name="steps_title">Directions</string>
+    <string name="step_corridor">Go along the corridor to %1$s</string>
+    <string name="step_outdoor">Follow the outdoor path to %1$s</string>
+    <string name="step_door">Go through the door to %1$s</string>
+    <string name="step_ramp">Take the ramp to %1$s</string>
+    <string name="step_stairs">Take the stairs to %1$s</string>
+    <string name="step_lift">Take %1$s to %2$s</string>
+    <string name="the_lift">the lift</string>
+    <string name="step_next_label">Next</string>
+    <string name="confirm_reached">I\'m at %1$s</string>
+    <string name="read_aloud">Read aloud</string>
+    <string name="stop_reading">Stop reading</string>
+    <string name="tts_unavailable">Voice output isn\'t available on this phone.</string>
+
+    <string name="no_route_title">No route right now</string>
+    <string name="no_route_endpoints">Choose where you are and where you want to go.</string>
+    <string name="no_route_profile_invalid">Your mobility settings have values out of range. Please check them.</string>
+    <string name="no_route_not_connected_title">These places aren\'t connected</string>
+    <string name="no_route_not_connected">The map has no path between them at all. This is a gap in the map data, not a closure.</string>
+    <string name="no_route_closed">A suitable route exists, but part of it is closed right now:</string>
+    <string name="no_route_profile_title">No route meets your settings</string>
+    <string name="no_route_profile">Every path here needs something your settings exclude, such as stairs or a narrow passage. You can review your settings or ask the help desk for assistance.</string>
+    <string name="review_settings">Review mobility settings</string>
+    <string name="closure_blocked">A path is temporarily closed</string>
+    <string name="closure_pending">A barrier report is waiting for review (closed as a precaution)</string>
+    <string name="closure_verified">A confirmed barrier</string>
+    <string name="closure_facility_down">A lift is out of service</string>
+    <string name="closure_facility_unknown">A lift\'s status is unknown</string>
+
+    <!-- Reports -->
+    <string name="reports_title">Barrier reports</string>
+    <string name="reports_intro">Report anything that blocks the way. A new report closes that path for everyone until a reviewer checks it.</string>
+    <string name="report_button">Report a barrier</string>
+    <string name="reports_active">Active (%1$d)</string>
+    <string name="reports_closed">Closed (%1$d)</string>
+    <string name="reports_empty">No barrier reports.</string>
+    <string name="segment_between">%1$s → %2$s</string>
+    <string name="status_pending">Waiting for review</string>
+    <string name="status_verified">Confirmed</string>
+    <string name="status_rejected">Rejected</string>
+    <string name="status_resolved">Fixed</string>
+    <string name="reported_at">Reported %1$s</string>
+    <string name="reviewer_note">Reviewer: %1$s</string>
+    <string name="action_verify">Confirm</string>
+    <string name="action_reject">Reject</string>
+    <string name="action_resolve">Mark fixed</string>
+    <string name="decision_verify">Confirm this barrier</string>
+    <string name="decision_reject">Reject this report</string>
+    <string name="decision_resolve">Mark this barrier as fixed</string>
+    <string name="reason_label">Reason</string>
+    <string name="text_length_error">Use 5 to 1000 characters.</string>
+    <string name="reviewer_hint">Turn on reviewer mode in Manage to review reports.</string>
+    <string name="report_title">Report a barrier</string>
+    <string name="category_label">What\'s the problem?</string>
+    <string name="cat_blocked">Path blocked</string>
+    <string name="cat_lift">Lift not working</string>
+    <string name="cat_ramp">Ramp damaged</string>
+    <string name="cat_narrow">Too narrow</string>
+    <string name="cat_step">Step or raised threshold</string>
+    <string name="cat_other">Something else</string>
+    <string name="segment_label">Where is it?</string>
+    <string name="segment_choose">Choose a path</string>
+    <string name="segment_on_route">On your route</string>
+    <string name="segment_all">All paths</string>
+    <string name="description_label">Describe the barrier</string>
+    <string name="description_hint">For example: boxes blocking the corridor near the lift</string>
+    <string name="submit">Submit</string>
+    <string name="report_submitted">Report submitted. The path is closed until a reviewer checks it.</string>
+    <string name="decision_saved">Decision saved.</string>
+
+    <!-- Manage -->
+    <string name="manage_title">Manage campus</string>
+    <string name="reviewer_mode">Reviewer mode</string>
+    <string name="reviewer_disclosure">A local role on this phone only. It is not a secure login: anyone using this phone can turn it on.</string>
+    <string name="reviewer_required">Turn on reviewer mode to make changes.</string>
+    <string name="facilities_title">Lifts and facilities</string>
+    <string name="facility_updated">Updated %1$s</string>
+    <string name="facility_dialog_title">Update %1$s</string>
+    <string name="availability_available">Working</string>
+    <string name="availability_unavailable">Out of service</string>
+    <string name="availability_unknown">Status unknown</string>
+    <string name="facility_saved">Status updated.</string>
+    <string name="closures_title">Temporary path closures</string>
+    <string name="closures_intro">Close a path for everyone, for example during cleaning or building work.</string>
+    <string name="close_path">Close a path</string>
+    <string name="reopen">Reopen</string>
+    <string name="reopen_title">Reopen this path</string>
+    <string name="closures_none">No paths are closed.</string>
+    <string name="path_closed">Path closed.</string>
+    <string name="path_reopened">Path reopened.</string>
+    <string name="demo_title">Demo controls</string>
+    <string name="demo_intro">Only for the bundled sample campus, to show how routing reacts to failures.</string>
+    <string name="lifts_down">Simulate all lifts out of service</string>
+    <string name="lifts_up">Restore all lifts</string>
+    <string name="reset_demo">Reset sample data</string>
+    <string name="reset_confirm_title">Reset sample data?</string>
+    <string name="reset_confirm_body">This removes all reports, closures and activity history, and restores the sample campus.</string>
+    <string name="reset">Reset</string>
+    <string name="reset_done">Sample data restored.</string>
+    <string name="audit_title">Activity log</string>
+    <string name="audit_empty">No reviewer activity yet.</string>
+    <string name="audit_entry">%1$s · %2$s → %3$s</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="language_title">Language</string>
+    <string name="language_system">Phone default</string>
+    <string name="language_en" translatable="false">English</string>
+    <string name="language_hi" translatable="false">हिन्दी</string>
+    <string name="map_data_title">Map data</string>
+    <string name="map_name">%1$s (version %2$s)</string>
+    <string name="map_source">Source: %1$s</string>
+    <string name="map_verified">Field-verified: %1$s</string>
+    <string name="map_not_verified">Not field-verified</string>
+    <string name="map_counts">%1$d places · %2$d paths · %3$d floors</string>
+    <string name="demo_warning">This is an illustrative sample campus, not a surveyed real campus. Import surveyed map data before relying on it.</string>
+    <string name="import_map">Import map</string>
+    <string name="export_map">Export map</string>
+    <string name="import_ok">Map imported.</string>
+    <string name="import_ok_warn">Map imported. Note: %1$s</string>
+    <string name="export_ok">Map exported.</string>
+    <string name="links_title">Location links and QR codes</string>
+    <string name="links_body">Each place has a link like accesspath://node/lobby0. Print it as a QR code at that spot: scanning it with the phone camera opens AccessPath and confirms the person\'s position.</string>
+    <string name="about_title">About</string>
+    <string name="about_body">Offline, step-free campus navigation. No account, no internet and no location permission needed. Everything stays on this phone.</string>
+    <string name="limit_position">Your position is the place you confirm. The app does not track your location.</string>
+    <string name="limit_unknown">A path with unknown width, slope or step-free status is treated as not accessible.</string>
+    <string name="limit_local">Reports and lift statuses are stored only on this phone. There is no shared server yet.</string>
+    <string name="limit_reviewer">Reviewer mode is a local role, not a secure login.</string>
+    <string name="version">Version %1$s</string>
+
+    <!-- Errors -->
+    <string name="error_not_loaded">The map is still loading. Please try again.</string>
+    <string name="error_stale">This changed while you were editing. Check the latest data and try again.</string>
+    <string name="error_invalid_profile">Please check your mobility settings values.</string>
+    <string name="error_unknown_location">That place isn\'t on the current map.</string>
+    <string name="error_unknown_segment">That path isn\'t on the current map.</string>
+    <string name="error_description">The description must be 5 to 1000 characters.</string>
+    <string name="error_reason">The reason must be 5 to 1000 characters.</string>
+    <string name="error_report_not_found">Report not found.</string>
+    <string name="error_transition">This report has already been reviewed. Check the latest status.</string>
+    <string name="error_facility_not_found">Facility not found.</string>
+    <string name="error_demo_only">This only works with the bundled sample campus. Your imported map was kept.</string>
+    <string name="error_map_too_large">The map file is larger than 10 MB.</string>
+    <string name="error_map_invalid">This map file isn\'t valid: %1$s</string>
+    <string name="error_import_orphans">Some active reports are on paths missing from the new map. Resolve those reports first.</string>
+    <string name="error_file">Couldn\'t open that file.</string>
+    <string name="error_link">This location link isn\'t on the current map.</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+</resources>

@@ -1,164 +1,171 @@
 package com.accesspath.domain
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 
-val MapJson = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
+/** JSON used for both bundled/imported maps and the persisted app state. */
+val MapJson = Json { prettyPrint = false; ignoreUnknownKeys = true; encodeDefaults = true }
 
 @Serializable enum class Segment { CORRIDOR, OUTDOOR, DOOR, RAMP, STAIRS, ELEVATOR }
 @Serializable enum class Mobility { STANDARD, AVOID_STAIRS, WHEELCHAIR }
 @Serializable enum class Availability { AVAILABLE, UNAVAILABLE, UNKNOWN }
 @Serializable enum class ReportStatus { PENDING, VERIFIED, REJECTED, RESOLVED }
-@Serializable enum class DoorType { NONE, AUTOMATIC, MANUAL_LIGHT, HEAVY, ASSISTANCE_REQUIRED }
-@Serializable enum class SurfaceCondition { SMOOTH_TILES, PAVED, UNEVEN, DAMAGED }
+
+/** Barrier categories a person can report. Stored by name, so do not rename entries. */
+@Serializable(with = BarrierCategorySerializer::class)
+enum class BarrierCategory { BLOCKED_PATH, LIFT_NOT_WORKING, DAMAGED_RAMP, TOO_NARROW, STEP_OR_THRESHOLD, OTHER }
+
+/** Reads both current names and the English labels saved by earlier app versions. */
+object BarrierCategorySerializer : KSerializer<BarrierCategory> {
+    private val legacy = mapOf(
+        "Blocked path" to BarrierCategory.BLOCKED_PATH,
+        "Unavailable elevator" to BarrierCategory.LIFT_NOT_WORKING,
+        "Damaged ramp" to BarrierCategory.DAMAGED_RAMP,
+        "Unsuitable width" to BarrierCategory.TOO_NARROW,
+        "Steps or threshold" to BarrierCategory.STEP_OR_THRESHOLD
+    )
+    override val descriptor = PrimitiveSerialDescriptor("BarrierCategory", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: BarrierCategory) = encoder.encodeString(value.name)
+    override fun deserialize(decoder: Decoder): BarrierCategory {
+        val raw = decoder.decodeString()
+        return BarrierCategory.entries.firstOrNull { it.name == raw } ?: legacy[raw] ?: BarrierCategory.OTHER
+    }
+}
 
 @Serializable data class Building(val id: String, val name: String)
 @Serializable data class Floor(val id: String, val buildingId: String, val label: String, val ordinal: Int)
-@Serializable data class Node(val id: String, val floorId: String, val name: String, val x: Double, val y: Double, val type: String = "LANDMARK")
+@Serializable data class Node(
+    val id: String, val floorId: String, val name: String, val x: Double, val y: Double,
+    val type: String = "LANDMARK"
+)
 @Serializable data class Edge(
     val id: String, val from: String, val to: String, val type: Segment, val length: Double,
     val width: Double? = null, val slope: Double? = null, val stepFree: Boolean? = null,
     val wheelchairSuitable: Boolean? = null, val facilityId: String? = null,
-    val restricted: Boolean = false, val multiplier: Double? = null, val penalty: Double? = null,
-    val doorType: DoorType = DoorType.NONE,
-    val surface: SurfaceCondition = SurfaceCondition.SMOOTH_TILES
+    val restricted: Boolean = false, val multiplier: Double? = null, val penalty: Double? = null
 )
-@Serializable data class Facility(val id: String, val name: String, val availability: Availability = Availability.AVAILABLE,
-    val reason: String = "Seeded demo status", val updatedAt: Long = 0, val source: String = "Seeded")
+@Serializable data class Facility(
+    val id: String, val name: String, val availability: Availability = Availability.AVAILABLE,
+    val reason: String = "", val updatedAt: Long = 0, val source: String = "Map data"
+)
 @Serializable data class CampusMap(
     val schemaVersion: Int = 1, val version: String, val name: String,
     val provenance: String, val verifiedAt: Long? = null, val buildings: List<Building>,
     val floors: List<Floor>, val nodes: List<Node>, val edges: List<Edge>, val facilities: List<Facility>
-)
+) {
+    /** The bundled sample map may be reset; imported maps never are. */
+    val isDemo: Boolean get() = provenance == DEMO_PROVENANCE
+
+    companion object { const val DEMO_PROVENANCE = "Illustrative demo" }
+}
+
 @Serializable data class Profile(
     val mobility: Mobility = Mobility.WHEELCHAIR,
     val minWidth: Double = 0.85,
     val maxSlope: Double = 8.0,
     val maxWalkingDistance: Double? = null
 ) {
-    fun validate() {
-        require(minWidth.isFinite() && minWidth > 0 && minWidth <= 5) { "Width must be above 0 and at most 5 metres." }
-        require(maxSlope.isFinite() && maxSlope >= 0 && maxSlope <= 100) { "Slope must be between 0 and 100 percent." }
-        if (maxWalkingDistance != null) {
-            require(maxWalkingDistance.isFinite() && maxWalkingDistance > 0 && maxWalkingDistance <= 20000) {
-                "Max walking distance must be positive and realistic (up to 20 km)."
-            }
-        }
-    }
+    val isValid: Boolean get() =
+        minWidth.isFinite() && minWidth > 0 && minWidth <= 5 &&
+            maxSlope.isFinite() && maxSlope >= 0 && maxSlope <= 100 &&
+            (maxWalkingDistance == null || (maxWalkingDistance.isFinite() && maxWalkingDistance > 0 && maxWalkingDistance <= 20000))
+
+    fun validate() { if (!isValid) throw AppError(ErrorCode.INVALID_PROFILE) }
 }
+
 @Serializable data class BarrierReport(
-    val id: String, val edgeId: String, val category: String, val description: String,
+    val id: String, val edgeId: String, val category: BarrierCategory, val description: String,
     val createdAt: Long, val status: ReportStatus = ReportStatus.PENDING, val reason: String = "",
-    val reviewedAt: Long? = null, val photoUri: String? = null, val hasVoiceNote: Boolean = false,
-    val expiryHours: Int = 24
-)
-@Serializable data class AssistanceRequest(
-    val id: String, val nodeId: String, val nodeName: String,
-    val urgency: String = "STANDARD", val note: String = "",
-    val requestedAt: Long, val status: String = "OPEN"
-)
-@Serializable data class AuditEvent(val id: String, val action: String, val target: String, val before: String,
-    val after: String, val reason: String, val time: Long, val actor: String = "Local demo reviewer")
-
-@Serializable
-data class GeofencePoint(val x: Double, val y: Double)
-
-enum class MapStyle { 
-    DEFAULT_VECTOR,        // Google Maps clean standard vector view
-    SATELLITE,             // Google Maps photorealistic satellite view
-    TERRAIN,               // Google Maps contour & elevation terrain view
-    HYBRID,                // Google Maps hybrid (satellite + roads + labels)
-    ACCESSIBILITY_HEATMAP, // Accessibility slope heatmap
-    NIGHT_CYBER,           // Google Maps night OLED view
-    BLUEPRINT,             // Technical CAD blueprint
-    SATELLITE_HYBRID       // Backward compat alias
-}
-
-enum class GeofenceType { SAFE_ZONE, HAZARD, ACCESSIBLE_FACILITY, QUIET_ZONE, RESTRICTED }
-
-@Serializable
-data class GeofenceZone(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    val name: String,
-    val floorId: String,
-    val centerX: Double,
-    val centerY: Double,
-    val radius: Double,
-    val type: GeofenceType = GeofenceType.SAFE_ZONE,
-    val alertMessage: String = "",
-    val active: Boolean = true,
-    val polygon: List<GeofencePoint> = emptyList()
+    val reviewedAt: Long? = null
 ) {
-    fun contains(px: Double, py: Double): Boolean {
-        if (!active) return false
-        if (polygon.size >= 3) {
-            var inside = false
-            var j = polygon.size - 1
-            for (i in polygon.indices) {
-                val xi = polygon[i].x
-                val yi = polygon[i].y
-                val xj = polygon[j].x
-                val yj = polygon[j].y
-                val intersect = ((yi > py) != (yj > py)) &&
-                        (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
-                if (intersect) inside = !inside
-                j = i
-            }
-            return inside
-        }
-        return Math.hypot(px - centerX, py - centerY) <= radius
-    }
+    val isActive: Boolean get() = status == ReportStatus.PENDING || status == ReportStatus.VERIFIED
 }
 
-@Serializable
-data class CampusListing(
-    val id: String,
-    val name: String,
-    val city: String,
-    val country: String,
-    val latitude: Double,
-    val longitude: Double,
-    val buildingCount: Int,
-    val contributor: String,
-    val isVerified: Boolean = true,
-    val description: String = ""
+@Serializable data class AuditEvent(
+    val id: String, val action: String, val target: String, val before: String,
+    val after: String, val reason: String, val time: Long, val actor: String = "Local reviewer"
 )
 
 @Serializable data class AppSnapshot(
     val map: CampusMap, val revision: Long = 0, val reports: List<BarrierReport> = emptyList(),
     val audit: List<AuditEvent> = emptyList(), val blockedEdges: Set<String> = emptySet(),
     val profile: Profile = Profile(), val start: String = "gate", val destination: String = "classroom",
-    val current: String = "gate", val selectedFloor: String = "a0",
-    val assistanceRequests: List<AssistanceRequest> = emptyList(),
-    val geofences: List<GeofenceZone> = emptyList(),
-    val mapStyle: MapStyle = MapStyle.BLUEPRINT,
-    val activeCampusId: String = "glbitm"
-)
+    val current: String = "gate", val selectedFloor: String = "a0"
+) {
+    fun node(id: String): Node? = map.nodes.firstOrNull { it.id == id }
+    fun floor(id: String): Floor? = map.floors.firstOrNull { it.id == id }
+    fun edge(id: String): Edge? = map.edges.firstOrNull { it.id == id }
+}
+
+/** Errors a person can understand and fix. The UI maps each code to a translated message. */
+enum class ErrorCode {
+    NOT_LOADED, STALE_DATA, CONCURRENT_UPDATE, INVALID_PROFILE, UNKNOWN_LOCATION, UNKNOWN_SEGMENT,
+    DESCRIPTION_LENGTH, REASON_LENGTH, REPORT_NOT_FOUND, INVALID_TRANSITION, FACILITY_NOT_FOUND,
+    RESET_ONLY_DEMO, MAP_TOO_LARGE, MAP_INVALID, IMPORT_ORPHANS_REPORTS
+}
+
+class AppError(val code: ErrorCode, val detail: String? = null) :
+    IllegalArgumentException(detail?.let { "$code: $it" } ?: code.name)
 
 object MapValidator {
+    const val MAX_BYTES = 10 * 1024 * 1024
+
+    /** Throws [AppError] with [ErrorCode.MAP_INVALID] for an unusable map; returns non-fatal warnings. */
     fun validate(map: CampusMap): List<String> {
-        require(map.schemaVersion == 1) { "Unsupported map schema ${map.schemaVersion}. Expected 1." }
-        require(map.name.isNotBlank() && map.version.isNotBlank() && map.provenance.isNotBlank()) { "Map identity and provenance are required." }
-        require(map.nodes.size in 1..10000 && map.edges.size <= 50000) { "Map exceeds 10,000 nodes or 50,000 edges." }
-        fun unique(ids: List<String>, label: String) { require(ids.all { it.isNotBlank() } && ids.toSet().size == ids.size) { "Duplicate or empty $label IDs." } }
+        fun check(ok: Boolean, detail: () -> String) { if (!ok) throw AppError(ErrorCode.MAP_INVALID, detail()) }
+        check(map.schemaVersion == 1) { "Unsupported map schema ${map.schemaVersion}. Expected 1." }
+        check(map.name.isNotBlank() && map.version.isNotBlank() && map.provenance.isNotBlank()) { "Map name, version and provenance are required." }
+        check(map.nodes.size in 1..10000 && map.edges.size <= 50000) { "Map must have 1–10,000 places and at most 50,000 segments." }
+        fun unique(ids: List<String>, label: String) = check(ids.all { it.isNotBlank() } && ids.toSet().size == ids.size) { "Duplicate or empty $label IDs." }
         unique(map.buildings.map { it.id }, "building"); unique(map.floors.map { it.id }, "floor")
-        unique(map.nodes.map { it.id }, "node"); unique(map.edges.map { it.id }, "edge"); unique(map.facilities.map { it.id }, "facility")
-        val buildings = map.buildings.map { it.id }.toSet(); val floors = map.floors.associateBy { it.id }; val nodes = map.nodes.associateBy { it.id }
+        unique(map.nodes.map { it.id }, "place"); unique(map.edges.map { it.id }, "segment"); unique(map.facilities.map { it.id }, "facility")
+        val buildings = map.buildings.map { it.id }.toSet()
+        val floors = map.floors.associateBy { it.id }
+        val nodes = map.nodes.associateBy { it.id }
         val facilities = map.facilities.map { it.id }.toSet()
-        map.floors.forEach { require(it.buildingId in buildings && it.label.isNotBlank()) { "Invalid floor ${it.id}." } }
-        map.nodes.forEach { require(it.floorId in floors && it.name.isNotBlank() && it.x.isFinite() && it.y.isFinite() && it.x in 0.0..10000.0 && it.y in 0.0..10000.0) { "Invalid node ${it.id}." } }
-        map.edges.forEach { e ->
-            require(e.from in nodes && e.to in nodes && e.from != e.to) { "Invalid endpoints for ${e.id}." }
-            require(e.length.isFinite() && e.length >= 0) { "Invalid length for ${e.id}." }
-            listOf(e.width, e.slope, e.multiplier, e.penalty).filterNotNull().forEach { require(it.isFinite() && it >= 0) { "Invalid metadata for ${e.id}." } }
-            require(e.facilityId == null || e.facilityId in facilities) { "Unknown facility for ${e.id}." }
-            require(e.type != Segment.ELEVATOR || e.facilityId != null) { "Elevator ${e.id} needs a facility." }
-            val a = floors.getValue(nodes.getValue(e.from).floorId); val b = floors.getValue(nodes.getValue(e.to).floorId)
-            if (a.id != b.id) require((a.buildingId == b.buildingId && e.type in setOf(Segment.STAIRS, Segment.ELEVATOR, Segment.RAMP)) ||
-                (a.buildingId != b.buildingId && a.ordinal == b.ordinal && e.type == Segment.OUTDOOR)) { "Invalid floor transition for ${e.id}." }
+        map.floors.forEach { check(it.buildingId in buildings && it.label.isNotBlank()) { "Invalid floor ${it.id}." } }
+        map.nodes.forEach {
+            check(it.floorId in floors && it.name.isNotBlank() && it.x.isFinite() && it.y.isFinite() &&
+                it.x in 0.0..10000.0 && it.y in 0.0..10000.0) { "Invalid place ${it.id}." }
         }
-        val reached = mutableSetOf(map.nodes.first().id); val adjacency = map.edges.flatMap { listOf(it.from to it.to, it.to to it.from) }.groupBy({ it.first }, { it.second })
-        val queue = ArrayDeque(reached); while(queue.isNotEmpty()) adjacency[queue.removeFirst()].orEmpty().forEach { if (reached.add(it)) queue.add(it) }
-        return if(reached.size < map.nodes.size) listOf("Map contains disconnected areas; some destinations may be unreachable.") else emptyList()
+        map.edges.forEach { e ->
+            check(e.from in nodes && e.to in nodes && e.from != e.to) { "Invalid endpoints for ${e.id}." }
+            check(e.length.isFinite() && e.length >= 0) { "Invalid length for ${e.id}." }
+            listOfNotNull(e.width, e.slope, e.multiplier, e.penalty).forEach { check(it.isFinite() && it >= 0) { "Invalid metadata for ${e.id}." } }
+            check(e.facilityId == null || e.facilityId in facilities) { "Unknown facility for ${e.id}." }
+            check(e.type != Segment.ELEVATOR || e.facilityId != null) { "Lift segment ${e.id} needs a facility." }
+            val a = floors.getValue(nodes.getValue(e.from).floorId)
+            val b = floors.getValue(nodes.getValue(e.to).floorId)
+            if (a.id != b.id) check(
+                (a.buildingId == b.buildingId && e.type in setOf(Segment.STAIRS, Segment.ELEVATOR, Segment.RAMP)) ||
+                    (a.buildingId != b.buildingId && a.ordinal == b.ordinal && e.type == Segment.OUTDOOR)
+            ) { "Invalid floor transition for ${e.id}." }
+        }
+        val reached = mutableSetOf(map.nodes.first().id)
+        val adjacency = map.edges.flatMap { listOf(it.from to it.to, it.to to it.from) }.groupBy({ it.first }, { it.second })
+        val queue = ArrayDeque(reached)
+        while (queue.isNotEmpty()) adjacency[queue.removeFirst()].orEmpty().forEach { if (reached.add(it)) queue.add(it) }
+        return if (reached.size < map.nodes.size) listOf("Some places are not connected to the rest of the map.") else emptyList()
+    }
+}
+
+object ReportRules {
+    const val MIN_TEXT = 5
+    const val MAX_TEXT = 1000
+
+    fun review(report: BarrierReport, status: ReportStatus, reason: String, now: Long): BarrierReport {
+        if (reason.trim().length !in MIN_TEXT..MAX_TEXT) throw AppError(ErrorCode.REASON_LENGTH)
+        val allowed = when (report.status) {
+            ReportStatus.PENDING -> setOf(ReportStatus.VERIFIED, ReportStatus.REJECTED)
+            ReportStatus.VERIFIED -> setOf(ReportStatus.RESOLVED)
+            else -> emptySet()
+        }
+        if (status !in allowed) throw AppError(ErrorCode.INVALID_TRANSITION)
+        return report.copy(status = status, reason = reason.trim(), reviewedAt = now)
     }
 }

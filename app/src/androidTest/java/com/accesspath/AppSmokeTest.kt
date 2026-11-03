@@ -12,24 +12,49 @@ class AppSmokeTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test
-    fun navigationAndProfileDialogWork() {
-        compose.waitUntil(20000) { compose.onAllNodesWithText("Plan a route").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Plan a route").performScrollTo().performClick()
-        compose.onNodeWithText("Select mobility persona:").assertIsDisplayed()
-        compose.onNodeWithText("Standard").performClick()
-        compose.onNodeWithText("Find Accessible Route").performClick()
-        compose.onNodeWithText("Plan a route").assertExists()
+    private fun s(id: Int, vararg args: Any) = compose.activity.getString(id, *args)
+
+    private fun waitForMap() = compose.waitUntil(20_000) {
+        compose.onAllNodesWithText(s(R.string.where_to)).fetchSemanticsNodes().isNotEmpty()
     }
 
     @Test
-    fun reportFormAndHelpAreReachable() {
-        compose.waitUntil(20000) { compose.onAllNodesWithText("Plan a route").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Reports").performClick()
-        compose.onNodeWithText("Report a barrier").performClick()
-        compose.onNodeWithText("Describe the barrier").assertExists()
-        compose.onNodeWithText("Cancel").performClick()
-        compose.onNodeWithText("Help").performClick()
-        compose.onNodeWithText("Simple by design.").assertExists()
+    fun opensWithoutPermissionPromptsAndShowsDirections() {
+        waitForMap()
+        compose.onNodeWithText(s(R.string.where_to)).assertIsDisplayed()
+        compose.onNodeWithText(s(R.string.map_title)).assertExists()
+        compose.onNodeWithTag("navigate").performScrollToNode(hasText(s(R.string.steps_title)))
+        compose.onNodeWithText(s(R.string.steps_title)).assertExists()
+    }
+
+    @Test
+    fun mobilitySettingsDialogOpensAndCancels() {
+        waitForMap()
+        compose.onAllNodesWithText(s(R.string.change))[2].performClick()
+        compose.onNodeWithText(s(R.string.profile_title)).assertIsDisplayed()
+        compose.onNodeWithText(s(R.string.mobility_avoid_stairs)).assertExists()
+        compose.onNodeWithText(s(R.string.cancel)).performClick()
+        compose.onNodeWithText(s(R.string.profile_title)).assertDoesNotExist()
+    }
+
+    @Test
+    fun reportFormIsReachable() {
+        waitForMap()
+        compose.onNodeWithText(s(R.string.tab_reports)).performClick()
+        compose.onNodeWithText(s(R.string.report_button)).performClick()
+        compose.onNodeWithText(s(R.string.description_label)).assertExists()
+        compose.onNodeWithText(s(R.string.cancel)).performClick()
+        compose.onNodeWithText(s(R.string.description_label)).assertDoesNotExist()
+    }
+
+    @Test
+    fun manageAndSettingsTabsShowRealData() {
+        waitForMap()
+        compose.onNodeWithText(s(R.string.tab_manage)).performClick()
+        compose.onNodeWithText(s(R.string.reviewer_mode)).assertIsDisplayed()
+        compose.onNodeWithText("Lift A").assertExists()
+        compose.onNodeWithText(s(R.string.tab_settings)).performClick()
+        compose.onNodeWithText(s(R.string.map_data_title)).assertExists()
+        compose.onNodeWithText(s(R.string.demo_warning)).assertExists()
     }
 }

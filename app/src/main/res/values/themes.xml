@@ -1,9 +1,6 @@
 <resources>
-    <style name="Theme.AccessPath" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#F4F7F6</item>
-        <item name="android:navigationBarColor">#F4F7F6</item>
-        <item name="android:windowActionModeOverlay">true</item>
+    <!-- Compose draws all UI; this theme only covers the window before Compose starts. -->
+    <style name="Theme.AccessPath" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
     </style>
 </resources>

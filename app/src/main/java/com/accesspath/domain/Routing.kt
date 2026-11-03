@@ -2,6 +2,34 @@ package com.accesspath.domain
 
 import java.util.PriorityQueue
 
+/** Why a segment cannot be used. Closures are temporary; the rest come from the person's profile or the map. */
+enum class ExclusionReason(val isClosure: Boolean) {
+    BLOCKED_BY_SIMULATION(true),
+    PENDING_REPORT(true),
+    VERIFIED_REPORT(true),
+    FACILITY_UNAVAILABLE(true),
+    FACILITY_STATUS_UNKNOWN(true),
+    RESTRICTED(false),
+    STAIRS_NOT_ALLOWED(false),
+    STEP_FREE_UNKNOWN(false),
+    WIDTH_UNSUITABLE(false),
+    SLOPE_UNSUITABLE(false),
+    LIFT_UNSUITABLE(false)
+}
+
+enum class NoRouteCause {
+    /** Start or destination is not on the current map. */
+    INVALID_ENDPOINTS,
+    /** Saved mobility settings are out of range. */
+    INVALID_PROFILE,
+    /** The two places are not connected at all in the map data. */
+    NOT_CONNECTED,
+    /** A suitable route exists, but closures (reports, lifts out of service, blocks) cut it off right now. */
+    CLOSED_NOW,
+    /** No route meets the mobility settings, even with everything open. */
+    PROFILE_TOO_STRICT
+}
+
 sealed interface RouteResult {
     data class Found(
         val nodes: List<Node>,
@@ -10,167 +38,156 @@ sealed interface RouteResult {
         val score: Double,
         val revision: Long,
         val mapVersion: String,
-        val explanation: String = "",
+        /** Extra metres compared with the shortest route for someone who can use stairs; null if not computed. */
+        val extraDistanceVsStandard: Double? = null,
         val exceedsMaxWalkingDistance: Boolean = false
-    ) : RouteResult
-    data class Unavailable(val reasons: List<String>) : RouteResult
+    ) : RouteResult {
+        val usesLift: Boolean get() = edges.any { it.type == Segment.ELEVATOR }
+        val usesRamp: Boolean get() = edges.any { it.type == Segment.RAMP }
+        val usesStairs: Boolean get() = edges.any { it.type == Segment.STAIRS }
+    }
+
+    data class Unavailable(val cause: NoRouteCause, val closures: List<ExclusionReason> = emptyList()) : RouteResult
 }
 
+enum class NearbyKind { WASHROOM, LIFT, EXIT }
+
 object Routing {
-    fun exclusions(state: AppSnapshot, profile: Profile = state.profile): Map<String, String> {
-        val activeReports = state.reports.filter { it.status in setOf(ReportStatus.PENDING, ReportStatus.VERIFIED) }
+    /** Every segment that cannot be used right now, with the first reason that applies. */
+    fun exclusions(state: AppSnapshot, profile: Profile = state.profile): Map<String, ExclusionReason> {
         val edgeIndex = state.map.edges.associateBy { it.id }
-        val active = mutableMapOf<String, BarrierReport>()
-        activeReports.forEach { report -> edgeIndex[report.edgeId]?.let { target ->
-            state.map.edges.filter { edge ->
-                (edge.from == target.from && edge.to == target.to) || (edge.from == target.to && edge.to == target.from) ||
-                    (target.facilityId != null && edge.facilityId == target.facilityId)
-            }.forEach { active[it.id] = report }
-        } }
+        val reportStatus = mutableMapOf<String, ReportStatus>()
+        state.reports.filter { it.isActive }.forEach { report ->
+            val target = edgeIndex[report.edgeId] ?: return@forEach
+            state.map.edges.filter { e ->
+                (e.from == target.from && e.to == target.to) || (e.from == target.to && e.to == target.from) ||
+                    (target.facilityId != null && e.facilityId == target.facilityId)
+            }.forEach { e ->
+                // A verified report outranks a pending one on the same segment.
+                if (reportStatus[e.id] != ReportStatus.VERIFIED) reportStatus[e.id] = report.status
+            }
+        }
         val facilities = state.map.facilities.associateBy { it.id }
-        return state.map.edges.mapNotNull { e ->
+        val wheelchair = profile.mobility == Mobility.WHEELCHAIR
+        val result = LinkedHashMap<String, ExclusionReason>()
+        for (e in state.map.edges) {
+            val facility = e.facilityId?.let { facilities[it] }
             val reason = when {
-                e.id in state.blockedEdges -> "Path blocked by demo control"
-                e.id in active -> if(active[e.id]?.status == ReportStatus.PENDING) "Unverified barrier report: precautionary closure" else "Verified accessibility barrier"
-                e.restricted -> "Restricted access"
-                e.facilityId != null && facilities[e.facilityId]?.availability != Availability.AVAILABLE -> "Facility unavailable or status unknown"
-                profile.mobility != Mobility.STANDARD && e.type == Segment.STAIRS -> "Stairs excluded by profile"
-                profile.mobility == Mobility.WHEELCHAIR && e.stepFree != true -> "Step-free status unsuitable or unknown"
-                profile.mobility == Mobility.WHEELCHAIR && (e.width == null || e.width < profile.minWidth) -> "Passage width unsuitable or unknown"
-                profile.mobility == Mobility.WHEELCHAIR && e.type == Segment.RAMP && (e.slope == null || e.slope > profile.maxSlope) -> "Ramp slope unsuitable or unknown"
-                profile.mobility == Mobility.WHEELCHAIR && e.type == Segment.ELEVATOR && e.wheelchairSuitable != true -> "Lift suitability unknown or unsuitable"
+                e.id in state.blockedEdges -> ExclusionReason.BLOCKED_BY_SIMULATION
+                reportStatus[e.id] == ReportStatus.VERIFIED -> ExclusionReason.VERIFIED_REPORT
+                reportStatus[e.id] == ReportStatus.PENDING -> ExclusionReason.PENDING_REPORT
+                e.facilityId != null && facility?.availability == Availability.UNAVAILABLE -> ExclusionReason.FACILITY_UNAVAILABLE
+                e.facilityId != null && facility?.availability != Availability.AVAILABLE -> ExclusionReason.FACILITY_STATUS_UNKNOWN
+                e.restricted -> ExclusionReason.RESTRICTED
+                profile.mobility != Mobility.STANDARD && e.type == Segment.STAIRS -> ExclusionReason.STAIRS_NOT_ALLOWED
+                wheelchair && e.stepFree != true -> ExclusionReason.STEP_FREE_UNKNOWN
+                wheelchair && (e.width == null || e.width < profile.minWidth) -> ExclusionReason.WIDTH_UNSUITABLE
+                wheelchair && e.type == Segment.RAMP && (e.slope == null || e.slope > profile.maxSlope) -> ExclusionReason.SLOPE_UNSUITABLE
+                wheelchair && e.type == Segment.ELEVATOR && e.wheelchairSuitable != true -> ExclusionReason.LIFT_UNSUITABLE
                 else -> null
             }
-            reason?.let { e.id to it }
-        }.toMap()
+            if (reason != null) result[e.id] = reason
+        }
+        return result
     }
 
-    fun cost(e: Edge): Double = e.length * (e.multiplier ?: when(e.type) { Segment.RAMP -> 1.5; Segment.STAIRS -> 2.0; else -> 1.0 }) +
-        (e.penalty ?: if(e.type == Segment.ELEVATOR) 20.0 else 0.0)
+    fun cost(e: Edge): Double =
+        e.length * (e.multiplier ?: when (e.type) { Segment.RAMP -> 1.5; Segment.STAIRS -> 2.0; else -> 1.0 }) +
+            (e.penalty ?: if (e.type == Segment.ELEVATOR) 20.0 else 0.0)
 
-    private fun dijkstra(state: AppSnapshot, start: String, destination: String, profile: Profile): Pair<List<Edge>, Double>? {
-        val excluded = exclusions(state, profile)
-        val adjacency = state.map.edges.filter { it.id !in excluded }.groupBy { it.from }.mapValues { it.value.sortedBy(Edge::id) }
-        val distances = mutableMapOf(start to 0.0); val previous = mutableMapOf<String, Edge>()
+    private class Tree(val score: Map<String, Double>, val previous: Map<String, Edge>) {
+        fun path(start: String, destination: String): List<Edge>? {
+            if (destination !in score) return null
+            val edges = mutableListOf<Edge>()
+            var cursor = destination
+            while (cursor != start) {
+                val edge = previous[cursor] ?: return null
+                edges.add(edge); cursor = edge.from
+            }
+            return edges.asReversed()
+        }
+    }
+
+    /** Dijkstra over allowed edges. Stops early when [destination] is settled. Ties break by node ID for stable results. */
+    private fun search(edges: List<Edge>, start: String, destination: String?): Tree {
+        val adjacency = edges.groupBy { it.from }.mapValues { (_, list) -> list.sortedBy(Edge::id) }
+        val score = HashMap<String, Double>().apply { put(start, 0.0) }
+        val previous = HashMap<String, Edge>()
         data class Entry(val id: String, val score: Double)
-        val queue = PriorityQueue(compareBy<Entry> { it.score }.thenBy { it.id }); queue.add(Entry(start, 0.0))
-        while(queue.isNotEmpty()) {
+        val queue = PriorityQueue(compareBy<Entry> { it.score }.thenBy { it.id })
+        queue.add(Entry(start, 0.0))
+        while (queue.isNotEmpty()) {
             val cur = queue.remove()
-            if(cur.score != distances[cur.id]) continue
-            if(cur.id == destination) break
+            if (cur.score != score[cur.id]) continue
+            if (cur.id == destination) break
             adjacency[cur.id].orEmpty().forEach { edge ->
                 val next = cur.score + cost(edge)
-                if(next < (distances[edge.to] ?: Double.POSITIVE_INFINITY)) {
-                    distances[edge.to] = next; previous[edge.to] = edge; queue.add(Entry(edge.to, next))
+                if (next < (score[edge.to] ?: Double.POSITIVE_INFINITY)) {
+                    score[edge.to] = next; previous[edge.to] = edge; queue.add(Entry(edge.to, next))
                 }
             }
         }
-        val score = distances[destination] ?: return null
-        val edges = mutableListOf<Edge>(); var cursor = destination
-        while(cursor != start) { val edge = previous.getValue(cursor); edges.add(edge); cursor = edge.from }
-        edges.reverse()
-        return Pair(edges, score)
+        return Tree(score, previous)
     }
 
+    private fun allowed(state: AppSnapshot, excluded: Map<String, ExclusionReason>, keep: (ExclusionReason) -> Boolean = { true }) =
+        state.map.edges.filter { e -> excluded[e.id]?.let { !keep(it) } ?: true }
+
     fun calculate(state: AppSnapshot, start: String = state.current, destination: String = state.destination): RouteResult {
-        state.profile.validate()
+        if (!state.profile.isValid) return RouteResult.Unavailable(NoRouteCause.INVALID_PROFILE)
         val nodes = state.map.nodes.associateBy { it.id }
-        if(start !in nodes || destination !in nodes) return RouteResult.Unavailable(listOf("Choose a valid start and destination."))
+        if (start !in nodes || destination !in nodes) return RouteResult.Unavailable(NoRouteCause.INVALID_ENDPOINTS)
+
         val excluded = exclusions(state)
+        val edges = search(allowed(state, excluded), start, destination).path(start, destination)
+            ?: return RouteResult.Unavailable(explainNoRoute(state, excluded, start, destination), excluded.values.filter { it.isClosure }.distinct())
 
-        val routeData = dijkstra(state, start, destination, state.profile)
-            ?: return RouteResult.Unavailable(
-                listOf("No connected route satisfies the current profile and restrictions.") + excluded.values.distinct()
-            )
-
-        val edges = routeData.first
-        val score = routeData.second
-        val totalDistance = edges.sumOf { it.length }
-
-        // Route Explanation & Comparison
-        val explanationParts = mutableListOf<String>()
-        val usesLift = edges.any { it.type == Segment.ELEVATOR }
-        val usesRamp = edges.any { it.type == Segment.RAMP }
-
-        if (state.profile.mobility == Mobility.WHEELCHAIR) {
-            explanationParts.add("Step-free wheelchair route.")
-            if (usesLift) explanationParts.add("Uses accessible elevator.")
-            if (usesRamp) explanationParts.add("Uses verified accessible ramp.")
-            
-            // Compare with standard route distance
-            val standardResult = dijkstra(state, start, destination, Profile(Mobility.STANDARD))
-            if (standardResult != null) {
-                val stdDist = standardResult.first.sumOf { it.length }
-                val delta = totalDistance - stdDist
-                if (delta > 0.5) {
-                    explanationParts.add("${String.format(java.util.Locale.US, "%.1f", delta)} m longer than stair path to ensure step-free access.")
-                }
-            }
-        } else if (state.profile.mobility == Mobility.AVOID_STAIRS) {
-            explanationParts.add("Stairs excluded from route. Uses step-free corridors and elevators.")
-        } else {
-            explanationParts.add("Standard path across shortest campus corridors.")
-        }
-
-        val exceedsMax = state.profile.maxWalkingDistance != null && totalDistance > state.profile.maxWalkingDistance
-        if (exceedsMax) {
-            explanationParts.add("⚠️ Notice: Route distance exceeds preferred limit of ${String.format(java.util.Locale.US, "%.1f", state.profile.maxWalkingDistance)} m.")
-        }
-
-        val explanation = explanationParts.joinToString(" ")
-
+        val distance = edges.sumOf { it.length }
+        val extra = if (state.profile.mobility != Mobility.STANDARD) {
+            val standard = exclusions(state, Profile(Mobility.STANDARD))
+            search(allowed(state, standard), start, destination).path(start, destination)
+                ?.let { (distance - it.sumOf(Edge::length)).coerceAtLeast(0.0) }
+        } else null
+        val max = state.profile.maxWalkingDistance
         return RouteResult.Found(
             nodes = listOf(nodes.getValue(start)) + edges.map { nodes.getValue(it.to) },
             edges = edges,
-            distance = totalDistance,
-            score = score,
+            distance = distance,
+            score = edges.sumOf(::cost),
             revision = state.revision,
             mapVersion = state.map.version,
-            explanation = explanation,
-            exceedsMaxWalkingDistance = exceedsMax
+            extraDistanceVsStandard = extra,
+            exceedsMaxWalkingDistance = max != null && distance > max
         )
     }
 
-    /**
-     * Finds the nearest accessible facility (e.g. WASHROOM, ELEVATOR, EXIT) from the current node.
-     */
-    fun findNearestFacility(state: AppSnapshot, facilityCategory: String): Pair<Node, RouteResult.Found>? {
-        val candidateNodes = state.map.nodes.filter { n ->
-            when (facilityCategory.uppercase()) {
-                "WASHROOM" -> n.id.contains("wash", true) || n.name.contains("washroom", true) || n.name.contains("toilet", true)
-                "ELEVATOR" -> state.map.edges.any { it.type == Segment.ELEVATOR && (it.from == n.id || it.to == n.id) }
-                "EXIT" -> n.id.equals("gate", true) || n.name.contains("gate", true) || n.name.contains("exit", true) || n.type == "EXIT"
-                else -> false
-            }
-        }
-        if (candidateNodes.isEmpty()) return null
-
-        var bestNode: Node? = null
-        var bestRoute: RouteResult.Found? = null
-
-        for (candidate in candidateNodes) {
-            val result = calculate(state, start = state.current, destination = candidate.id)
-            if (result is RouteResult.Found) {
-                if (bestRoute == null || result.distance < bestRoute.distance) {
-                    bestNode = candidate
-                    bestRoute = result
-                }
-            }
-        }
-
-        return if (bestNode != null && bestRoute != null) Pair(bestNode, bestRoute) else null
+    private fun explainNoRoute(state: AppSnapshot, excluded: Map<String, ExclusionReason>, start: String, destination: String): NoRouteCause {
+        // Ignore temporary closures: does the profile allow any route at all?
+        val profileOnly = allowed(state, excluded) { !it.isClosure }
+        if (search(profileOnly, start, destination).path(start, destination) != null) return NoRouteCause.CLOSED_NOW
+        val anything = search(state.map.edges, start, destination).path(start, destination)
+        return if (anything == null) NoRouteCause.NOT_CONNECTED else NoRouteCause.PROFILE_TOO_STRICT
     }
-}
 
-object ReportRules {
-    fun review(report: BarrierReport, status: ReportStatus, reason: String, now: Long): BarrierReport {
-        require(reason.trim().length in 5..1000) { "Decision reason must contain 5–1000 characters." }
-        val allowed = when(report.status) {
-            ReportStatus.PENDING -> setOf(ReportStatus.VERIFIED, ReportStatus.REJECTED)
-            ReportStatus.VERIFIED -> setOf(ReportStatus.RESOLVED)
-            else -> emptySet()
-        }
-        require(status in allowed) { "Invalid report transition. Reload the latest report." }
-        return report.copy(status = status, reason = reason.trim(), reviewedAt = now)
+    fun matches(state: AppSnapshot, node: Node, kind: NearbyKind): Boolean = when (kind) {
+        NearbyKind.WASHROOM -> node.type.equals("WASHROOM", true) || node.name.contains("washroom", true) || node.name.contains("toilet", true)
+        NearbyKind.LIFT -> node.type.equals("ELEVATOR", true) || state.map.edges.any { it.type == Segment.ELEVATOR && (it.from == node.id || it.to == node.id) }
+        NearbyKind.EXIT -> node.type.equals("ENTRANCE", true) || node.type.equals("EXIT", true) || node.name.contains("exit", true) || node.name.contains("gate", true)
+    }
+
+    /** Closest place of [kind] that can be reached from the current position with the current profile and closures. */
+    fun nearest(state: AppSnapshot, kind: NearbyKind): Node? {
+        if (!state.profile.isValid || state.node(state.current) == null) return null
+        val excluded = exclusions(state)
+        // A lift only counts if at least one of its lift segments is usable right now.
+        val workingLiftNodes = state.map.edges.filter { it.type == Segment.ELEVATOR && it.id !in excluded }.flatMap { listOf(it.from, it.to) }.toSet()
+        val candidates = state.map.nodes
+            .filter { matches(state, it, kind) && (kind != NearbyKind.LIFT || it.id in workingLiftNodes) }
+            .associateBy { it.id }
+        if (candidates.isEmpty()) return null
+        val tree = search(allowed(state, excluded), state.current, null)
+        return candidates.keys.filter { it in tree.score }
+            .minWithOrNull(compareBy<String> { tree.score.getValue(it) }.thenBy { it })
+            ?.let(candidates::getValue)
     }
 }
