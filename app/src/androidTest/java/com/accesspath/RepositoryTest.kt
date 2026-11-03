@@ -91,7 +91,7 @@ class RepositoryTest {
     }
 
     @Test
-    fun persistentStateSurvivesDatabaseReopen() = runBlocking {
+    fun persistentStateSurvivesDatabaseReopen(): Unit = runBlocking {
         val name = "persistence-test.db"
         context.deleteDatabase(name)
         var disk = Room.databaseBuilder(context, AccessDatabase::class.java, name)

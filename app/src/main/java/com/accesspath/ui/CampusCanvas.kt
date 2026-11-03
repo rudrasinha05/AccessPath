@@ -55,7 +55,8 @@ fun CampusCanvas(
     onFreehandDrawingFinished: () -> Unit = {},
     is3DMode: Boolean = false,
     bearing: Float = 0f,
-    onBearingChange: (Float) -> Unit = {}
+    onBearingChange: (Float) -> Unit = {},
+    onUnmappedCorridorTapped: () -> Unit = {}
 ) {
     var zoom by remember(s.selectedFloor) { mutableFloatStateOf(1.25f) }
     var pan by remember(s.selectedFloor) { mutableStateOf(Offset.Zero) }
@@ -211,7 +212,25 @@ fun CampusCanvas(
                                 val ry = scaledX * Math.sin(rad) + scaledY * Math.cos(rad) + center.y + pan.y
                                 (tapOffset - Offset(rx.toFloat(), ry.toFloat())).getDistance() < 90f
                             }
-                            onNodeSelected(clicked)
+                            if (clicked != null) {
+                                onNodeSelected(clicked)
+                            } else if (s.selectedFloor == "a0" || s.selectedFloor == "a1") {
+                                val unmappedCenter = Offset(35f + 85f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
+                                val dx = unmappedCenter.x - center.x
+                                val dy = unmappedCenter.y - center.y
+                                val scaledX = dx * zoom
+                                val scaledY = dy * zoom
+                                val rad = Math.toRadians(bearing.toDouble())
+                                val rx = scaledX * Math.cos(rad) - scaledY * Math.sin(rad) + center.x + pan.x
+                                val ry = scaledX * Math.sin(rad) + scaledY * Math.cos(rad) + center.y + pan.y
+                                if ((tapOffset - Offset(rx.toFloat(), ry.toFloat())).getDistance() < 120f) {
+                                    onUnmappedCorridorTapped()
+                                } else {
+                                    onNodeSelected(null)
+                                }
+                            } else {
+                                onNodeSelected(null)
+                            }
                         }
                     }
                 }
@@ -381,6 +400,61 @@ fun CampusCanvas(
                             pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f))
                         )
                     }
+                }
+
+                // --- 4. Hatched Unmapped Corridor on Indoor Floors (e.g. a0, a1) ---
+                if (s.selectedFloor == "a0" || s.selectedFloor == "a1") {
+                    val unmappedStart = Offset(35f + 65f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
+                    val unmappedEnd = Offset(35f + 105f / maxX * (size.width - 70f), 45f + 40f / maxY * (size.height - 85f))
+                    val corridorThickness = 32f
+
+                    val left = unmappedStart.x.coerceAtMost(unmappedEnd.x)
+                    val right = unmappedStart.x.coerceAtLeast(unmappedEnd.x)
+                    val top = unmappedStart.y - corridorThickness / 2
+                    val bottom = unmappedStart.y + corridorThickness / 2
+
+                    drawRect(
+                        color = Color(0xFFF1F5F9).copy(alpha = 0.9f),
+                        topLeft = Offset(left, top),
+                        size = Size(right - left, corridorThickness)
+                    )
+
+                    val hatchColor = Color(0xFF94A3B8)
+                    val hatchSpacing = 16f
+                    var currX = left - corridorThickness
+                    while (currX < right + corridorThickness) {
+                        val p1 = Offset(currX, bottom)
+                        val p2 = Offset(currX + corridorThickness, top)
+                        drawLine(
+                            color = hatchColor.copy(alpha = 0.65f),
+                            start = Offset(p1.x.coerceIn(left, right), p1.y),
+                            end = Offset(p2.x.coerceIn(left, right), p2.y),
+                            strokeWidth = 2.5f
+                        )
+                        currX += hatchSpacing
+                    }
+
+                    drawRect(
+                        color = Color(0xFF64748B),
+                        topLeft = Offset(left, top),
+                        size = Size(right - left, corridorThickness),
+                        style = Stroke(width = 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)))
+                    )
+
+                    val centerPill = Offset((left + right) / 2, (top + bottom) / 2)
+                    drawRoundRect(
+                        color = Color(0xFF334155).copy(alpha = 0.92f),
+                        topLeft = Offset(centerPill.x - 70f, centerPill.y - 14f),
+                        size = Size(140f, 28f),
+                        cornerRadius = CornerRadius(14f, 14f)
+                    )
+                    val hatchTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = android.graphics.Color.WHITE
+                        textSize = 19f
+                        typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+                        textAlign = Paint.Align.CENTER
+                    }
+                    drawContext.canvas.nativeCanvas.drawText("Not Mapped Yet", centerPill.x, centerPill.y + 7f, hatchTextPaint)
                 }
 
                 // --- 4. Corridors & Road Networks (Edges) ---

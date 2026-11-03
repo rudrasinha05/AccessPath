@@ -250,7 +250,8 @@ fun CloudSyncCard(vm: AccessViewModel, s: AppSnapshot, lang: String, busy: Boole
                             exportedAt = System.currentTimeMillis(),
                             publisher = reviewerAccount.displayName
                         )
-                        vm.message("Published map topology v${payload.mapVersion} to cloud successfully.")
+                        // Staged in local queue - strictly NO false claim of live cloud sharing!
+                        vm.message("[Stage 2: Upload Pending] Staged topology v${payload.mapVersion} in local queue. Awaiting verified server acknowledgement.")
                     },
                     enabled = !busy,
                     modifier = Modifier.weight(1f)

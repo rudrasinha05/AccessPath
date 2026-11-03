@@ -130,7 +130,8 @@ class RoutingTest {
         val (nodes, edges) = session.convertToNavigationElements()
         assertTrue(nodes.size >= 2)
         assertTrue(edges.isNotEmpty())
-        assertTrue(edges.all { it.stepFree == true && it.wheelchairSuitable == true })
+        // Unverified survey-trail conversion does not make false accessibility claims
+        assertTrue(edges.all { it.stepFree == null && it.wheelchairSuitable == null && it.width == null })
     }
 
     @Test fun cloudSafetyFirstConflictResolution() {

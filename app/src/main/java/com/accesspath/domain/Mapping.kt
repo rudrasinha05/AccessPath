@@ -147,10 +147,10 @@ data class MappingSession(
                 to = to.id,
                 type = Segment.CORRIDOR,
                 length = length,
-                width = 1.5,
-                slope = 0.0,
-                stepFree = true,
-                wheelchairSuitable = true
+                width = null, // Unverified sensor estimation
+                slope = null,
+                stepFree = null,
+                wheelchairSuitable = null
             )
             val reverse = forward.copy(id = "${forward.id}_r", from = to.id, to = from.id)
             edges.add(forward)
@@ -181,10 +181,10 @@ data class MappingSession(
             to = startSurvey.id,
             type = Segment.CORRIDOR,
             length = length,
-            width = 1.8,
-            slope = 0.0,
-            stepFree = true,
-            wheelchairSuitable = true
+            width = null, // Unverified sensor estimation
+            slope = null,
+            stepFree = null,
+            wheelchairSuitable = null
         )
         val reverse = forward.copy(
             id = "stitch_${startSurvey.id}_${closest.id}",
