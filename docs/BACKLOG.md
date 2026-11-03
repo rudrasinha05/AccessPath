@@ -1,40 +1,14 @@
-# AccessPath Post-R1 Implementation Record
+# Backlog
 
-All phase 1, phase 2, and compulsory/additional hackathon objectives are fully implemented and verified with automated test suites.
+Ordered roughly by value for a real deployment.
 
-1. [COMPLETED] Supported phone/camera/depth setup & IMU sensor mapping feasibility trial.
-   - SensorManager integration using Step Detector, Rotation Vector, and fallback dead-reckoning engine.
-2. [COMPLETED] Mapping session start/pause/resume/stop with explicit consent and tracking confidence.
-   - Formal consent dialog, live tracking confidence score, and session lifecycle controls.
-3. [COMPLETED] Record an estimated movement trail, distinct from an actual wall/corridor map.
-   - Breadcrumb trail tracking and active step visualization rendered on dynamic canvas.
-4. [COMPLETED] Build incremental 2D occupancy maps on supported hardware; show unknown areas and tracking loss.
-   - 2D Occupancy matrix (Free corridors, Obstacles, Unknown zones) and tracking loss detection.
-5. [COMPLETED] Add landmarks, floor transitions, map editing, relocalization and draft review.
-   - Map Editor: Add Landmark, Edit Landmark, Delete Landmark (with cascade corridor pruning).
-   - Turn-by-turn guided stepper mode with next/previous actions and automatic floor transitions.
-   - SAF JSON Map Export: Save surveyed/modified campus topologies directly to disk.
-6. [COMPLETED] Convert reviewed layouts into navigation graphs with verified width/slope/step-free metadata.
-   - Add Connector / Corridor tool: Supports 2-way generation, width constraint, slope calculation, step-free flag, and wheelchair suitability validation.
-   - One-tap conversion from recorded IMU survey trail into verified graph nodes & edges.
-7. [COMPLETED] Add QR start points, voice directions, favourites and Hindi UI.
-   - Hindi UI: Full in-app language switcher between English and Hindi (`AppStrings`).
-   - Voice directions: `VoiceNavigator` TextToSpeech integration for step-by-step turn guidance in English and Hindi.
-   - Favourites: Quick-selection chips for popular campus destinations (Gate, Classroom, Washroom, Garden, Lobby).
-   - QR start points: Simulated campus QR placard scanner + custom QR URL decoder (`accesspath://node/{id}`).
-8. [COMPLETED] Authenticated reviewer accounts, backend synchronization, conflict resolution and shared map publishing.
-   - Authenticated reviewer badges (`ReviewerAccount`).
-   - Cloud map publishing protocol (`SyncPayload`).
-   - Multi-reviewer Safety-First conflict resolution engine (`ConflictResolver`).
-9. [COMPLETED] Nearest Accessible Facility Finder (1-Tap).
-   - One-tap quick routing to nearest accessible washroom, nearest elevator, and accessible exits.
-10. [COMPLETED] Route Explanation & Comparative Delta.
-   - Human-readable route explanation specifying step-free passages, lifts/ramps used, and distance delta vs standard routes.
-11. [COMPLETED] Max Walking Distance Constraint.
-   - Profile preference with real-time distance warning alerts when routes exceed user endurance limits.
-12. [COMPLETED] Assistance SOS Request Dispatch.
-   - Emergency assistance dispatcher with urgency levels (Standard, High, Critical) and reviewer acknowledgment panel.
-13. [COMPLETED] Media-Enriched Barrier Reporting & Temporary Expiry Tracking.
-   - Photo file references, voice memo indicator, and auto-expiry resolution for temporary obstacles.
+1. **Surveyed campus data.** Survey the real campus (widths, slopes, step-free status, lift suitability) and import it. The sample map must not be presented as a real campus.
+2. **Shared backend.** A server so reports, lift status and closures are shared across phones, with per-entity storage and conflict handling.
+3. **Real reviewer accounts.** Sign-in for estates/facility staff with roles, replacing the local reviewer switch.
+4. **Toolchain upgrade for Play Store.** Move to a newer Android Gradle Plugin, Kotlin 2.x with the Compose compiler plugin, and the target SDK that Google Play requires at publication time. Test on the matrix in CI before release.
+5. **Device accessibility pass.** TalkBack walk-through of every workflow, 200 % font size, switch access, colour contrast check on real screens.
+6. **Location QR placards.** Generate printable QR sheets from the map (`accesspath://node/<id>`).
+7. **In-app map editing for surveyors**, if JSON import proves too hard for the estates team.
+8. **Indoor positioning** (e.g. BLE beacons) as an optional aid, always with manual confirmation as a fallback.
 
-Excluded: wheelchair motor control, claimed coverage of unseen spaces, automatic safety certification and unverified AI-generated accessibility labels.
+Out of scope: wheelchair motor control, automatic accessibility certification, AI-generated accessibility labels for unseen spaces.

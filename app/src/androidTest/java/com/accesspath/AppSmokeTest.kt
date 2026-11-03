@@ -22,6 +22,7 @@ class AppSmokeTest {
     fun opensWithoutPermissionPromptsAndShowsDirections() {
         waitForMap()
         compose.onNodeWithText(s(R.string.where_to)).assertIsDisplayed()
+        compose.onNodeWithTag("navigate").performScrollToNode(hasText(s(R.string.map_title)))
         compose.onNodeWithText(s(R.string.map_title)).assertExists()
         compose.onNodeWithTag("navigate").performScrollToNode(hasText(s(R.string.steps_title)))
         compose.onNodeWithText(s(R.string.steps_title)).assertExists()

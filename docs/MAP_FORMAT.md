@@ -1,24 +1,27 @@
-# Campus map contract
+# Campus map format
 
-Use `app/src/main/assets/maps/demo-campus.json` as a complete example. Import JSON through Settings. Supported schema version is `1`; unknown fields and invalid values are rejected. Maximum file size: 10 MB; maximum 10,000 nodes and 50,000 directed edges.
+Use `app/src/main/assets/maps/demo-campus.json` as a complete example. Import a map in **Settings → Map data → Import map**. Schema version `1`. Maximum file size 10 MB; at most 10,000 places and 50,000 directed paths. Fields the app does not know are ignored; invalid values are rejected and the stored map stays unchanged.
 
 | Field | Contract |
 |---|---|
-| `version`, `name`, `provenance` | Required nonempty strings; say whether illustrative or surveyed |
+| `version`, `name`, `provenance` | Required non-empty strings. Say whether the data is illustrative or surveyed. The value `Illustrative demo` marks the resettable sample map. |
+| `verifiedAt` | Optional UTC epoch milliseconds of the field survey |
 | `buildings` | Unique `id`, `name` |
-| `floors` | Unique `id`, valid `buildingId`, `label`, integer `ordinal` |
-| `nodes` | Unique `id`, valid `floorId`, `name`, `x`, `y`, optional `type` |
-| `edges` | Unique `id`, existing distinct `from`/`to`, `type`, nonnegative `length` |
+| `floors` | Unique `id`, existing `buildingId`, `label` (shown to people, e.g. "Second floor"), integer `ordinal` |
+| `nodes` (places) | Unique `id`, existing `floorId`, `name`, `x`, `y`, optional `type` |
+| `edges` (paths) | Unique `id`, existing distinct `from`/`to`, `type`, non-negative `length` |
 | `facilities` | Unique `id`, `name`, `availability`, `reason`, `updatedAt`, `source` |
 
-Coordinates and lengths are metres; coordinates must be finite and within 0–10,000 in a floor-local coordinate frame. An edge is **directed**; add a separate reverse edge for bidirectional travel. Allowed types: CORRIDOR, OUTDOOR, DOOR, RAMP, STAIRS, ELEVATOR. Edges crossing floors within one building must be stairs, ramps or elevators. Cross-building links must be OUTDOOR with matching floor ordinals.
+Coordinates and lengths are metres in a floor-local frame (0–10,000). Paths are **directed**: add a reverse path for two-way travel. Path types: `CORRIDOR`, `OUTDOOR`, `DOOR`, `RAMP`, `STAIRS`, `ELEVATOR`. Paths between floors of one building must be stairs, ramps or lifts. Paths between buildings must be `OUTDOOR` and join floors with the same ordinal.
 
-Wheelchair metadata: `width` in metres, `slope` in percent grade, `stepFree` boolean and `wheelchairSuitable` boolean on elevators. Use null/omit for unknown values, not zero. Wheelchair routes require known width and step-free status; ramp slope and lift suitability are checked on their respective segment types. Elevator edges must reference a valid `facilityId`.
+Place `type` values with meaning: `ENTRANCE`/`EXIT` (nearest exit), `WASHROOM` (nearest washroom), `ELEVATOR` (lift landing), `LANDMARK` (corridor point; label shown only when zoomed in), `ROOM`.
 
-Status values: AVAILABLE, UNAVAILABLE, UNKNOWN. Timestamps are UTC epoch milliseconds. `verifiedAt` is optional. `restricted: true` excludes an edge. Optional `multiplier` and `penalty` override the nonnegative score coefficients; the app displays score separately from distance. Elevator connector length is explicit and is not inferred from 2D coordinates.
+**Wheelchair metadata:** `width` in metres, `slope` in percent grade, `stepFree` boolean, `wheelchairSuitable` boolean on lifts. Leave unknown values out (or `null`); never use 0 to mean unknown. Wheelchair routes need known width and step-free status; slope is checked on ramps and suitability on lifts. Lift paths must reference a `facilityId`.
 
-For a new building, supply its own floors and nodes, then inter-building edges where appropriate. Disconnected graphs produce a warning and are supported. Existing report edge IDs must remain present when importing a replacement. For now, fully different maps should be evaluated in a fresh app data installation; no silent report deletion or remapping occurs.
+`availability`: `AVAILABLE`, `UNAVAILABLE`, `UNKNOWN`. `restricted: true` excludes a path for everyone. Optional `multiplier` and `penalty` override the routing cost; only distance is shown to people.
 
-## Known demo IDs
+A disconnected map is accepted with a warning. Active reports must point at path IDs that still exist in the new map; resolve them first if paths were renamed.
 
-`gate`, `classroom`, `library`, `washroom`, `unknown`, `isolated`: useful destination nodes. `liftA`/`liftB`: facilities. `hall2`/`hall2_r`: direct second-floor corridor. `south2`: alternative second-floor corridor. `liftA_0` and `liftA_1`: Lift A floor connectors.
+## Sample map IDs
+
+Places: `gate`, `classroom`, `library`, `washroom`, `unknown` (missing wheelchair data), `isolated` (not connected). Facilities: `liftA`, `liftB`. Paths: `hall2`/`hall2_r` (direct second-floor corridor), `south2` (alternative), `liftA_0`, `liftA_1` (Lift A).

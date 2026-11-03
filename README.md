@@ -1,77 +1,77 @@
-# AccessPath Android
+# AccessPath
 
-Accessible campus navigation with profile-aware routes, facility failures, barrier reports and an in-app review workflow. This is the R1 faculty hackathon implementation; automatic camera/sensor mapping belongs to R2.
+Offline, step-free campus navigation for Android. AccessPath finds routes that respect a person's mobility needs, explains why when no route exists, and lets people report barriers that close a path until a reviewer checks it.
 
-## Open in Android Studio
+No account, no internet and no location permission are needed. Everything stays on the phone.
 
-1. Clone `https://github.com/rudrasinha05/AccessPath.git` or pull the latest `main`.
-2. Open the **repository root**, not the `app` folder.
-3. Use Android Studio Ladybug 2024.2.1 or newer with support for AGP 8.7.3. Set **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** to **JDK 17**.
-4. Install **Android SDK Platform 35**, **Build Tools 35.0.0**, and **Platform Tools** in SDK Manager. Let Gradle sync finish.
-5. Select the `app` run configuration and an Android 10/API 29 or newer emulator/phone, then Run.
+## What it does
 
-The app needs **no API key, cloud account, Google Maps service or runtime permission**. Internet is needed to download build dependencies; the installed app works offline. `local.properties` is machine-specific and Android Studio creates it locally.
+| Tab | What you can do |
+|---|---|
+| **Navigate** | Choose where you are and where you want to go. Pick a mobility setting (walking, avoid stairs, wheelchair with minimum width and maximum ramp slope, optional maximum distance). See the route on a zoomable floor plan and as numbered text directions. Confirm each point as you reach it; the route recalculates from there. Jump to the nearest reachable washroom, working lift or exit. Have directions read aloud. |
+| **Reports** | Report a barrier on any path (blocked, lift not working, damaged ramp, too narrow, step, other). A new report closes that path in both directions for everyone, as a precaution, until a reviewer confirms or rejects it. Confirmed barriers stay closed until marked fixed. |
+| **Manage** | Reviewer mode: confirm, reject or resolve reports, set lift status (working / out of service / unknown) with a reason, temporarily close or reopen paths, and see the activity log. Demo controls for the sample campus: all lifts down, restore, reset. |
+| **Settings** | Language (phone default, English, हिन्दी). Map details, import and export of map JSON, location-link explanation, and the app's limits. |
 
-On Windows:
+**Location links:** every place has a link such as `accesspath://node/lobby0`. Print it as a QR code at that spot; scanning it with the phone camera opens AccessPath and confirms the person's position.
 
-```powershell
-git pull origin main
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
-```
+### Routing rules
 
-On macOS/Linux:
+- Only paths that match the mobility setting are used. AccessPath never relaxes the setting to show a fallback.
+- Unknown width, slope, step-free status or lift suitability counts as **not accessible** for wheelchair routes.
+- A lift with status *unknown* or *out of service* is not used by anyone.
+- Pending and confirmed reports close both directions of a path; a lift report closes that lift on every floor. Several closures on one path are independent: resolving one does not reopen the others.
+- Cost = length × multiplier (ramp 1.5, stairs 2, otherwise 1) + 20 for each lift ride. The cost picks the route; only real distance is shown to people.
+- When there is no route, the app says why: the places aren't connected in the map, something is closed right now (and what), or the mobility setting excludes every path.
+
+## Build and run
+
+Requirements: Android Studio Ladybug (2024.2.1) or newer, **JDK 17**, Android SDK Platform 35 and Build Tools 35.0.0. Open the **repository root** (not the `app` folder) and run the `app` configuration on Android 10 (API 29) or newer.
 
 ```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest lintDebug assembleDebug     # unit tests, lint, debug APK
+./gradlew connectedDebugAndroidTest                      # needs an emulator or phone
+./gradlew assembleRelease                                # minified release APK
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions also publishes the debug APK and verification reports as workflow artifacts. It is a demo/debug build, not a Play Store signed release.
+On Windows use `.\gradlew.bat` with the same tasks.
 
-## Demonstrate all six email requirements
+### Signed release
 
-1. **Graph and map:** Navigate shows a 31-node, 72-directed-edge campus with two buildings and three floors in the main building. Pan/zoom the map and select floors.
-2. **Weighted costs:** Routes use distance × segment multiplier plus a lift waiting penalty. Ramps cost 1.5×, stairs 2×, other segments 1×; a lift connector adds 20 equivalent metres. The score is **not an ETA**.
-3. **Accessibility:** Plan Main gate → Classroom 204 with Standard mobility, then Wheelchair. Standard uses the short stair route; Wheelchair excludes stairs and checks metadata. The default wheelchair route uses Lift A.
-4. **Rerouting:** Manage → enable Local demo reviewer → Update Lift A → Unavailable, give a reason. Navigate automatically changes to Lift B. Recalculation starts at the **last confirmed node**, not inferred GPS position.
-5. **Reports and verification:** Reports → Report a barrier → choose a segment → give a description. Pending reports conservatively restrict the segment in both directions. In reviewer mode, verify/reject the report and later resolve verified barriers. Every decision is audited. Resolving one report does not clear other restrictions.
-6. **Simulated failures:** Manage → Simulate all lifts unavailable → Navigate displays no accessible route. Restore lifts. Block a corridor to inspect an alternate path. Reset demo requires confirmation.
+The release build is minified with R8. It is signed only when these environment variables are set (never commit a keystore):
 
-Try Library, Accessible washroom, the disconnected Closed annex, and Unverified studio (unknown wheelchair metadata). Confirm intermediate locations using the route steps. Force-close/reopen: profiles, reports and status persist. Repeat in airplane mode.
+| Variable | Meaning |
+|---|---|
+| `ACCESSPATH_KEYSTORE` | Path to the `.jks` keystore |
+| `ACCESSPATH_KEYSTORE_PASSWORD` | Keystore password |
+| `ACCESSPATH_KEY_ALIAS` | Key alias |
+| `ACCESSPATH_KEY_PASSWORD` | Key password |
+| `ACCESSPATH_VERSION_CODE` | Optional; increase for every store upload |
 
-## Scope and truthful limitations
+Without them, Gradle produces `app-release-unsigned.apk`.
 
-- The bundled map is **illustrative**, not a surveyed GLBITM campus. Replace it with validated local data before presenting actual campus coverage.
-- Local role switching demonstrates verification; it is **not secure authentication**. There is no shared backend or cross-device synchronization.
-- No live indoor positioning, autonomous wheelchair control, camera capture or automatic SLAM mapping is claimed in R1.
-- Only known, profile-compatible segments are eligible. The app never relaxes wheelchair requirements to show stairs as a fallback.
-- Unknown areas/measurements are not certified accessible. User width/slope preferences and supplied map data need appropriate real-world verification.
-- Status is local and timestamped, not a live building-management feed.
+### Continuous integration
+
+GitHub Actions runs unit tests, lint, debug and release builds on every push, plus instrumentation tests on API 29 and API 35 emulators. APKs, the R8 mapping file and test reports are uploaded as workflow artifacts.
 
 ## Project layout
 
 | Path | Purpose |
 |---|---|
-| `app/src/main/java/com/accesspath/domain` | Pure Kotlin model, validation, Dijkstra, cost and report rules |
-| `app/src/main/java/com/accesspath/data` | Room persistence, atomic mutations, optimistic revision checks |
-| `app/src/main/java/com/accesspath/ui` | Compose map, route steps, reporting, review and settings |
-| `app/src/main/assets/maps/demo-campus.json` | Replaceable documented demo topology |
-| `app/src/test` | Routing, validation, state-rule and graph-performance unit tests |
-| `app/src/androidTest` | Room persistence/concurrency and Compose smoke tests |
-| `docs` | SRS, data contract, acceptance coverage and verification status |
+| `app/src/main/java/com/accesspath/domain` | Plain Kotlin: map model and validation, routing, route steps, report rules |
+| `app/src/main/java/com/accesspath/data` | Room storage: one versioned state row, transactional compare-and-set updates |
+| `app/src/main/java/com/accesspath/ui` | Jetpack Compose screens, floor plan, view model, text-to-speech |
+| `app/src/main/res/values*/strings.xml` | English and Hindi text |
+| `app/src/main/assets/maps/demo-campus.json` | Illustrative sample campus |
+| `app/src/test`, `app/src/androidTest` | Unit tests; storage and UI tests on a device |
+| `docs/` | Map format, implementation notes, verification record, backlog |
 
-## Build versions
+## Honest limits
 
-AGP **8.7.3**, Gradle **8.9**, JDK **17**, Kotlin **1.9.24**, Compose compiler **1.5.14**, Compose BOM **2024.10.01**, Room **2.6.1**. Minimum SDK **29**, compile/target SDK **35**. These are pinned for this reproducible demo, not a statement of latest versions or Play publication compliance.
+- The bundled campus is **illustrative**, not a survey of a real campus. Import surveyed data ([map format](docs/MAP_FORMAT.md)) before relying on it.
+- Reports and lift statuses live on one phone. There is no shared server, so two phones do not see each other's reports.
+- Reviewer mode is a local role, not a secure login.
+- Position is what the person confirms (by tapping or scanning a location link). There is no live indoor positioning.
+- Target SDK is 35. Google Play's yearly target-API requirement may need a newer SDK and toolchain before store publication; see [docs/BACKLOG.md](docs/BACKLOG.md).
 
-If sync fails, check the JDK and installed SDK before changing versions. Do not upgrade just AGP, Kotlin or the Compose compiler independently. The complete Gradle wrapper is committed. Proxy/network failures during dependency download require the local network/proxy configuration, not changes to app logic.
-
-## Test and review
-
-```bash
-./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
-./gradlew connectedDebugAndroidTest
-```
-
-The second command needs a running emulator or connected phone. CI targets API 29 and API 35. Consult [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for actual results and outstanding manual checks; test existence alone does not mean it has passed.
-
-The initial SRS is [`docs/AccessPath_Android_SRS_v1.docx`](docs/AccessPath_Android_SRS_v1.docx). Implementation details and any deliberate simplifications are recorded in [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md). Future work stays in [`docs/BACKLOG.md`](docs/BACKLOG.md).
+See [docs/VERIFICATION.md](docs/VERIFICATION.md) for what is tested automatically and what still needs checking on a real phone.

@@ -1,39 +1,34 @@
-# R1 & Post-R1 Verification Record
+# Verification record
 
-This record is updated with actual build/test outcomes before handover. Automated checks are executed; no unrun manual checks are treated as passed.
+Automated checks run in GitHub Actions on every push (`.github/workflows/android.yml`). A test that exists is not evidence on its own; check the latest workflow run for its result.
 
-## Coverage
+## Automated
 
-| Acceptance area | Automated evidence |
+| Area | Evidence |
 |---|---|
-| Graph validation and invalid import rollback | RoutingTest + RepositoryTest (PASSED) |
-| Standard, avoid-stairs and wheelchair routes | RoutingTest (PASSED) |
-| Weighted cost, contiguity and stable path results | RoutingTest (PASSED) |
-| Lift A failure, Lift B alternate, all lifts failed | RoutingTest (PASSED) |
-| Blocked corridor and alternative route | RoutingTest (PASSED) |
-| Pending/verified/rejected/resolved report behaviour | RoutingTest + RepositoryTest (PASSED) |
-| Multiple restrictions and reverse-direction closure | RoutingTest (PASSED) |
-| Persistence, duplicate submission, concurrent updates | RepositoryTest on Android |
-| UI route setup, report entry and help | AppSmokeTest on Android |
-| 1,000-node/5,000-edge warm routing latency | RoutingTest: warm p95 < 500 ms (PASSED) |
-| Dynamic Landmark & Connector routing | RoutingTest: dynamicLandmarkAndConnectorRouting (PASSED) |
-| Sensor Dead-Reckoning & 2D Occupancy Grid | RoutingTest: mappingSessionDeadReckoningAndOccupancy (PASSED) |
-| Cloud Multi-Reviewer Safety-First Conflict Sync | RoutingTest: cloudSafetyFirstConflictResolution (PASSED) |
-| Nearest Accessible Facility Finder | RoutingTest: findNearestFacilityReturnsClosestAccessibleLocation (PASSED) |
-| Route Explanation & Max Walking Distance Warning | RoutingTest: routeExplanationAndMaxWalkingDistance (PASSED) |
-| Temporary Barrier Expiry Tracking | RoutingTest: temporaryReportExpiryTracking (PASSED) |
-| Assistance SOS Request & Acknowledgment | RoutingTest: assistanceRequestLifecycle (PASSED) |
-| APK Compilation & Packaging | Gradle 8.11.1 assembleDebug: app-debug.apk (26.4 MB) (PASSED) |
-| Accessibility & Localization | Hindi UI, Voice Directions (TTS), QR Placards, Favourites (PASSED) |
-| Map Editor & Guided Navigation | Landmark Editor, 2-Way Corridor Editor, Guided Navigation Stepper & JSON Export (PASSED) |
-| Sensor Mapping & Cloud Sync | IMU Dead-Reckoning, 2D Occupancy Grid & Cloud Conflict Resolver (PASSED) |
+| Map validation, invalid map rejection | `RoutingTest` (unit) |
+| Walking / avoid-stairs / wheelchair routes, width, slope, unknown metadata | `RoutingTest` |
+| Extra distance vs. stairs route, maximum-distance warning | `RoutingTest` |
+| Lift A failure → Lift B, all lifts down → "closed right now" | `RoutingTest` |
+| Closed corridor → alternative, reports close both directions and whole lift | `RoutingTest` |
+| Pending / confirmed / rejected / fixed report rules and transitions | `RoutingTest` |
+| "Not connected" vs "closed now" vs "settings too strict" explanations | `RoutingTest` |
+| Nearest washroom / working lift / exit | `RoutingTest` |
+| Directions merge lift and stair segments | `RoutingTest` |
+| Saved data from the previous app version still loads | `RoutingTest` |
+| 1,000 places / 5,000 paths warm routing p95 < 500 ms | `RoutingTest` |
+| Atomic review + audit, idempotent submit, stale update refused, parallel writes | `RepositoryTest` (device) |
+| Confirm position, close/reopen path, import/reset rules, unreadable data recovery, persistence across reopen | `RepositoryTest` (device) |
+| App opens with no permission prompt; settings dialog; report form; Manage and Settings tabs | `AppSmokeTest` (device, API 29 and 35) |
+| Lint (incl. missing translations), debug build, R8 release build | CI `build` job |
 
-## Manual acceptance remaining
+## Still to check by hand on a real phone
 
-- Physical phone installation and airplane-mode demo.
-- TalkBack and 200 percent font scaling across complete workflows.
-- Actual Android cold-launch and end-to-end reroute timings on a named reference device.
-- Rotation/process recreation under real device conditions.
-- Local campus survey and validation if presenting the data as a real campus.
+- Install the release APK; use the app in airplane mode.
+- TalkBack through every tab, 200 % font size, dark mode.
+- Hindi: switch language in Settings; check text fits on small screens.
+- Read aloud with English and Hindi voices installed and without them.
+- Scan a QR code of `accesspath://node/lobby0` with the camera app.
+- Import a surveyed map and walk a route on the real campus.
 
-SRS completion requires reporting these evidence gaps. The first implementation is not automatically a production release or a certified accessible campus service.
+The sample campus is illustrative. Passing these checks does not certify any real building as accessible.

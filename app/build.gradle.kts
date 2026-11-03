@@ -20,6 +20,8 @@ android {
         versionCode = (System.getenv("ACCESSPATH_VERSION_CODE") ?: "2").toInt()
         versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Lets device tests save screenshots that Gradle pulls into build/outputs.
+        testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     }
 
     signingConfigs {
@@ -86,4 +88,6 @@ dependencies {
     androidTestImplementation("androidx.test:rules:1.6.1")
     androidTestImplementation("androidx.test:core:1.6.1")
     androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.test.services:storage:1.5.0")
+    androidTestUtil("androidx.test.services:test-services:1.5.0")
 }

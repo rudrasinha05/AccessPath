@@ -138,7 +138,7 @@ private fun SegmentRow(state: AppSnapshot, edge: Edge, onPick: (Edge) -> Unit) {
     val floor = state.node(edge.from)?.let { state.floor(it.floorId)?.label }
     ListItem(
         headlineContent = { Text(state.segmentLabel(context, edge.id)) },
-        supportingContent = floor?.let { { Text(it) } },
+        supportingContent = if (floor != null) { { Text(floor) } } else null,
         modifier = Modifier.clickable(role = Role.Button) { onPick(edge) }
     )
 }
