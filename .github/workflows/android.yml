@@ -63,9 +63,10 @@ jobs:
       - name: Print screenshots to the log (for review tools that cannot download artifacts)
         if: always() && matrix.api-level == 35
         run: |
-          for f in $(find app/build/outputs/connected_android_test_additional_output -name '*.png' | sort); do
-            echo "SCREENSHOT_BEGIN $(basename "$f")"; base64 -w0 "$f"; echo; echo "SCREENSHOT_END"
-          done
+          find app/build/outputs/connected_android_test_additional_output -name '*.png' -print0 | sort -z |
+            while IFS= read -r -d '' f; do
+              echo "SCREENSHOT_BEGIN $(basename "$f")"; base64 -w0 "$f"; echo; echo "SCREENSHOT_END"
+            done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
