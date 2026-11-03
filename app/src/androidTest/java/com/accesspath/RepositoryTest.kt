@@ -110,5 +110,6 @@ class RepositoryTest {
         assertEquals("saved", r.snapshot().reports.single().id)
         disk.close()
         context.deleteDatabase(name)
+        Unit // Keep the @Test method signature void for JUnit4.
     }
 }
