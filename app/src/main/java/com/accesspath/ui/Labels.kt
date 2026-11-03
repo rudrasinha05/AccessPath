@@ -10,9 +10,9 @@ import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
 
-/** Formats metres with at most one decimal, in the current locale. */
+/** Formats a number with at most two decimals (0.85 stays 0.85), in the current locale. */
 fun formatNumber(value: Double): String =
-    NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1; minimumFractionDigits = 0 }.format(value)
+    NumberFormat.getNumberInstance().apply { maximumFractionDigits = 2; minimumFractionDigits = 0 }.format(value)
 
 fun formatTime(value: Long): String = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(value))
 

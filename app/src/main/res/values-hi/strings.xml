@@ -13,7 +13,6 @@
     <string name="change">बदलें</string>
     <string name="update">अपडेट करें</string>
     <string name="metres">%1$s मी</string>
-    <string name="never">कभी नहीं</string>
     <string name="value_range_error">%1$s से %2$s के बीच कोई संख्या डालें</string>
 
     <string name="mobility_standard">पैदल</string>
@@ -145,6 +144,7 @@
     <string name="reviewer_required">बदलाव करने के लिए समीक्षक मोड चालू करें।</string>
     <string name="facilities_title">लिफ्ट और सुविधाएँ</string>
     <string name="facility_updated">अपडेट: %1$s</string>
+    <string name="facility_never_updated">स्थिति नक्शे के डेटा से</string>
     <string name="facility_dialog_title">%1$s अपडेट करें</string>
     <string name="availability_available">चालू</string>
     <string name="availability_unavailable">बंद</string>

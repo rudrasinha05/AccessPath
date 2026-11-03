@@ -16,7 +16,6 @@
     <string name="change">Change</string>
     <string name="update">Update</string>
     <string name="metres">%1$s m</string>
-    <string name="never">never</string>
     <string name="value_range_error">Enter a number from %1$s to %2$s</string>
 
     <!-- Mobility -->
@@ -152,6 +151,7 @@
     <string name="reviewer_required">Turn on reviewer mode to make changes.</string>
     <string name="facilities_title">Lifts and facilities</string>
     <string name="facility_updated">Updated %1$s</string>
+    <string name="facility_never_updated">Status from map data</string>
     <string name="facility_dialog_title">Update %1$s</string>
     <string name="availability_available">Working</string>
     <string name="availability_unavailable">Out of service</string>

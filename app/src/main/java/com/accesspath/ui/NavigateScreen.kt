@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,7 +58,7 @@ fun NavigateScreen(ui: ScreenState, vm: AccessViewModel) {
                         EndPoint(stringResource(R.string.from_label), current?.let { state.placeLabel(context, it) } ?: "—") { picking = "from" }
                         EndPoint(stringResource(R.string.to_label), destination?.let { state.placeLabel(context, it) } ?: "—") { picking = "to" }
                     }
-                    IconButton(onClick = vm::swapEnds) { Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.swap)) }
+                    IconButton(onClick = vm::swapEnds) { Icon(SwapVertical, contentDescription = stringResource(R.string.swap)) }
                 }
                 HorizontalDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {

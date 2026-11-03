@@ -237,3 +237,12 @@ private fun formatPlain(v: Double) = if (v % 1.0 == 0.0) v.toLong().toString() e
 /** Lets a row of chips scroll sideways instead of being cut off on narrow screens or with large text. */
 @Composable
 fun Modifier.horizontalScrollable(): Modifier = this.horizontalScroll(rememberScrollState())
+
+/** Material "swap_vert" icon (not in the core icon set). */
+val SwapVertical: androidx.compose.ui.graphics.vector.ImageVector by lazy {
+    androidx.compose.ui.graphics.vector.ImageVector.Builder("SwapVertical", 24.dp, 24.dp, 24f, 24f).addPath(
+        pathData = androidx.compose.ui.graphics.vector.PathParser()
+            .parsePathString("M16,17.01V10h-2v7.01h-3L15,21l4,-3.99h-3zM9,3L5,6.99h3V14h2V6.99h3L9,3z").toNodes(),
+        fill = androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.Black)
+    ).build()
+}

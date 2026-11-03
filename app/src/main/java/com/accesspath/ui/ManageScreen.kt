@@ -62,8 +62,8 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text(f.name, fontWeight = FontWeight.SemiBold)
                             StatusPill(stringResource(f.availability.label()), emphasis = f.availability != Availability.AVAILABLE)
-                            val updated = if (f.updatedAt > 0) formatTime(f.updatedAt) else stringResource(R.string.never)
-                            InfoText(stringResource(R.string.facility_updated, updated) + if (f.reason.isNotBlank()) " · ${f.reason}" else "")
+                            val updated = if (f.updatedAt > 0) stringResource(R.string.facility_updated, formatTime(f.updatedAt)) else stringResource(R.string.facility_never_updated)
+                            InfoText(updated + if (f.reason.isNotBlank()) " · ${f.reason}" else "")
                         }
                         TextButton(enabled = canEdit, onClick = { facilityId = f.id }) { Text(stringResource(R.string.update)) }
                     }
