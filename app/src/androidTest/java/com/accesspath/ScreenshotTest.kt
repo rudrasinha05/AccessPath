@@ -20,7 +20,7 @@ class ScreenshotTest {
 
     private fun save(name: String) {
         compose.waitForIdle()
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        val bitmap = compose.onAllNodes(isRoot()).onLast().captureToImage().asAndroidBitmap()
         TestStorage().openOutputFile("screenshots/$name.png").use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
