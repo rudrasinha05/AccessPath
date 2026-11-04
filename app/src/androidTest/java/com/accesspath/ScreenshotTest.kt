@@ -58,7 +58,7 @@ class ScreenshotTest {
         save("5-contribute")
         compose.onNodeWithText(s(R.string.tab_you)).performClick()
         save("6-you")
-        compose.onNodeWithText(s(R.string.campus_management)).performClick()
+        compose.onNodeWithText(s(R.string.campus_management)).performScrollTo().performClick()
         save("7-manage")
     }
 

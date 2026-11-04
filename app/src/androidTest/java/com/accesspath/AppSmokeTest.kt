@@ -67,7 +67,7 @@ class AppSmokeTest {
     fun youTabOpensCampusManagement() {
         waitForMap()
         compose.onNodeWithText(s(R.string.tab_you)).performClick()
-        compose.onNodeWithText(s(R.string.campus_management)).performClick()
+        compose.onNodeWithText(s(R.string.campus_management)).performScrollTo().performClick()
         compose.onNodeWithText(s(R.string.reviewer_mode)).assertIsDisplayed()
         compose.onNodeWithText("Lift A").assertExists()
     }

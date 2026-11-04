@@ -109,6 +109,17 @@ fun UiMessage.text(context: Context): String = when (this) {
         ErrorCode.MAP_TOO_LARGE -> context.getString(R.string.error_map_too_large)
         ErrorCode.MAP_INVALID -> context.getString(R.string.error_map_invalid, detail ?: "")
         ErrorCode.IMPORT_ORPHANS_REPORTS -> context.getString(R.string.error_import_orphans)
+        ErrorCode.NEEDS_SIGN_IN -> context.getString(R.string.error_sign_in)
+        ErrorCode.NEEDS_REVIEWER -> context.getString(R.string.error_reviewer)
+        ErrorCode.NEEDS_ADMIN -> context.getString(R.string.error_admin)
+        ErrorCode.NETWORK -> context.getString(R.string.error_network)
+        ErrorCode.SERVER -> context.getString(R.string.error_server, detail ?: "")
         null -> context.getString(R.string.error_generic)
     }
+}
+
+@StringRes fun roleLabel(role: Role) = when (role) {
+    Role.STUDENT -> R.string.role_student
+    Role.REVIEWER -> R.string.role_reviewer
+    Role.ADMIN -> R.string.role_admin
 }

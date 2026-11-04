@@ -123,7 +123,7 @@ class CampusRepository(
         if (description.trim().length !in ReportRules.MIN_TEXT..ReportRules.MAX_TEXT) throw AppError(ErrorCode.DESCRIPTION_LENGTH)
         if (s.edge(edgeId) == null) throw AppError(ErrorCode.UNKNOWN_SEGMENT)
         if (s.reports.any { it.id == id }) s
-        else s.copy(reports = s.reports + BarrierReport(id, edgeId, category, description.trim(), clock()))
+        else s.copy(reports = s.reports + BarrierReport(id, edgeId, category, description.trim(), clock(), synced = false))
     }
 
     suspend fun review(id: String, target: ReportStatus, reason: String, expected: Long) = mutate(expected) { s ->
@@ -178,6 +178,15 @@ class CampusRepository(
     suspend fun resetDemo() = mutate { s ->
         if (!s.map.isDemo) throw AppError(ErrorCode.RESET_ONLY_DEMO)
         fresh().copy(profile = s.profile)
+    }
+
+    // ---- Campus server ---------------------------------------------------------------------------
+
+    /** Replaces shared state with what the server has. Not audited locally: the server keeps the log. */
+    suspend fun applyRemote(transform: (AppSnapshot) -> AppSnapshot) = mutate { s -> transform(s) }
+
+    suspend fun markReportSynced(id: String) = mutate { s ->
+        s.copy(reports = s.reports.map { if (it.id == id) it.copy(synced = true) else it })
     }
 
     // ---- Camera surveys --------------------------------------------------------------------------

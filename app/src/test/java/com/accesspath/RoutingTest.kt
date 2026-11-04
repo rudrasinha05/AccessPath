@@ -281,4 +281,32 @@ class RoutingTest {
         assertTrue(placards.any { it.id == "washroom" })
         assertTrue(placards.none { it.type == "LANDMARK" })
     }
+
+    // ---- Campus server merge --------------------------------------------------------------------
+
+    @Test fun serverDataWinsButUnsentLocalReportsStay() {
+        val unsent = BarrierReport("11111111-1111-1111-1111-111111111111", "hall0", BarrierCategory.OTHER, "Local only", 5, synced = false)
+        val stale = BarrierReport("22222222-2222-2222-2222-222222222222", "hall0", BarrierCategory.OTHER, "Deleted on server", 5, synced = true)
+        val s = state().copy(reports = listOf(unsent, stale))
+        val merged = RemoteMerge.apply(
+            s,
+            reports = listOf(RemoteReport("33333333-3333-3333-3333-333333333333", "demo-campus", "hall2", "BLOCKED_PATH", "Boxes in corridor", "VERIFIED", "Checked", "2026-11-04T10:00:00Z")),
+            facilities = listOf(RemoteFacility("demo-campus", "liftA", "UNAVAILABLE", "Maintenance today", "2026-11-04T10:00:00Z")),
+            closures = listOf(RemoteClosure("demo-campus", "south2", true, "Cleaning"), RemoteClosure("other-campus", "hall0", true, "Not ours")),
+            audit = null
+        )
+        assertEquals(setOf("33333333-3333-3333-3333-333333333333", unsent.id), merged.reports.map { it.id }.toSet())
+        assertEquals(ReportStatus.VERIFIED, merged.reports.first { it.edgeId == "hall2" }.status)
+        assertEquals(Availability.UNAVAILABLE, merged.map.facilities.first { it.id == "liftA" }.availability)
+        assertTrue("south2" in merged.blockedEdges && "south2_r" in merged.blockedEdges)
+        assertFalse("hall0" in merged.blockedEdges)
+        assertEquals(2026, java.time.Instant.ofEpochMilli(merged.map.facilities.first { it.id == "liftA" }.updatedAt).atZone(java.time.ZoneOffset.UTC).year)
+        // Lift A is closed on the server, so the wheelchair route uses Lift B.
+        assertTrue(found(merged).edges.any { it.facilityId == "liftB" })
+    }
+
+    @Test fun rolesParseSafely() {
+        assertEquals(Role.ADMIN, Role.of("admin")); assertEquals(Role.STUDENT, Role.of(null)); assertEquals(Role.STUDENT, Role.of("hacker"))
+        assertTrue(Role.REVIEWER.canReview); assertFalse(Role.STUDENT.canReview)
+    }
 }

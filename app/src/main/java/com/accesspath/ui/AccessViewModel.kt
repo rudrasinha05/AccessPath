@@ -32,13 +32,24 @@ data class ScreenState(
     val busy: Boolean = false,
     val reviewer: Boolean = false,
     val message: UiMessage? = null,
-    val loadError: Boolean = false
+    val loadError: Boolean = false,
+    /** True when a campus server is configured: roles come from accounts, data is shared. */
+    val server: Boolean = false,
+    val account: Account? = null,
+    val syncing: Boolean = false,
+    val lastSync: Long? = null
 )
+
+data class Account(val email: String?, val role: Role)
 
 class AccessViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
     private val repository = (application as AccessPathApplication).repository
+    private val sync = com.accesspath.data.remote.RemoteSync((application as AccessPathApplication).supabase, repository)
     private val mutex = Mutex()
-    private val ui_ = MutableStateFlow(ScreenState(reviewer = saved[KEY_REVIEWER] ?: false))
+    private val ui_ = MutableStateFlow(
+        if (sync.configured) ScreenState(server = true, account = sync.signedInEmail?.let { Account(it, Role.STUDENT) })
+        else ScreenState(reviewer = saved[KEY_REVIEWER] ?: false)
+    )
     val ui: StateFlow<ScreenState> = ui_.asStateFlow()
 
     private val ready = viewModelScope.async(Dispatchers.IO) {
@@ -63,6 +74,82 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
                     ui_.update { if (it.snapshot?.revision == s.revision) it.copy(route = route, routing = false) else it }
                 }
         }
+    }
+
+    init {
+        if (sync.configured) viewModelScope.launch {
+            ready.await()
+            while (true) {
+                runCatching { refreshAccount(); syncQuietly() }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
+
+    // ---- Account and server sync ------------------------------------------------------------------
+
+    private suspend fun refreshAccount() {
+        if (!sync.signedIn) { ui_.update { it.copy(account = null, reviewer = false) }; return }
+        val profile = runCatching { sync.profile() }.getOrNull()
+        val role = Role.of(profile?.role)
+        ui_.update { it.copy(account = Account(profile?.email ?: sync.signedInEmail, role), reviewer = role.canReview) }
+    }
+
+    private suspend fun syncQuietly() {
+        ui_.update { it.copy(syncing = true) }
+        try {
+            sync.syncAll(ui_.value.account?.role ?: Role.STUDENT)
+            ui_.update { it.copy(lastSync = System.currentTimeMillis()) }
+        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+            Log.w(TAG, "Sync failed", e)
+        } finally { ui_.update { it.copy(syncing = false) } }
+    }
+
+    fun syncNow() = perform {
+        sync.syncAll(ui_.value.account?.role ?: Role.STUDENT)
+        ui_.update { it.copy(lastSync = System.currentTimeMillis()) }
+        UiMessage.Text(R.string.sync_done)
+    }
+
+    fun signInWithGoogle(idToken: String, rawNonce: String) = perform {
+        (getApplication<AccessPathApplication>()).supabase.signInWithGoogle(idToken, rawNonce)
+        afterSignIn()
+    }
+
+    fun signInWithEmail(email: String, password: String) = perform {
+        (getApplication<AccessPathApplication>()).supabase.signInWithEmail(email.trim(), password)
+        afterSignIn()
+    }
+
+    fun signUpWithEmail(email: String, password: String) = perform {
+        val ready = (getApplication<AccessPathApplication>()).supabase.signUpWithEmail(email.trim(), password)
+        if (ready) afterSignIn() else UiMessage.Text(R.string.check_email)
+    }
+
+    private suspend fun afterSignIn(): UiMessage {
+        refreshAccount()
+        runCatching { sync.syncAll(ui_.value.account?.role ?: Role.STUDENT) }
+        return UiMessage.Text(R.string.signed_in_as, listOf(ui_.value.account?.email ?: ""))
+    }
+
+    fun signOut() = perform(UiMessage.Text(R.string.signed_out)) {
+        (getApplication<AccessPathApplication>()).supabase.signOut()
+        ui_.update { it.copy(account = null, reviewer = false) }
+        null
+    }
+
+    /** Server mode: shared changes need a signed-in reviewer and go to the server first. */
+    private fun requireReviewer() {
+        val s = ui_.value
+        if (!s.server) return
+        if (s.account == null) throw AppError(ErrorCode.NEEDS_SIGN_IN)
+        if (!s.account.role.canReview) throw AppError(ErrorCode.NEEDS_REVIEWER)
+    }
+
+    fun publishMap() = perform(UiMessage.Text(R.string.map_published)) {
+        if (ui_.value.account?.role != Role.ADMIN) throw AppError(ErrorCode.NEEDS_ADMIN)
+        sync.publishMap(repository.snapshot().map)
+        null
     }
 
     /** Runs changes one at a time, so a quick second tap can never interleave with the first. */
@@ -124,16 +211,36 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
     }
 
     fun submitReport(id: String, edgeId: String, category: BarrierCategory, description: String) =
-        perform(UiMessage.Text(R.string.report_submitted)) { repository.submitReport(id, edgeId, category, description); null }
+        perform(UiMessage.Text(R.string.report_submitted)) {
+            repository.submitReport(id, edgeId, category, description)
+            if (!ui_.value.server) return@perform null
+            if (!sync.signedIn) return@perform UiMessage.Text(R.string.report_saved_sign_in)
+            try { sync.pushPendingReports(); null } catch (e: AppError) { UiMessage.Text(R.string.report_saved_offline) }
+        }
 
     fun review(reportId: String, status: ReportStatus, reason: String, revision: Long) =
-        perform(UiMessage.Text(R.string.decision_saved)) { repository.review(reportId, status, reason, revision); null }
+        perform(UiMessage.Text(R.string.decision_saved)) {
+            requireReviewer()
+            if (ui_.value.server) sync.review(reportId, status, reason.trim())
+            repository.review(reportId, status, reason, revision)
+            null
+        }
 
     fun setFacility(id: String, status: Availability, reason: String, revision: Long) =
-        perform(UiMessage.Text(R.string.facility_saved)) { repository.setFacility(id, status, reason, revision); null }
+        perform(UiMessage.Text(R.string.facility_saved)) {
+            requireReviewer()
+            if (ui_.value.server) sync.setFacility(repository.snapshot().map.id, id, status, reason.trim())
+            repository.setFacility(id, status, reason, revision)
+            null
+        }
 
     fun setPathClosed(edgeId: String, closed: Boolean, reason: String) =
-        perform(UiMessage.Text(if (closed) R.string.path_closed else R.string.path_reopened)) { repository.setPathClosed(edgeId, closed, reason); null }
+        perform(UiMessage.Text(if (closed) R.string.path_closed else R.string.path_reopened)) {
+            requireReviewer()
+            if (ui_.value.server) sync.setClosure(repository.snapshot().map.id, edgeId, closed, reason.trim())
+            repository.setPathClosed(edgeId, closed, reason)
+            null
+        }
 
     /** Saves a camera-recorded walk as a draft area. */
     fun saveSurvey(trail: List<TrailPoint>, places: List<SurveyPlace>, start: LatLng, headingDeg: Double) =

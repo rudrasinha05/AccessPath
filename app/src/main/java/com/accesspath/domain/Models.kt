@@ -61,6 +61,8 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
     val reason: String = "", val updatedAt: Long = 0, val source: String = "Map data"
 )
 @Serializable data class CampusMap(
+    /** Stable campus identifier shared with the server; reports and statuses are stored per campus. */
+    val id: String = "demo-campus",
     val schemaVersion: Int = 1, val version: String, val name: String,
     val provenance: String, val verifiedAt: Long? = null, val geo: GeoAnchor? = null, val buildings: List<Building>,
     val floors: List<Floor>, val nodes: List<Node>, val edges: List<Edge>, val facilities: List<Facility>
@@ -88,7 +90,9 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
 @Serializable data class BarrierReport(
     val id: String, val edgeId: String, val category: BarrierCategory, val description: String,
     val createdAt: Long, val status: ReportStatus = ReportStatus.PENDING, val reason: String = "",
-    val reviewedAt: Long? = null
+    val reviewedAt: Long? = null,
+    /** False while a report made on this phone has not reached the campus server yet. */
+    val synced: Boolean = true
 ) {
     val isActive: Boolean get() = status == ReportStatus.PENDING || status == ReportStatus.VERIFIED
 }
@@ -113,7 +117,8 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
 enum class ErrorCode {
     NOT_LOADED, STALE_DATA, CONCURRENT_UPDATE, INVALID_PROFILE, UNKNOWN_LOCATION, UNKNOWN_SEGMENT,
     DESCRIPTION_LENGTH, REASON_LENGTH, REPORT_NOT_FOUND, INVALID_TRANSITION, FACILITY_NOT_FOUND,
-    RESET_ONLY_DEMO, MAP_TOO_LARGE, MAP_INVALID, IMPORT_ORPHANS_REPORTS
+    RESET_ONLY_DEMO, MAP_TOO_LARGE, MAP_INVALID, IMPORT_ORPHANS_REPORTS,
+    NEEDS_SIGN_IN, NEEDS_REVIEWER, NEEDS_ADMIN, NETWORK, SERVER
 }
 
 class AppError(val code: ErrorCode, val detail: String? = null) :

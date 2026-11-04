@@ -54,7 +54,16 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
         item {
-            SectionCard {
+            if (ui.server) SectionCard {
+                // Roles come from the signed-in account on the campus server.
+                Text(stringResource(R.string.reviewer_mode), style = MaterialTheme.typography.titleMedium)
+                val account = ui.account
+                InfoText(when {
+                    account == null -> stringResource(R.string.manage_sign_in)
+                    account.role.canReview -> stringResource(R.string.manage_role, account.email ?: "", stringResource(roleLabel(account.role)))
+                    else -> stringResource(R.string.manage_not_reviewer)
+                })
+            } else SectionCard {
                 Row(
                     Modifier.fillMaxWidth().toggleable(ui.reviewer, role = Role.Switch, onValueChange = vm::setReviewer),
                     verticalAlignment = Alignment.CenterVertically
@@ -65,7 +74,13 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
                 InfoText(stringResource(R.string.reviewer_disclosure))
             }
         }
-        if (!ui.reviewer) item { Banner(stringResource(R.string.reviewer_required)) }
+        if (!ui.reviewer && !ui.server) item { Banner(stringResource(R.string.reviewer_required)) }
+        if (ui.account?.role == com.accesspath.domain.Role.ADMIN) item {
+            SectionCard(stringResource(R.string.publish_title)) {
+                InfoText(stringResource(R.string.publish_intro))
+                OutlinedButton(onClick = vm::publishMap, enabled = !ui.busy) { Text(stringResource(R.string.publish_button)) }
+            }
+        }
 
         item {
             SectionCard(stringResource(R.string.facilities_title)) {
@@ -125,7 +140,7 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
 
-        if (state.map.isDemo) item {
+        if (state.map.isDemo && !ui.server) item {
             SectionCard(stringResource(R.string.demo_title)) {
                 InfoText(stringResource(R.string.demo_intro))
                 OutlinedButton(enabled = canEdit, onClick = { vm.simulateAllLifts(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.lifts_down)) }

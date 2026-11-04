@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, o
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ScreenTitle(stringResource(R.string.tab_you))
+        if (ui.server) AccountCard(ui, vm)
 
         Surface(onClick = { editProfile = true }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
           Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -146,4 +148,84 @@ private fun AreaCheckSetting() {
         Text(stringResource(R.string.area_check_setting), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Switch(on, onCheckedChange = null)
     }
+}
+
+@Composable
+private fun AccountCard(ui: ScreenState, vm: AccessViewModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var emailDialog by rememberSaveable { mutableStateOf(false) }
+    SectionCard(stringResource(R.string.account_title)) {
+        val account = ui.account
+        if (account == null) {
+            InfoText(stringResource(R.string.account_intro))
+            Button(
+                onClick = {
+                    val activity = generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
+                        .filterIsInstance<android.app.Activity>().firstOrNull()
+                    if (activity != null) scope.launch {
+                        when (val r = com.accesspath.ui.auth.GoogleSignIn.idToken(activity)) {
+                            is com.accesspath.ui.auth.GoogleResult.Token -> vm.signInWithGoogle(r.idToken, r.rawNonce)
+                            com.accesspath.ui.auth.GoogleResult.Cancelled -> Unit
+                            com.accesspath.ui.auth.GoogleResult.NoAccount -> vm.message(UiMessage.Text(R.string.google_no_account))
+                            is com.accesspath.ui.auth.GoogleResult.Failed -> vm.message(UiMessage.Text(R.string.google_failed, listOf(r.message ?: "")))
+                        }
+                    }
+                },
+                enabled = !ui.busy, modifier = Modifier.fillMaxWidth()
+            ) { Text(stringResource(R.string.sign_in_google)) }
+            OutlinedButton(onClick = { emailDialog = true }, enabled = !ui.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.sign_in_email))
+            }
+        } else {
+            Text(account.email ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            StatusPill(stringResource(roleLabel(account.role)), emphasis = account.role.canReview)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.syncNow() }, enabled = !ui.busy) { Text(stringResource(R.string.sync_now)) }
+                TextButton(onClick = { vm.signOut() }, enabled = !ui.busy) { Text(stringResource(R.string.sign_out)) }
+            }
+        }
+        InfoText(
+            if (ui.syncing) stringResource(R.string.syncing)
+            else ui.lastSync?.let { stringResource(R.string.last_sync, formatTime(it)) } ?: stringResource(R.string.not_synced)
+        )
+    }
+    if (emailDialog) EmailDialog(onDismiss = { emailDialog = false }) { email, password, create ->
+        emailDialog = false
+        if (create) vm.signUpWithEmail(email, password) else vm.signInWithEmail(email, password)
+    }
+}
+
+@Composable
+private fun EmailDialog(onDismiss: () -> Unit, onSubmit: (String, String, Boolean) -> Unit) {
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var create by rememberSaveable { mutableStateOf(false) }
+    val valid = email.contains('@') && password.length >= 6
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (create) R.string.create_account else R.string.sign_in_email)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    email, { email = it.trim().take(120) }, label = { Text(stringResource(R.string.email)) }, singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    password, { password = it.take(72) }, label = { Text(stringResource(R.string.password)) }, singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
+                    supportingText = { Text(stringResource(R.string.password_hint)) }, modifier = Modifier.fillMaxWidth()
+                )
+                TextButton(onClick = { create = !create }) { Text(stringResource(if (create) R.string.have_account else R.string.create_account)) }
+            }
+        },
+        confirmButton = {
+            Button(enabled = valid, onClick = { onSubmit(email, password, create) }) {
+                Text(stringResource(if (create) R.string.create_account else R.string.sign_in))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
 }

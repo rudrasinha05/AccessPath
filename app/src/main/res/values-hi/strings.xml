@@ -273,4 +273,44 @@
     <string name="qr_hint">AccessPath में अपनी जगह पक्की करने के लिए स्कैन करें</string>
     <string name="mapping_checking">कैमरा मैपिंग की सुविधा जाँची जा रही है…</string>
     <string name="map_offline">ऑफ़लाइन: पीछे का नक्शा नहीं दिखेगा। कैंपस का नक्शा और रास्ते चलते रहेंगे।</string>
+
+    <!-- Accounts and server -->
+    <string name="account_title">अकाउंट</string>
+    <string name="account_intro">अपनी रिपोर्ट पूरे कैंपस से साझा करने के लिए साइन इन करें। समीक्षक और एडमिन कैंपस संभालने के लिए साइन इन करते हैं।</string>
+    <string name="sign_in_google">Google से साइन इन करें</string>
+    <string name="sign_in_email">ईमेल से साइन इन करें</string>
+    <string name="sign_in">साइन इन</string>
+    <string name="create_account">नया अकाउंट बनाएँ</string>
+    <string name="have_account">मेरा अकाउंट पहले से है</string>
+    <string name="email">ईमेल</string>
+    <string name="password">पासवर्ड</string>
+    <string name="password_hint">कम से कम 6 अक्षर</string>
+    <string name="sign_out">साइन आउट</string>
+    <string name="sync_now">अभी सिंक करें</string>
+    <string name="syncing">कैंपस सर्वर से सिंक हो रहा है…</string>
+    <string name="last_sync">आख़िरी सिंक: %1$s</string>
+    <string name="not_synced">अभी सिंक नहीं हुआ</string>
+    <string name="sync_done">कैंपस सर्वर से सब अपडेट है।</string>
+    <string name="signed_in_as">%1$s से साइन इन हुआ</string>
+    <string name="signed_out">साइन आउट हो गया।</string>
+    <string name="check_email">अकाउंट बन गया। पुष्टि वाला ईमेल खोलें, फिर साइन इन करें।</string>
+    <string name="google_no_account">इस फ़ोन में कोई Google अकाउंट नहीं है। फ़ोन की सेटिंग में जोड़ें, या ईमेल से साइन इन करें।</string>
+    <string name="google_failed">Google साइन इन नहीं हुआ: %1$s</string>
+    <string name="role_student">छात्र</string>
+    <string name="role_reviewer">समीक्षक</string>
+    <string name="role_admin">एडमिन</string>
+    <string name="manage_sign_in">कैंपस संभालने के लिए आप टैब में समीक्षक या एडमिन अकाउंट से साइन इन करें।</string>
+    <string name="manage_role">%1$s से साइन इन (%2$s)।</string>
+    <string name="manage_not_reviewer">आपका अकाउंट समीक्षक नहीं है। कैंपस एडमिन से समीक्षक की भूमिका माँगें।</string>
+    <string name="publish_title">नक्शा प्रकाशित करें</string>
+    <string name="publish_intro">यह नक्शा कैंपस सर्वर पर भेजें, ताकि अगली सिंक में हर फ़ोन को मिल जाए।</string>
+    <string name="publish_button">सबके लिए प्रकाशित करें</string>
+    <string name="map_published">नक्शा प्रकाशित हो गया।</string>
+    <string name="report_saved_sign_in">रिपोर्ट इस फ़ोन में सेव हुई। सबसे साझा करने के लिए साइन इन करें।</string>
+    <string name="report_saved_offline">रिपोर्ट सेव हुई। इंटरनेट आने पर भेज दी जाएगी।</string>
+    <string name="error_sign_in">पहले साइन इन करें (आप टैब)।</string>
+    <string name="error_reviewer">यह सिर्फ़ समीक्षक कर सकते हैं। कैंपस एडमिन से समीक्षक की भूमिका माँगें।</string>
+    <string name="error_admin">यह सिर्फ़ एडमिन कर सकते हैं।</string>
+    <string name="error_network">कैंपस सर्वर तक नहीं पहुँच सके। इंटरनेट जाँचें।</string>
+    <string name="error_server">कैंपस सर्वर ने इसे मना किया: %1$s</string>
 </resources>

@@ -287,4 +287,44 @@
     <string name="qr_hint">Scan to confirm you are here in AccessPath</string>
     <string name="mapping_checking">Checking camera mapping support…</string>
     <string name="map_offline">Offline: map background unavailable. Campus map and routes still work.</string>
+
+    <!-- Accounts and server -->
+    <string name="account_title">Account</string>
+    <string name="account_intro">Sign in to share reports with everyone on campus. Reviewers and admins sign in to manage the campus.</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_in_email">Sign in with email</string>
+    <string name="sign_in">Sign in</string>
+    <string name="create_account">Create account</string>
+    <string name="have_account">I already have an account</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="password_hint">At least 6 characters</string>
+    <string name="sign_out">Sign out</string>
+    <string name="sync_now">Sync now</string>
+    <string name="syncing">Syncing with the campus server…</string>
+    <string name="last_sync">Last synced %1$s</string>
+    <string name="not_synced">Not synced yet</string>
+    <string name="sync_done">Up to date with the campus server.</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="signed_out">Signed out.</string>
+    <string name="check_email">Account created. Open the confirmation email, then sign in.</string>
+    <string name="google_no_account">No Google account on this phone. Add one in the phone settings, or sign in with email.</string>
+    <string name="google_failed">Google sign-in failed: %1$s</string>
+    <string name="role_student">Student</string>
+    <string name="role_reviewer">Reviewer</string>
+    <string name="role_admin">Admin</string>
+    <string name="manage_sign_in">Sign in from the You tab with a reviewer or admin account to manage the campus.</string>
+    <string name="manage_role">Signed in as %1$s (%2$s).</string>
+    <string name="manage_not_reviewer">Your account is not a reviewer. Ask a campus admin to give you the reviewer role.</string>
+    <string name="publish_title">Publish map</string>
+    <string name="publish_intro">Send this map to the campus server so every phone gets it on its next sync.</string>
+    <string name="publish_button">Publish to everyone</string>
+    <string name="map_published">Map published.</string>
+    <string name="report_saved_sign_in">Report saved on this phone. Sign in to share it with everyone.</string>
+    <string name="report_saved_offline">Report saved. It will be sent when you are online.</string>
+    <string name="error_sign_in">Please sign in first (You tab).</string>
+    <string name="error_reviewer">Only reviewers can do this. Ask a campus admin for the reviewer role.</string>
+    <string name="error_admin">Only admins can do this.</string>
+    <string name="error_network">Couldn\'t reach the campus server. Check the internet connection.</string>
+    <string name="error_server">The campus server refused this: %1$s</string>
 </resources>

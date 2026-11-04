@@ -266,3 +266,22 @@ drop trigger if exists log_closures on public.closures;
 create trigger log_closures after insert or update on public.closures for each row execute function private.log_change();
 drop trigger if exists log_maps on public.campus_maps;
 create trigger log_maps after insert or update on public.campus_maps for each row execute function private.log_change();
+
+-- ---------------------------------------------------------------------------
+-- Review a report (called by the app). Runs as the caller, so RLS and the trigger above apply.
+-- ---------------------------------------------------------------------------
+-- Returns the number of reports changed: 0 means not found or not allowed.
+drop function if exists public.review_report(uuid, text, text);
+create or replace function public.review_report(report_id uuid, new_status text, decision_reason text)
+returns integer
+language sql
+security invoker
+set search_path = ''
+as $$
+  with changed as (
+    update public.reports set status = new_status, reason = btrim(decision_reason) where id = report_id returning 1
+  )
+  select count(*)::integer from changed;
+$$;
+revoke execute on function public.review_report(uuid, text, text) from public, anon;
+grant execute on function public.review_report(uuid, text, text) to authenticated;
