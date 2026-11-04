@@ -239,7 +239,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
             if (hasGeo) {
                 val online = rememberIsOnline()
                 Text(
-                    stringResource(if (online) R.string.map_attribution else R.string.map_offline),
+                    if (online) mapAttribution() else stringResource(R.string.map_offline),
                     style = MaterialTheme.typography.labelSmall, color = Color(0xFF3C4043),
                     modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = peek + 6.dp)
                         .background(Color.White.copy(alpha = 0.75f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)

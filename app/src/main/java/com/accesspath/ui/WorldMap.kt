@@ -221,7 +221,7 @@ fun WorldMap(
             osmdroidTileCache = File(context.cacheDir, "osmdroid/tiles")
         }
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(campusTileSource())
             setMultiTouchControls(true)
             zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             minZoomLevel = 15.0
@@ -314,3 +314,20 @@ fun WorldMap(
         }
     )
 }
+
+/** MapTiler streets tiles when a key is configured (production), otherwise OpenStreetMap's demo tiles. */
+private fun campusTileSource(): org.osmdroid.tileprovider.tilesource.ITileSource {
+    val key = BuildConfig.MAPTILER_KEY
+    if (key.isBlank()) return TileSourceFactory.MAPNIK
+    return object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
+        "MapTiler-streets", 0, 20, 256, ".png", arrayOf("https://api.maptiler.com/maps/streets-v2/256/"),
+        "© MapTiler © OpenStreetMap contributors"
+    ) {
+        override fun getTileURLString(index: Long): String =
+            baseUrl + org.osmdroid.util.MapTileIndex.getZoom(index) + "/" + org.osmdroid.util.MapTileIndex.getX(index) + "/" +
+                org.osmdroid.util.MapTileIndex.getY(index) + mImageFilenameEnding + "?key=" + key
+    }
+}
+
+/** Attribution line required by the active tile provider. */
+fun mapAttribution(): String = if (BuildConfig.MAPTILER_KEY.isBlank()) "© OpenStreetMap contributors" else "© MapTiler © OpenStreetMap contributors"

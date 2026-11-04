@@ -8,6 +8,14 @@ plugins {
 // Release signing comes from environment variables (CI secrets or a local shell), never from the repo.
 val releaseKeystore: String? = System.getenv("ACCESSPATH_KEYSTORE")
 
+// Machine-specific values: local.properties first, then environment (CI secrets).
+val localProps = java.util.Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun config(name: String, default: String = ""): String =
+    (localProps.getProperty(name) ?: System.getenv(name) ?: default).trim()
+
 android {
     namespace = "com.accesspath"
     compileSdk = 35
@@ -20,6 +28,12 @@ android {
         versionCode = (System.getenv("ACCESSPATH_VERSION_CODE") ?: "2").toInt()
         versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Map tiles key (secret-ish: kept out of git). Empty = fall back to OpenStreetMap tiles.
+        buildConfigField("String", "MAPTILER_KEY", "\"${config("MAPTILER_KEY")}\"")
+        // Public client values: the publishable key and OAuth client ID are meant to ship inside apps.
+        buildConfigField("String", "SUPABASE_URL", "\"${config("SUPABASE_URL", "https://jjpussjaccbgcufsgqpu.supabase.co")}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${config("SUPABASE_KEY", "sb_publishable_ZJvQgC1S0XPYmMpB-JT_YQ_aKGSiqqQ")}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${config("GOOGLE_WEB_CLIENT_ID", "1097491457415-goun56h1vod6p7mqbpils4mc0hts9dek.apps.googleusercontent.com")}\"")
         // Lets device tests save screenshots that Gradle pulls into build/outputs.
         testInstrumentationRunnerArguments["useTestStorageService"] = "true"
     }
@@ -71,6 +85,9 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("com.google.ar:core:1.44.0")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
