@@ -43,10 +43,11 @@ class LocationMappingTest {
     @Suppress("DEPRECATION")
     @Before
     fun fakeGps() {
-        // Wait for the shell command to finish; closing its output early can cancel it.
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(
-            inst.uiAutomation.executeShellCommand("appops set ${inst.targetContext.packageName} android:mock_location allow")
-        ).use { it.readBytes() }
+        // Location on (emulators can start with it off) and fake locations allowed for the app.
+        shell("cmd location set-location-enabled true")
+        shell("settings put secure location_mode 3")
+        shell("settings put secure location_providers_allowed +gps,+network")
+        shell("appops set ${inst.targetContext.packageName} android:mock_location allow")
         providers.forEach { p ->
             runCatching { lm.removeTestProvider(p) }
             lm.addTestProvider(p, false, false, false, false, true, true, true, 1, 1)
@@ -60,6 +61,11 @@ class LocationMappingTest {
 
     // Both providers are faked so no real (emulator default) position mixes into the walk.
     private val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+
+    /** Runs a shell command and waits for it to finish (closing its output early can cancel it). */
+    private fun shell(cmd: String) = runCatching {
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(inst.uiAutomation.executeShellCommand(cmd)).use { it.readBytes() }
+    }
 
     /** Puts the fake GPS [north] m north and [east] m east of the start. */
     private fun walkTo(north: Double, east: Double) = providers.forEach { provider ->
@@ -94,6 +100,7 @@ class LocationMappingTest {
 
         // Walk 30 m north, one fix a second (2 m apart).
         for (i in 1..15) { walkTo(i * 2.0, 0.0); Thread.sleep(1_100) }
+        save("uc6b-walking")
         compose.waitUntil(15_000) { runCatching { compose.onNodeWithText(s(R.string.add_place)).assertIsEnabled(); true }.getOrDefault(false) }
         compose.onNodeWithText(s(R.string.add_place)).performClick()
         compose.onNode(hasSetTextAction() and hasAnyAncestor(isDialog())).performTextInput("Room 101")
