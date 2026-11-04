@@ -155,7 +155,7 @@
     <string name="links_title">जगह के लिंक और QR कोड</string>
     <string name="links_body">हर जगह का एक लिंक होता है, जैसे accesspath://node/lobby0। इसे उसी जगह QR कोड बनाकर लगाएँ: फ़ोन कैमरे से स्कैन करने पर AccessPath खुलेगा और व्यक्ति की जगह पक्की हो जाएगी।</string>
     <string name="about_title">जानकारी</string>
-    <string name="about_body">ऑफ़लाइन, बिना सीढ़ी वाला कैंपस नेविगेशन। न अकाउंट, न इंटरनेट, न लोकेशन की अनुमति चाहिए। सब कुछ इसी फ़ोन में रहता है।</string>
+    <string name="about_body">सबके लिए कैंपस नेविगेशन: पैदल, सीढ़ियों से बचते हुए या व्हीलचेयर से। कैंपस के रास्ते ऑफ़लाइन चलते हैं। इंटरनेट दुनिया के नक्शे, खोज, बाहर के रास्तों और साझा कैंपस डेटा के लिए; लोकेशन सिर्फ़ आपकी अनुमति से। रास्ता ढूँढने के लिए अकाउंट ज़रूरी नहीं।</string>
     <string name="limit_position">आपकी जगह वही है जो आप पक्की करते हैं। ऐप आपकी लोकेशन ट्रैक नहीं करता।</string>
     <string name="limit_unknown">जिस रास्ते की चौड़ाई, ढलान या सीढ़ी की जानकारी नहीं है, उसे सुलभ नहीं माना जाता।</string>
     <string name="limit_local">रिपोर्ट और लिफ्ट की स्थिति सिर्फ़ इसी फ़ोन में सेव होती है। अभी कोई साझा सर्वर नहीं है।</string>
@@ -366,7 +366,7 @@
     <string name="geo_active">चालू · %1$d जगहों पर नज़र</string>
     <string name="geo_channel">आस-पास की सुलभता सूचनाएँ</string>
     <string name="geo_area_title">आप %1$s पर हैं</string>
-    <string name="geo_area_body">यहाँ बिना सीढ़ी वाले रास्ते के लिए AccessPath खोलें।</string>
+    <string name="geo_area_body">यहाँ रास्ते के लिए AccessPath खोलें।</string>
     <string name="geo_draft_body">यह क्षेत्र ड्राफ़्ट नक्शा है: इसके रास्तों की सुलभता अभी जाँची नहीं गई।</string>
     <string name="geo_lift_title">पास में लिफ़्ट ख़राब है</string>
     <string name="geo_lift_body">%1$s ख़राब है। AccessPath के रास्ते इससे बचते हैं।</string>

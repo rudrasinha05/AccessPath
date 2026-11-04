@@ -25,7 +25,8 @@ class CampusRepository(
         .flowOn(Dispatchers.Default)
 
     /** The map that ships with the app: an empty campus until surveys or a published map fill it. */
-    private fun fresh(profile: Profile = Profile()): AppSnapshot {
+    /** New installs start with ordinary walking routes; wheelchair and avoid-stairs are choices in the profile. */
+    private fun fresh(profile: Profile = Profile(mobility = Mobility.STANDARD)): AppSnapshot {
         val map = MapJson.decodeFromString<CampusMap>(seed())
         MapValidator.validate(map)
         val first = map.nodes.firstOrNull()

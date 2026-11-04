@@ -389,7 +389,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             // One column above the sheet, like Google Maps. Zoom buttons are left out while the tall directions
             // header is shown (pinch zoom still works) so the controls never cover it on short screens.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (hasGeo) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                if (hasGeo && mode != Mode.DIRECTIONS && mode != Mode.OUT_DIRECTIONS) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
                 if (hasGeo && !outdoorMode && mode != Mode.DIRECTIONS && mode != Mode.NAVIGATE) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
                 SmallFloatingActionButton(
                     onClick = ::showMe,

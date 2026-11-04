@@ -1,6 +1,6 @@
 # AccessPath
 
-Offline, step-free campus navigation for Android. AccessPath finds routes that respect a person's mobility needs, explains why when no route exists, and lets people report barriers that close a path until a reviewer checks it.
+Campus navigation for Android, for everyone: walking, avoiding stairs, or using a wheelchair. New installs route for walking; each person can switch to avoid-stairs or wheelchair rules. AccessPath explains why when no route exists, and lets people report barriers that close a path until a reviewer checks it.
 
 It looks and works like Google Maps: a real-world map (OpenStreetMap) with the campus drawn on top, a search bar, a bottom panel for places and directions, and turn-by-turn steps. Where the campus isn't mapped yet, it can record a draft map with the phone camera (ARCore).
 
@@ -12,7 +12,7 @@ The app ships with **no campus data**. Every place comes from real surveys: came
 |---|---|
 | **Explore** | Full-screen map with the campus on top: building outlines, paths, places, floor picker, compass (tap to turn north up), zoom buttons, your position (blue dot) and destination (red pin). **Long-press anywhere** to drop a pin with options: Directions, View campus, Map this area, zoom in/out. Search finds campus places first, then real-world places. Tap Washroom / Lift / Exit for the nearest reachable one. Campus **Directions** use walking / avoid-stairs / wheelchair rules; **Start** gives turn-by-turn steps with an "I'm at …" button. **Outdoor directions** to a pin offer Walk, Wheelchair, Bike, Car and Bus, then **Start** follows live GPS and re-routes when you go off the line. Read-aloud is available. |
 | **Contribute** | Report a barrier on any path. A new report closes that path in both directions for everyone, as a precaution, until a reviewer confirms or rejects it. |
-| **You** | Mobility settings, **map a new area with the camera**, the unmapped-area check, language (phone default, English, हिन्दी), map import/export, and **Campus management** (reviewer mode, lift status, temporary closures, camera drafts, QR placards, activity log). |
+| **You** | Mobility settings, **map a new area with the camera**, the unmapped-area check, **Nearby alerts (geofencing)**, language (phone default, English, हिन्दी), map import/export, and **Campus management** (reviewer mode, lift status, temporary closures, camera drafts, QR placards, activity log). |
 
 **Camera mapping:** when the app opens it asks once (a popup) whether it may check the location for unmapped areas. If allowed, and the phone has a good GPS fix (40 m or better) outside every mapped area, the camera mapping screen opens straight away; inside mapped areas it stays off. It can be turned off in Settings. Mapping uses ARCore to record the walked path and lets the surveyor name places (room, washroom, lift, entrance, stairs). The result is saved as a **draft** area: width, slope and steps can't be measured from a walk, so wheelchair routes skip draft paths until a reviewer checks them. Reviewers can delete drafts. When signed in, drafts are shared through the `surveys` table so every phone gets them.
 
@@ -27,6 +27,17 @@ The app ships with **no campus data**. Every place comes from real surveys: came
 | Bus | none | There is no free public-transport routing data, so the app opens Google Maps transit directions instead. |
 
 World search uses MapTiler Geocoding with the same `MAPTILER_KEY` as the map tiles.
+
+**Nearby alerts (geofencing):** opt-in from You → Settings. Android (Google Play services) watches up to 100 circles and wakes the app when the phone enters one:
+
+| Watched place | Alert | Who gets it |
+|---|---|---|
+| Each mapped campus area | "You're at …" | Everyone who turned alerts on |
+| Each camera draft area | "You're at …" plus "paths not checked yet" | Everyone |
+| A lift that is out of service | "Lift out of service nearby" | Only avoid-stairs and wheelchair settings |
+| A closed path (closure or active report) | "Path closed nearby" | Everyone |
+
+The same place alerts at most once every 6 hours. Circles are at least 100 m (Android's recommendation), so alerts mean "you're near", not room-level precision, and can arrive a minute or two late. Alerts need location **Allow all the time** and notifications; the app shows a plain disclosure first. Geofences are re-added after a restart or app update, and refreshed whenever campus data changes. The app itself never stores or uploads the location.
 
 **Location links:** every place has a link such as `accesspath://node/lobby0`. Print it as a QR code at that spot; scanning it with the phone camera opens AccessPath and confirms the person's position.
 
@@ -94,6 +105,10 @@ GitHub Actions runs unit tests, lint, debug and release builds on every push, pl
 | `app/src/test`, `app/src/androidTest` | Unit tests; storage and UI tests on a device |
 | `docs/` | Map format, implementation notes, verification record, backlog |
 
+## Privacy
+
+See [docs/PRIVACY.md](docs/PRIVACY.md) for what is collected, where it goes and why (also the basis for the Play Store data-safety form).
+
 ## Honest limits
 
 - There is no bundled campus. Until someone maps the area (camera, import or a published map), only the world map, search and outdoor directions work.
@@ -101,6 +116,7 @@ GitHub Actions runs unit tests, lint, debug and release builds on every push, pl
 - Without a configured server the app falls back to a local reviewer switch for demos; that is not a secure login.
 - Indoors, position is what the person confirms (by tapping or scanning a location link); there is no live indoor positioning. GPS is used at app start to decide whether the area is mapped, for "show my location", and continuously only while outdoor navigation is running.
 - Camera mapping needs an ARCore-supported phone. The draft's real-world placement uses the starting GPS fix and compass, so it can be off by several metres; drafts are not accessibility-verified.
+- Nearby alerts need Google Play services. Google Play reviews apps that use background location; the declaration form must be filled in before publishing.
 - Target SDK is 35. Google Play's yearly target-API requirement may need a newer SDK and toolchain before store publication; see [docs/BACKLOG.md](docs/BACKLOG.md).
 
 See [docs/VERIFICATION.md](docs/VERIFICATION.md) for what is tested automatically and what still needs checking on a real phone.

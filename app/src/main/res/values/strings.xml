@@ -168,7 +168,7 @@
     <string name="links_title">Location links and QR codes</string>
     <string name="links_body">Each place has a link like accesspath://node/lobby0. Print it as a QR code at that spot: scanning it with the phone camera opens AccessPath and confirms the person\'s position.</string>
     <string name="about_title">About</string>
-    <string name="about_body">Offline, step-free campus navigation. No account, no internet and no location permission needed. Everything stays on this phone.</string>
+    <string name="about_body">Campus navigation for everyone: walking, avoiding stairs or using a wheelchair. Campus routes work offline. Internet is used for the world map, search, outdoor directions and the shared campus data; location only when you allow it. No account is needed to find your way.</string>
     <string name="limit_position">Your position is the place you confirm. The app does not track your location.</string>
     <string name="limit_unknown">A path with unknown width, slope or step-free status is treated as not accessible.</string>
     <string name="limit_local">Reports and lift statuses are stored only on this phone. There is no shared server yet.</string>
@@ -380,7 +380,7 @@
     <string name="geo_active">On · watching %1$d places</string>
     <string name="geo_channel">Nearby accessibility alerts</string>
     <string name="geo_area_title">You\'re at %1$s</string>
-    <string name="geo_area_body">Open AccessPath for step-free directions here.</string>
+    <string name="geo_area_body">Open AccessPath for directions here.</string>
     <string name="geo_draft_body">This area is a draft map: its paths aren\'t checked for accessibility yet.</string>
     <string name="geo_lift_title">Lift out of service nearby</string>
     <string name="geo_lift_body">%1$s is out of service. AccessPath routes avoid it.</string>
