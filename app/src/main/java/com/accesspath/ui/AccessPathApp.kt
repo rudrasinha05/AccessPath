@@ -33,6 +33,7 @@ fun AccessPathApp(vm: AccessViewModel) {
         val context = LocalContext.current
         val snackbar = remember { SnackbarHostState() }
         var tab by rememberSaveable { mutableStateOf(Tab.NAVIGATE) }
+        val speaker = rememberSpeaker()
 
         LaunchedEffect(ui.message) {
             ui.message?.let {
@@ -68,7 +69,7 @@ fun AccessPathApp(vm: AccessViewModel) {
                         Text(stringResource(R.string.loading))
                     }
                     else -> when (tab) {
-                        Tab.NAVIGATE -> NavigateScreen(ui, vm)
+                        Tab.NAVIGATE -> NavigateScreen(ui, vm, speaker)
                         Tab.REPORTS -> ReportsScreen(ui, vm)
                         Tab.MANAGE -> ManageScreen(ui, vm)
                         Tab.SETTINGS -> SettingsScreen(ui, vm)

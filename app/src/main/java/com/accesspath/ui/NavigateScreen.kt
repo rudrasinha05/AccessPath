@@ -29,10 +29,9 @@ import com.accesspath.domain.*
 import com.accesspath.ui.theme.LocalMapColors
 
 @Composable
-fun NavigateScreen(ui: ScreenState, vm: AccessViewModel) {
+fun NavigateScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
-    val speaker = rememberSpeaker()
     var picking by rememberSaveable { mutableStateOf<String?>(null) } // "from" | "to"
     var editProfile by rememberSaveable { mutableStateOf(false) }
     var tappedPlace by rememberSaveable { mutableStateOf<String?>(null) }
