@@ -30,13 +30,15 @@ jobs:
           MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
         run: |
           t() { echo "== $1"; curl -s -o /tmp/out -w "http=%{http_code} time=%{time_total}s\n" -m 40 "${@:2}" || echo "failed"; head -c 200 /tmp/out; echo; }
+          UA="AccessPath/2.0 (+https://github.com/rudrasinha05/AccessPath)"
           Q='[out:json][timeout:15];nwr(around:1500,28.4744,77.4865)["amenity"="toilets"];out center tags 60;'
-          t overpass-de -G --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter
-          t kumi -G --data-urlencode "data=$Q" https://overpass.kumi.systems/api/interpreter
-          t private-coffee -G --data-urlencode "data=$Q" https://overpass.private.coffee/api/interpreter
-          t maptiler-poi "https://api.maptiler.com/geocoding/hospital.json?key=$MAPTILER_KEY&proximity=77.4865,28.4744&types=poi&limit=10"
+          t overpass-de-ua-get -A "$UA" -G --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter
+          t overpass-de-ua-post -A "$UA" -H "Accept: application/json" -X POST --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter
+          t overpass-maprva -A "$UA" -X POST --data-urlencode "data=$Q" https://maps.mail.ru/osm/tools/overpass/api/interpreter
+          t photon -A "$UA" "https://photon.komoot.io/api/?q=hospital&lat=28.4744&lon=77.4865&limit=10&osm_tag=amenity:hospital"
+          t nominatim -A "$UA" "https://nominatim.openstreetmap.org/search?q=hospital&format=jsonv2&limit=10&viewbox=77.47,28.49,77.50,28.46&bounded=1&extratags=1"
           t open-meteo "https://api.open-meteo.com/v1/forecast?latitude=28.47&longitude=77.49&current=temperature_2m"
-          t osrm-car "https://routing.openstreetmap.de/routed-car/route/v1/driving/77.4865,28.4744;77.2433,28.5677?overview=false&alternatives=3&exclude=toll"
+          t osrm-car-plain "https://routing.openstreetmap.de/routed-car/route/v1/driving/77.4865,28.4744;77.2433,28.5677?overview=false&alternatives=3"
       - run: chmod +x gradlew
       - name: Unit tests, lint, debug and release builds
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease --stacktrace
