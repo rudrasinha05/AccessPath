@@ -85,6 +85,13 @@ class ScreenshotTest {
     fun captureHomeCategoriesAndLayers() {
         waitForMap()
         save("12-home", 4000)
+        // Map type sheet first, while the map buttons are not covered by a list.
+        compose.onNodeWithTag("layers").performClick()
+        waitForText(s(R.string.map_satellite))
+        save("14-map-type", 1000)
+        compose.onNodeWithText(s(R.string.map_default)).performClick()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
         compose.onNodeWithTag("chip_hospitals").performScrollTo().performClick()
         // Real data from OpenStreetMap: wait for the list, a "none found" note or an error, whichever comes.
         runCatching {
@@ -95,14 +102,6 @@ class ScreenshotTest {
             }
         }
         save("13-category-hospitals", 3000)
-        // Back closes the list (the sheet may cover the map buttons on a small screen), then the map type sheet.
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitForIdle()
-        compose.onNodeWithTag("layers").performClick()
-        waitForText(s(R.string.map_satellite))
-        save("14-map-type", 1000)
-        compose.onNodeWithText(s(R.string.map_satellite)).performClick()
-        compose.waitForIdle()
     }
 
     @Test

@@ -102,6 +102,7 @@ class AppSmokeTest {
     fun reportFormIsReachable() {
         waitForMap()
         compose.onNodeWithText(s(R.string.tab_contribute)).performClick()
+        compose.onNodeWithTag("reports").performScrollToNode(hasText(s(R.string.report_button)))
         compose.onNodeWithText(s(R.string.report_button)).performClick()
         compose.onNodeWithText(s(R.string.description_label)).assertExists()
         compose.onNodeWithText(s(R.string.cancel)).performClick()
