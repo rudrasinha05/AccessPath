@@ -130,6 +130,20 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
     fun setPathClosed(edgeId: String, closed: Boolean, reason: String) =
         perform(UiMessage.Text(if (closed) R.string.path_closed else R.string.path_reopened)) { repository.setPathClosed(edgeId, closed, reason); null }
 
+    /** Saves a camera-recorded walk as a draft area. */
+    fun saveSurvey(trail: List<TrailPoint>, places: List<SurveyPlace>, start: LatLng, headingDeg: Double) =
+        perform(UiMessage.Text(R.string.survey_saved)) {
+            val stamp = System.currentTimeMillis()
+            val name = "Draft area " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(stamp))
+            val survey = withContext(Dispatchers.Default) { SurveyBuilder.build("survey_$stamp", name, trail, places, start, headingDeg) }
+                ?: return@perform UiMessage.Text(R.string.mapping_too_short)
+            repository.addSurvey(survey)
+            null
+        }
+
+    fun deleteSurvey(buildingId: String, reason: String) =
+        perform(UiMessage.Text(R.string.draft_deleted)) { repository.deleteSurvey(buildingId, reason); null }
+
     fun simulateAllLifts(available: Boolean) = perform { repository.simulateAllLifts(available); null }
     fun resetDemo() = perform(UiMessage.Text(R.string.reset_done)) { repository.resetDemo(); null }
 

@@ -232,4 +232,50 @@
     <string name="world_map_a11y">Map of the campus, %1$s. Directions are also listed as text in the panel below.</string>
     <string name="map_attribution" translatable="false">© OpenStreetMap contributors</string>
     <string name="contribute_title">Help keep paths open</string>
+
+    <!-- Camera mapping -->
+    <string name="area_check_title">Help map new areas?</string>
+    <string name="area_check_body">When the app opens, AccessPath can check your location once. If you are somewhere the campus map doesn\'t cover yet, it will offer to map it with your camera. Inside mapped areas it never asks. Your location is not saved or shared.</string>
+    <string name="allow">Allow</string>
+    <string name="not_now">Not now</string>
+    <string name="unmapped_title">This area isn\'t mapped yet</string>
+    <string name="unmapped_body">Walk through it with your camera to create a draft map. Paths are marked unverified until a reviewer checks them.</string>
+    <string name="start_mapping">Map it with camera</string>
+    <string name="mapping_title">Mapping a new area</string>
+    <string name="mapping_camera_needed">Camera access is needed to record this area.</string>
+    <string name="mapping_camera_denied">Without camera access, mapping can\'t start. You can allow it in the phone\'s app settings.</string>
+    <string name="grant_camera">Allow camera</string>
+    <string name="mapping_unsupported">Camera mapping needs Google Play Services for AR (ARCore), which isn\'t available on this phone.</string>
+    <string name="mapping_installing">Installing Google Play Services for AR…</string>
+    <string name="mapping_status_tracking">Tracking. Walk slowly along the path.</string>
+    <string name="mapping_status_limited">Move the phone slowly and point it at the floor and walls.</string>
+    <string name="mapping_status_paused">Paused</string>
+    <string name="mapping_stats">%1$s walked · %2$d points · %3$d places</string>
+    <string name="add_place">Add place here</string>
+    <string name="place_name">Place name</string>
+    <string name="place_type">Type</string>
+    <string name="type_room">Room</string>
+    <string name="type_washroom">Washroom</string>
+    <string name="type_lift">Lift</string>
+    <string name="type_entrance">Entrance</string>
+    <string name="type_stairs">Stairs</string>
+    <string name="type_other">Other</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="finish">Finish</string>
+    <string name="mapping_too_short">Walk a few metres before finishing.</string>
+    <string name="mapping_no_position">Couldn\'t work out where you are to place the new area.</string>
+    <string name="survey_saved">Draft map saved. Wheelchair routes use it only after a reviewer checks it.</string>
+    <string name="discard">Discard</string>
+    <string name="discard_title">Discard this recording?</string>
+    <string name="drafts_title">Camera drafts</string>
+    <string name="drafts_none">No camera drafts.</string>
+    <string name="drafts_intro">Areas recorded with the camera. Their paths have unknown width, slope and steps, so wheelchair routes skip them.</string>
+    <string name="draft_places">%1$d places</string>
+    <string name="delete">Delete</string>
+    <string name="delete_draft_title">Delete this draft area</string>
+    <string name="draft_deleted">Draft area deleted.</string>
+    <string name="map_new_area">Map a new area with the camera</string>
+    <string name="map_new_area_desc">Record paths and places where the campus isn\'t mapped yet</string>
+    <string name="area_check_setting">Check for unmapped areas when the app opens</string>
 </resources>

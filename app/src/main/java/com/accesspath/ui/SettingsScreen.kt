@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.*
@@ -29,7 +31,7 @@ import com.accesspath.BuildConfig
 import com.accesspath.R
 
 @Composable
-fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit) {
+fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, onMapNewArea: () -> Unit) {
     val state = ui.snapshot ?: return
     var editProfile by rememberSaveable { mutableStateOf(false) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importMap) }
@@ -57,6 +59,20 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit) {
             InfoText(stringResource(state.profile.mobility.description()))
           }
         }
+
+        Surface(onClick = onMapNewArea, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.CameraAlt, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.map_new_area), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(stringResource(R.string.map_new_area_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        }
+
+        AreaCheckSetting()
 
         Surface(onClick = onManage, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -114,4 +130,20 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit) {
     }
 
     if (editProfile) ProfileDialog(state.profile, { editProfile = false }) { editProfile = false; vm.setProfile(it) }
+}
+
+@Composable
+private fun AreaCheckSetting() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var on by remember { mutableStateOf(com.accesspath.ui.mapping.AreaCheckPrefs.get(context) == com.accesspath.ui.mapping.AreaCheckPrefs.Choice.ON) }
+    Row(
+        Modifier.fillMaxWidth().toggleable(on, role = Role.Switch) { v ->
+            on = v
+            com.accesspath.ui.mapping.AreaCheckPrefs.set(context, if (v) com.accesspath.ui.mapping.AreaCheckPrefs.Choice.UNSET else com.accesspath.ui.mapping.AreaCheckPrefs.Choice.OFF)
+        }.padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(stringResource(R.string.area_check_setting), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Switch(on, onCheckedChange = null)
+    }
 }

@@ -43,7 +43,8 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
  */
 @Serializable data class GeoAnchor(val lat: Double, val lng: Double, val rotationDeg: Double = 0.0)
 
-@Serializable data class Building(val id: String, val name: String, val geo: GeoAnchor? = null)
+/** [draft] marks an area recorded with the camera that a reviewer has not checked yet. */
+@Serializable data class Building(val id: String, val name: String, val geo: GeoAnchor? = null, val draft: Boolean = false)
 @Serializable data class Floor(val id: String, val buildingId: String, val label: String, val ordinal: Int)
 @Serializable data class Node(
     val id: String, val floorId: String, val name: String, val x: Double, val y: Double,

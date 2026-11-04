@@ -180,6 +180,42 @@ class CampusRepository(
         fresh().copy(profile = s.profile)
     }
 
+    // ---- Camera surveys --------------------------------------------------------------------------
+
+    /** Adds a camera-recorded draft area. Its paths have unknown accessibility until reviewed. */
+    suspend fun addSurvey(survey: Survey) = mutate { s ->
+        if (s.map.buildings.any { it.id == survey.building.id }) s
+        else {
+            val next = s.map.copy(
+                buildings = s.map.buildings + survey.building, floors = s.map.floors + survey.floor,
+                nodes = s.map.nodes + survey.nodes, edges = s.map.edges + survey.edges
+            )
+            MapValidator.validate(next)
+            s.copy(map = next, audit = s.audit + event("Add camera survey", survey.building.id, "", survey.building.name,
+                "${survey.nodes.size} places, ${survey.edges.size / 2} paths recorded with the camera"))
+        }
+    }
+
+    /** Removes a draft area and everything on it. Refused while active reports point at its paths. */
+    suspend fun deleteSurvey(buildingId: String, reason: String) = mutate { s ->
+        if (reason.trim().length !in ReportRules.MIN_TEXT..ReportRules.MAX_TEXT) throw AppError(ErrorCode.REASON_LENGTH)
+        val building = s.map.buildings.firstOrNull { it.id == buildingId && it.draft } ?: throw AppError(ErrorCode.UNKNOWN_LOCATION)
+        val floorIds = s.map.floors.filter { it.buildingId == buildingId }.map { it.id }.toSet()
+        val nodeIds = s.map.nodes.filter { it.floorId in floorIds }.map { it.id }.toSet()
+        val edgeIds = s.map.edges.filter { it.from in nodeIds || it.to in nodeIds }.map { it.id }.toSet()
+        if (s.reports.any { it.isActive && it.edgeId in edgeIds }) throw AppError(ErrorCode.IMPORT_ORPHANS_REPORTS)
+        if (s.current in nodeIds || s.destination in nodeIds) throw AppError(ErrorCode.UNKNOWN_LOCATION)
+        val next = s.map.copy(
+            buildings = s.map.buildings.filter { it.id != buildingId }, floors = s.map.floors.filter { it.id !in floorIds },
+            nodes = s.map.nodes.filter { it.id !in nodeIds }, edges = s.map.edges.filter { it.id !in edgeIds }
+        )
+        s.copy(
+            map = next, reports = s.reports.filter { it.edgeId !in edgeIds }, blockedEdges = s.blockedEdges - edgeIds,
+            selectedFloor = if (s.selectedFloor in floorIds) s.node(s.current)?.floorId ?: next.floors.first().id else s.selectedFloor,
+            audit = s.audit + event("Delete camera survey", buildingId, building.name, "Deleted", reason.trim())
+        )
+    }
+
     // ---- Map data -----------------------------------------------------------------------------
 
     /** Validates fully before saving; an invalid file never changes the stored map. Returns non-fatal warnings. */

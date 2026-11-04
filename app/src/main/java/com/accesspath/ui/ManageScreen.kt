@@ -32,6 +32,7 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     var closeEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var reopenEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmReset by rememberSaveable { mutableStateOf(false) }
+    var deleteDraft by rememberSaveable { mutableStateOf<String?>(null) }
     // One entry per physical segment (both directions are closed together).
     val closedSegments = remember(state.blockedEdges, state.map) {
         state.map.edges.filter { it.id in state.blockedEdges }.distinctBy { listOf(it.from, it.to).sorted() }
@@ -92,6 +93,25 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
 
+        item {
+            val drafts = state.map.buildings.filter { it.draft }
+            SectionCard(stringResource(R.string.drafts_title)) {
+                InfoText(stringResource(R.string.drafts_intro))
+                if (drafts.isEmpty()) InfoText(stringResource(R.string.drafts_none))
+                drafts.forEach { b ->
+                    val floorIds = state.map.floors.filter { it.buildingId == b.id }.map { it.id }.toSet()
+                    val count = state.map.nodes.count { it.floorId in floorIds }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(b.name, fontWeight = FontWeight.SemiBold)
+                            InfoText(stringResource(R.string.draft_places, count))
+                        }
+                        TextButton(enabled = canEdit, onClick = { deleteDraft = b.id }) { Text(stringResource(R.string.delete)) }
+                    }
+                }
+            }
+        }
+
         if (state.map.isDemo) item {
             SectionCard(stringResource(R.string.demo_title)) {
                 InfoText(stringResource(R.string.demo_intro))
@@ -144,6 +164,10 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     reopenEdge?.let { id ->
         ReasonDialog(stringResource(R.string.reopen_title), stringResource(R.string.reopen), onDismiss = { reopenEdge = null },
             extra = { InfoText(state.segmentLabel(context, id)) }) { reason -> reopenEdge = null; vm.setPathClosed(id, false, reason) }
+    }
+    deleteDraft?.let { id ->
+        ReasonDialog(stringResource(R.string.delete_draft_title), stringResource(R.string.delete), onDismiss = { deleteDraft = null },
+            extra = { InfoText(state.map.buildings.firstOrNull { it.id == id }?.name.orEmpty()) }) { reason -> deleteDraft = null; vm.deleteSurvey(id, reason) }
     }
     if (confirmReset) {
         AlertDialog(

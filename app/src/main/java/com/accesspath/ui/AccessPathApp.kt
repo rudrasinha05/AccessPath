@@ -17,7 +17,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.accesspath.R
+import com.accesspath.domain.Geo
+import com.accesspath.domain.LatLng
+import com.accesspath.ui.mapping.DeviceSensors
+import com.accesspath.ui.mapping.MappingScreen
+import com.accesspath.ui.mapping.UnmappedAreaCheck
 import com.accesspath.ui.theme.AccessPathTheme
+import kotlinx.coroutines.launch
 
 private enum class Tab(val label: Int, val icon: ImageVector) {
     EXPLORE(R.string.tab_explore, Icons.Filled.Explore),
@@ -33,6 +39,20 @@ fun AccessPathApp(vm: AccessViewModel) {
         val snackbar = remember { SnackbarHostState() }
         var tab by rememberSaveable { mutableStateOf(Tab.EXPLORE) }
         var managing by rememberSaveable { mutableStateOf(false) }
+        // "lat,lng" of where camera mapping started; null when not mapping.
+        var mappingAt by rememberSaveable { mutableStateOf<String?>(null) }
+        var heading by remember { mutableDoubleStateOf(0.0) }
+        val scope = rememberCoroutineScope()
+
+        fun startMapping(at: LatLng) { mappingAt = "${at.lat},${at.lng}" }
+        fun startMappingHere() = scope.launch {
+            val fix = DeviceSensors.currentLocation(context, 8_000)?.takeIf { it.hasAccuracy() && it.accuracy <= 60f }
+            val s = ui.snapshot
+            val at = fix?.let { LatLng(it.latitude, it.longitude) }
+                ?: s?.let { st -> st.node(st.current)?.let { Geo.position(st.map, it) } }
+                ?: s?.map?.geo?.let { LatLng(it.lat, it.lng) }
+            if (at != null) startMapping(at) else vm.message(UiMessage.Text(R.string.mapping_no_position))
+        }
         val speaker = rememberSpeaker()
 
         LaunchedEffect(ui.message) {
@@ -41,6 +61,17 @@ fun AccessPathApp(vm: AccessViewModel) {
                 snackbar.showSnackbar(it.text(context), withDismissAction = true)
             }
         }
+        LaunchedEffect(mappingAt) { if (mappingAt != null) heading = DeviceSensors.heading(context) ?: 0.0 }
+
+        mappingAt?.let { at ->
+            val (lat, lng) = at.split(",").map { it.toDouble() }
+            MappingScreen(onClose = { mappingAt = null }) { trail, places ->
+                mappingAt = null
+                vm.saveSurvey(trail, places, LatLng(lat, lng), heading)
+            }
+            return@AccessPathTheme
+        }
+
         BackHandler(enabled = tab != Tab.EXPLORE || managing) { if (managing) managing = false else tab = Tab.EXPLORE }
 
         Scaffold(
@@ -76,10 +107,12 @@ fun AccessPathApp(vm: AccessViewModel) {
                     else -> when (tab) {
                         Tab.EXPLORE -> ExploreScreen(ui, vm, speaker)
                         Tab.CONTRIBUTE -> ReportsScreen(ui, vm)
-                        Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false }) else SettingsScreen(ui, vm, onManage = { managing = true })
+                        Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false })
+                            else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() })
                     }
                 }
             }
         }
+        UnmappedAreaCheck(ui.snapshot, onStartMapping = ::startMapping)
     }
 }

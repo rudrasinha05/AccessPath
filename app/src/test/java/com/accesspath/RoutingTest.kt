@@ -236,4 +236,42 @@ class RoutingTest {
     @Test fun invalidGeoIsRejected() {
         assertThrows(AppError::class.java) { MapValidator.validate(demo.copy(geo = GeoAnchor(120.0, 77.0))) }
     }
+
+    // ---- Coverage and camera surveys -----------------------------------------------------------
+
+    @Test fun coverageKnowsMappedFromUnmapped() {
+        val gate = Geo.position(demo, demo.nodes.first { it.id == "gate" })!!
+        assertTrue(Coverage.isMapped(demo, gate))
+        assertTrue(Coverage.isMapped(demo, LatLng(gate.lat + 20 / 111_320.0, gate.lng)))
+        assertFalse(Coverage.isMapped(demo, LatLng(gate.lat + 500 / 111_320.0, gate.lng)))
+    }
+
+    @Test fun surveyBuildsDraftPathsWithUnknownAccessibility() {
+        // Walk 12 m forward (−z) then 6 m to the right, facing north.
+        val trail = (0..24).map { TrailPoint(0.0, -it * 0.5) } + (1..12).map { TrailPoint(it * 0.5, -12.0) }
+        val start = LatLng(28.48, 77.49)
+        val s = SurveyBuilder.build("survey_1", "Draft", trail, listOf(SurveyPlace(trail.lastIndex, "Lab 3", "ROOM")), start, 0.0)!!
+        assertTrue(s.building.draft)
+        assertTrue(s.nodes.size >= 5)
+        assertEquals("Lab 3", s.nodes.last().name)
+        assertTrue(s.edges.all { it.width == null && it.stepFree == null && it.slope == null })
+        assertEquals(2 * (s.nodes.size - 1), s.edges.size)
+        val merged = demo.copy(buildings = demo.buildings + s.building, floors = demo.floors + s.floor, nodes = demo.nodes + s.nodes, edges = demo.edges + s.edges)
+        MapValidator.validate(merged)
+        // First point sits at the start position; the walk went north then east.
+        val first = Geo.position(merged, s.nodes.first())!!
+        assertEquals(0.0, Coverage.distanceMetres(first, start), 0.01)
+        val last = Geo.position(merged, s.nodes.last())!!
+        assertTrue(last.lat > start.lat && last.lng > start.lng)
+        // A mapped walk makes its own area count as mapped.
+        assertTrue(Coverage.isMapped(merged, last))
+        // Wheelchair routes skip unverified paths; walking routes may use them.
+        val st = AppSnapshot(merged, current = s.nodes.first().id, destination = s.nodes.last().id)
+        assertTrue(Routing.calculate(st) is RouteResult.Unavailable)
+        assertTrue(Routing.calculate(st.copy(profile = Profile(Mobility.STANDARD))) is RouteResult.Found)
+    }
+
+    @Test fun surveyNeedsAWalk() {
+        assertNull(SurveyBuilder.build("s", "D", listOf(TrailPoint(0.0, 0.0)), emptyList(), LatLng(0.0, 0.0), 0.0))
+    }
 }

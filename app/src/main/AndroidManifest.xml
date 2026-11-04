@@ -6,6 +6,14 @@
          campus overlay work offline. The app never reads the device location. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Asked only after the person agrees: location to tell mapped from unmapped areas when the app
+         opens, camera to map an unmapped area. Neither is used in the background. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <queries>
         <intent>
@@ -43,6 +51,9 @@
                 <data android:scheme="accesspath" android:host="node" />
             </intent-filter>
         </activity>
+
+        <!-- Camera mapping is optional: the app installs and works without ARCore. -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
 
         <!-- Stores the in-app language choice on Android 12 and older. -->
         <service

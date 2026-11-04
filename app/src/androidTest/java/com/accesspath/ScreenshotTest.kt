@@ -21,6 +21,16 @@ class ScreenshotTest {
     private fun s(id: Int) = compose.activity.getString(id)
     private fun waitForText(text: String) = compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
+    /** The first launch asks whether to check for unmapped areas; tests decline it. */
+    private fun waitForMap() {
+        waitForMap()
+        compose.waitForIdle()
+        if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText(s(R.string.area_check_title)).assertExists()
+            compose.onNodeWithText(s(R.string.not_now)).performClick()
+        }
+    }
+
     private fun save(name: String, settleMs: Long = 0) {
         if (settleMs > 0) Thread.sleep(settleMs) // let map tiles and camera animations finish
         compose.waitForIdle()
@@ -30,7 +40,7 @@ class ScreenshotTest {
 
     @Test
     fun captureMainScreens() {
-        waitForText(s(R.string.search_campus))
+        waitForMap()
         save("1-explore", 6000)
         compose.onNodeWithText(s(R.string.search_campus)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
@@ -54,7 +64,7 @@ class ScreenshotTest {
 
     @Test
     fun captureHindi() {
-        waitForText(s(R.string.search_campus))
+        waitForMap()
         try {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("hi")) }
             waitForText("कैंपस में जगह खोजें")

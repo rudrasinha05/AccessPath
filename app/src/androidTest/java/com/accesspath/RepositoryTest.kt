@@ -154,4 +154,20 @@ class RepositoryTest {
         context.deleteDatabase(name)
         Unit
     }
+
+    @Test
+    fun cameraSurveyIsAddedAndCanBeDeleted() = runBlocking {
+        repo.initialize()
+        val trail = (0..20).map { TrailPoint(0.0, -it * 0.5) }
+        val survey = SurveyBuilder.build("survey_t", "Draft", trail, emptyList(), LatLng(28.48, 77.49), 0.0)!!
+        repo.addSurvey(survey)
+        repo.addSurvey(survey) // idempotent
+        val s = repo.snapshot()
+        assertEquals(1, s.map.buildings.count { it.draft })
+        assertEquals("Add camera survey", s.audit.last().action)
+        repo.deleteSurvey("survey_t", "Recorded by mistake")
+        val after = repo.snapshot()
+        assertTrue(after.map.buildings.none { it.draft })
+        assertTrue(after.map.nodes.none { it.id.startsWith("survey_t") })
+    }
 }
