@@ -47,7 +47,7 @@ class AppSmokeTest {
     @Test
     fun longPressDropsPinWithOptionsAndTravelModes() {
         waitForMap()
-        compose.onNodeWithTag("worldMap").performTouchInput { longClick(center) }
+        compose.realLongPress("worldMap")
         waitForText(s(R.string.pin_title))
         compose.onNodeWithText(s(R.string.view_campus)).assertExists()
         compose.onNodeWithText(s(R.string.map_this_area)).assertExists()

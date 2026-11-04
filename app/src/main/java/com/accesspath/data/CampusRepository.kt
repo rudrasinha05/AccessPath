@@ -45,8 +45,9 @@ class CampusRepository(
                 val readable = runCatching { MapJson.decodeFromString<AppSnapshot>(row.payload) }
                 // Remove the illustrative sample campus that older versions shipped; keep the person's settings.
                 readable.getOrNull()?.takeIf { it.map.isDemo }?.let { saved ->
-                    val clean = fresh(saved.profile).copy(revision = saved.revision + 1)
-                    db.stateDao().compareAndSet(MapJson.encodeToString(clean), clean.revision, saved.revision)
+                    // Compare against the stored row's revision: it is the one compare-and-set checks.
+                    val clean = fresh(saved.profile).copy(revision = row.revision + 1)
+                    db.stateDao().compareAndSet(MapJson.encodeToString(clean), clean.revision, row.revision)
                 }
                 if (readable.isFailure) {
                     Log.w(TAG, "Saved state unreadable; restoring bundled map", readable.exceptionOrNull())
