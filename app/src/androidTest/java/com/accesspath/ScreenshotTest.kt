@@ -26,7 +26,7 @@ class ScreenshotTest {
 
     /** The first launch asks whether to check for unmapped areas; tests decline it. */
     private fun waitForMap(empty: Boolean = false) {
-        waitForText(s(R.string.search_any))
+        waitForText(s(R.string.search_here))
         TestCampus.load(empty)
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) {
@@ -47,7 +47,7 @@ class ScreenshotTest {
     fun captureMainScreens() {
         waitForMap()
         save("1-explore", 6000)
-        compose.onNodeWithText(s(R.string.search_any)).performClick()
+        compose.onNodeWithText(s(R.string.search_here)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))
@@ -80,6 +80,28 @@ class ScreenshotTest {
         waitForText(s(R.string.open_google_maps))
     }
 
+    /** The new home screen: category chips with real nearby places, and the map type sheet. */
+    @Test
+    fun captureHomeCategoriesAndLayers() {
+        waitForMap()
+        save("12-home", 4000)
+        compose.onNodeWithTag("chip_hospitals").performClick()
+        // Real data from OpenStreetMap: wait for the list, a "none found" note or an error, whichever comes.
+        runCatching {
+            compose.waitUntil(30_000) {
+                listOf(R.string.osm_credit, R.string.places_none, R.string.places_failed).any { id ->
+                    runCatching { compose.onAllNodesWithText(s(id), substring = true).fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+                }
+            }
+        }
+        save("13-category-hospitals", 3000)
+        compose.onNodeWithTag("layers").performClick()
+        waitForText(s(R.string.map_satellite))
+        save("14-map-type", 1000)
+        compose.onNodeWithText(s(R.string.map_satellite)).performClick()
+        compose.waitForIdle()
+    }
+
     @Test
     fun captureEmptyCampus() {
         waitForMap(empty = true)
@@ -91,7 +113,7 @@ class ScreenshotTest {
         waitForMap()
         try {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("hi")) }
-            waitForText("जगह या कैंपस खोजें")
+            waitForText("यहाँ खोजें")
             save("8-explore-hindi", 4000)
         } finally {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }

@@ -52,6 +52,10 @@ import com.accesspath.domain.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.accesspath.data.remote.GeoResult
+import com.accesspath.data.remote.Places
+import com.accesspath.data.remote.Poi
+import com.accesspath.data.remote.PoiCategory
+import com.accesspath.data.remote.Weather
 import com.accesspath.data.remote.Outdoor
 import com.accesspath.data.remote.TravelMode
 import com.accesspath.data.remote.metresTo
@@ -62,7 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Mode { EXPLORE, PLACE, DIRECTIONS, NAVIGATE, PIN, OUT_DIRECTIONS, OUT_NAVIGATE }
+private enum class Mode { EXPLORE, PLACE, DIRECTIONS, NAVIGATE, PIN, OUT_DIRECTIONS, OUT_NAVIGATE, POI }
 
 /** Shown when nothing is mapped and there is no GPS fix yet: all of India. */
 private val DefaultView = LatLng(22.0, 79.0)
@@ -97,7 +101,7 @@ fun stepIcon(type: Segment): ImageVector = when (type) {
 }
 
 @Composable
-fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit, onMapCenter: (LatLng) -> Unit = {}) {
+fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit, onMapCenter: (LatLng) -> Unit = {}, onOpenYou: () -> Unit = {}) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
     var mode by rememberSaveable { mutableStateOf(Mode.EXPLORE) }
@@ -129,6 +133,57 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     val hasCampus = state.map.nodes.isNotEmpty()
     val outdoorMode = mode == Mode.OUT_DIRECTIONS || mode == Mode.OUT_NAVIGATE
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { routeRequest++ }
+    // Home screen: real places by category, map type, weather and the area's name.
+    val local = (context.applicationContext as com.accesspath.AccessPathApplication).localPlaces
+    var category by rememberSaveable { mutableStateOf<PoiCategory?>(null) }
+    var pois by remember { mutableStateOf<List<Poi>>(emptyList()) }
+    var poisLoading by remember { mutableStateOf(false) }
+    var poisFailed by remember { mutableStateOf(false) }
+    var poiReload by remember { mutableIntStateOf(0) }
+    var selectedPoi by remember { mutableStateOf<Poi?>(null) }
+    var mapStyle by rememberSaveable { mutableStateOf(MapStyle.DEFAULT) }
+    var layers by rememberSaveable { mutableStateOf(false) }
+    var mapCenter by remember { mutableStateOf<LatLng?>(null) }
+    var weather by remember { mutableStateOf<Weather?>(null) }
+    var area by remember { mutableStateOf<String?>(null) }
+    var autoStart by remember { mutableStateOf(false) }
+    var directionsFrom by remember { mutableStateOf(Mode.PIN) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchForDirections by rememberSaveable { mutableStateOf(false) }
+    var savedTick by remember { mutableIntStateOf(0) }
+    val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { searchQuery = it; searchForDirections = false; searching = true }
+    }
+    fun startVoice() {
+        try {
+            voice.launch(android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.search_here)))
+        } catch (e: android.content.ActivityNotFoundException) { vm.message(UiMessage.Text(R.string.voice_unavailable)) }
+    }
+    fun share(text: String) = runCatching {
+        context.startActivity(android.content.Intent.createChooser(
+            android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), null))
+    }
+    fun mapLink(l: LatLng) = "https://www.openstreetmap.org/?mlat=${l.lat}&mlon=${l.lng}#map=18/${l.lat}/${l.lng}"
+    fun openPoi(p: Poi) {
+        selectedPoi = p; placeId = null; mode = Mode.POI
+        camera = CameraRequest(++nonce, center = p.at, zoom = 17.5)
+        local.addRecent(com.accesspath.data.SavedPlace(p.name, p.address, p.lat, p.lng, poi = p))
+    }
+    fun directionsTo(at: LatLng, title: String?, start: Boolean = false) {
+        directionsFrom = if (mode == Mode.POI) Mode.POI else Mode.PIN
+        pinText = "${at.lat},${at.lng}"; pinTitle = title; placeId = null
+        outdoor = OutdoorState.Idle; autoStart = start; mode = Mode.OUT_DIRECTIONS
+    }
+    fun openSaved(sp: com.accesspath.data.SavedPlace) {
+        local.addRecent(sp.copy(time = System.currentTimeMillis()))
+        val p = sp.poi
+        if (p != null) openPoi(p) else {
+            pinText = "${sp.lat},${sp.lng}"; pinTitle = sp.name; placeId = null; mode = Mode.PIN
+            camera = CameraRequest(++nonce, center = LatLng(sp.lat, sp.lng), zoom = 17.0)
+        }
+    }
 
     val found = ui.route as? RouteResult.Found
     val steps = remember(found, state.map) { found?.let { RouteSteps.build(it, state.map) }.orEmpty() }
@@ -186,6 +241,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         if (from == null) { outdoor = OutdoorState.Failed; vm.message(UiMessage.Text(R.string.location_off)); return@LaunchedEffect }
         gps = from
         outdoor = try { OutdoorState.Ready(Outdoor.route(travelMode, from, pin)) } catch (e: AppError) { OutdoorState.Failed }
+        if (autoStart && outdoor is OutdoorState.Ready) { autoStart = false; mode = Mode.OUT_NAVIGATE }
         (outdoor as? OutdoorState.Ready)?.route?.line?.takeIf { it.size >= 2 }?.let { camera = CameraRequest(++nonce, bounds = it + pin) }
     }
     // Outdoor navigation: follow live GPS, move to the next instruction, re-route when off the line.
@@ -237,17 +293,39 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     // While navigating, follow the confirmed position.
     LaunchedEffect(state.current, mode) { if (mode == Mode.NAVIGATE) moveTo(current, 20.3) }
 
-    BackHandler(enabled = mode != Mode.EXPLORE) {
+    // Nearby places of the chosen category, around the middle of the map.
+    LaunchedEffect(category, poiReload) {
+        pois = emptyList(); poisFailed = false
+        val c = category ?: return@LaunchedEffect
+        val center = mapCenter ?: gps ?: return@LaunchedEffect
+        poisLoading = true
+        try { pois = Places.nearby(c, center, if (c == PoiCategory.ACCESSIBLE || c == PoiCategory.TOILETS) 2500 else 1500) }
+        catch (e: AppError) { poisFailed = true }
+        finally { poisLoading = false }
+    }
+    // Weather, air quality and the area's name, refreshed when the map moves about 2 km.
+    val areaAt = gps ?: mapCenter
+    val areaKey = areaAt?.let { "${Math.round(it.lat * 50)}/${Math.round(it.lng * 50)}" }
+    LaunchedEffect(areaKey) {
+        val at = areaAt ?: return@LaunchedEffect
+        delay(700)
+        runCatching { Places.weather(at) }.getOrNull()?.let { weather = it }
+        runCatching { Places.areaName(at) }.getOrNull()?.let { area = it }
+    }
+
+    BackHandler(enabled = mode != Mode.EXPLORE || category != null) {
+        if (mode == Mode.EXPLORE) { category = null; return@BackHandler }
         mode = when (mode) {
             Mode.NAVIGATE -> Mode.DIRECTIONS; Mode.DIRECTIONS -> if (placeId != null) Mode.PLACE else Mode.EXPLORE
-            Mode.OUT_NAVIGATE -> Mode.OUT_DIRECTIONS; Mode.OUT_DIRECTIONS -> Mode.PIN
+            Mode.OUT_NAVIGATE -> Mode.OUT_DIRECTIONS; Mode.OUT_DIRECTIONS -> if (directionsFrom == Mode.POI && selectedPoi != null) Mode.POI else Mode.PIN
             else -> Mode.EXPLORE
         }
-        if (mode == Mode.EXPLORE) { placeId = null; pinText = null }
+        if (mode == Mode.EXPLORE) { placeId = null; pinText = null; selectedPoi = null }
     }
 
     val peek: Dp = when (mode) {
-        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 96.dp; Mode.EXPLORE -> 220.dp; Mode.PIN -> 200.dp; Mode.OUT_DIRECTIONS -> 280.dp; else -> 236.dp
+        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 96.dp; Mode.EXPLORE -> if (category != null) 320.dp else 240.dp
+        Mode.PIN -> 200.dp; Mode.OUT_DIRECTIONS -> 280.dp; Mode.POI -> 290.dp; else -> 236.dp
     }
     val density = androidx.compose.ui.platform.LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
@@ -280,7 +358,27 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         sheetContent = {
             Column(Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 640.dp).padding(horizontal = 20.dp).padding(bottom = 16.dp).testTag("sheet")) {
                 when (mode) {
-                    Mode.EXPLORE -> if (!hasCampus) EmptyCampusCard(onMapArea = { onMapArea(null) }) else ExploreSheet(state, onChangePosition = { picking = "from" }, onNearest = { kind -> placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }, onPlace = ::select)
+                    Mode.EXPLORE -> Column {
+                        AreaHeader(area, weather)
+                        val c = category
+                        when {
+                            c != null -> PoiList(c, pois, poisLoading, poisFailed, gps ?: mapCenter, onRetry = { poiReload++ }, onPick = ::openPoi)
+                            !hasCampus -> EmptyCampusCard(onMapArea = { onMapArea(null) })
+                            else -> ExploreSheet(state, onChangePosition = { picking = "from" }, onNearest = { kind -> placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }, onPlace = ::select)
+                        }
+                    }
+                    Mode.POI -> selectedPoi?.let { p ->
+                        val sp = com.accesspath.data.SavedPlace(p.name, p.address, p.lat, p.lng, poi = p)
+                        val saved = remember(savedTick, p.id) { local.isSaved(sp) }
+                        PoiSheet(p, gps ?: mapCenter, saved,
+                            onDirections = { directionsTo(p.at, p.name) },
+                            onStart = { directionsTo(p.at, p.name, start = true) },
+                            onShare = { share(listOf(p.name, p.address, mapLink(p.at)).filter { it.isNotBlank() }.joinToString("\n")) },
+                            onSave = { val now = local.toggleSaved(sp); savedTick++; vm.message(UiMessage.Text(if (now) R.string.place_saved else R.string.place_unsaved)) },
+                            onCall = { ph -> runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$ph"))) } },
+                            onWebsite = { w -> runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(if (w.startsWith("http")) w else "https://$w"))) } },
+                            onClose = { selectedPoi = null; mode = Mode.EXPLORE })
+                    } ?: LaunchedEffect(Unit) { mode = Mode.EXPLORE }
                     Mode.PLACE -> if (place != null) {
                         PlaceSheet(state, place, onClose = { placeId = null; mode = Mode.EXPLORE },
                             onReport = { reportEdge = state.map.edges.firstOrNull { it.from == place.id || it.to == place.id }?.id; reporting = true },
@@ -297,7 +395,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                         onRead = { read(context, speaker, steps.take(1), vm) },
                         onExit = { speaker.stop(); mode = Mode.EXPLORE; placeId = null })
                     Mode.PIN -> if (pin != null) PinSheet(pin, pinTitle, nearPin?.name, hasCampus,
-                        onDirections = { outdoor = OutdoorState.Idle; mode = Mode.OUT_DIRECTIONS },
+                        onDirections = { directionsFrom = Mode.PIN; outdoor = OutdoorState.Idle; mode = Mode.OUT_DIRECTIONS },
                         onViewCampus = ::showCampus, onMapArea = { onMapArea(pin) },
                         onZoomIn = { camera = CameraRequest(++nonce, zoomStep = 1) },
                         onZoomOut = { camera = CameraRequest(++nonce, zoomStep = -1) },
@@ -328,8 +426,12 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     outdoorRoute = if (outdoorMode) (outdoor as? OutdoorState.Ready)?.route?.line.orEmpty() else emptyList(),
                     onLongPress = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) dropPin(it) },
                     onOrientation = { orientation = it },
-                    onCenter = onMapCenter,
+                    onCenter = { mapCenter = it; onMapCenter(it) },
                     myLocation = gps.takeIf { outdoorMode || !hasCampus },
+                    mapStyle = mapStyle,
+                    pois = if (mode == Mode.EXPLORE || mode == Mode.POI) (pois + listOfNotNull(selectedPoi)).distinctBy { it.id } else emptyList(),
+                    selectedPoi = selectedPoi?.id.takeIf { mode == Mode.POI },
+                    onPoiTap = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) openPoi(it) },
                     description = stringResource(R.string.world_map_a11y, floorLabel),
                     modifier = Modifier.fillMaxSize().testTag("worldMap"),
                     onPlaceTap = { if (mode != Mode.NAVIGATE) select(it) },
@@ -356,7 +458,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     Mode.OUT_DIRECTIONS -> Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { mode = Mode.PIN }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
+                                IconButton(onClick = { mode = if (directionsFrom == Mode.POI && selectedPoi != null) Mode.POI else Mode.PIN }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     EndpointBox(Icons.Filled.MyLocation, GoogleBlue, stringResource(R.string.out_from_here)) {}
                                     EndpointBox(Icons.Filled.Place, Color(0xFFEA4335), pinTitle ?: nearPin?.name ?: pin?.let(::formatLatLng).orEmpty()) { mode = Mode.PIN }
@@ -370,8 +472,13 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                         onFrom = { picking = "from" }, onTo = { picking = "to" }, onSwap = vm::swapEnds,
                         onMobility = { vm.setProfile(state.profile.copy(mobility = it)) }, onOptions = { editProfile = true })
                     else -> {
-                        SearchPill(onClick = { searching = true }, profile = state.profile, onProfile = { editProfile = true })
+                        HomeSearchBar(ui.account?.email?.firstOrNull()?.uppercase(),
+                            onSearch = { searchQuery = ""; searchForDirections = false; searching = true },
+                            onVoice = ::startVoice, onCamera = { onMapArea(null) }, onProfile = onOpenYou)
                         Spacer(Modifier.height(10.dp))
+                        CategoryChips(state.profile.mobility, category, onMobility = { editProfile = true },
+                            onCategory = { category = it; if (mode == Mode.POI || mode == Mode.PIN) { selectedPoi = null; pinText = null; mode = Mode.EXPLORE } })
+                        if (hasCampus) Spacer(Modifier.height(8.dp))
                         if (hasCampus) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             NearbyKind.entries.forEach { kind ->
                                 val icon = when (kind) { NearbyKind.WASHROOM -> Icons.Filled.Wc; NearbyKind.LIFT -> Icons.Filled.Elevator; NearbyKind.EXIT -> Icons.Filled.MeetingRoom }
@@ -389,13 +496,23 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             }
             // One column above the sheet, like Google Maps. Zoom buttons are left out while the tall directions
             // header is shown (pinch zoom still works) so the controls never cover it on short screens.
+            // Top right: map type and compass.
+            val browsing = mode == Mode.EXPLORE || mode == Mode.POI || mode == Mode.PIN || mode == Mode.PLACE
+            if (hasGeo && browsing) Column(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                MapRoundButton(Icons.Filled.Layers, stringResource(R.string.map_type), tint = BrandTeal, container = BrandTealSoft, modifier = Modifier.testTag("layers")) { layers = true }
+                CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+            }
+            // Bottom right, above the sheet: zoom, share, my location and directions.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (hasGeo && mode != Mode.DIRECTIONS && mode != Mode.OUT_DIRECTIONS) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
-                if (hasGeo && !outdoorMode && mode != Mode.DIRECTIONS && mode != Mode.NAVIGATE) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
-                SmallFloatingActionButton(
-                    onClick = ::showMe,
-                    containerColor = MaterialTheme.colorScheme.surface, contentColor = GoogleBlue
-                ) { Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.recenter)) }
+                if (hasGeo && mode == Mode.OUT_NAVIGATE) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                if (hasGeo && browsing) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
+                if (browsing) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
+                    (gps ?: mapCenter)?.let { share(context.getString(R.string.share_my_location, mapLink(it))) }
+                }
+                MapRoundButton(Icons.Filled.MyLocation, stringResource(R.string.recenter), tint = BrandBlue, onClick = ::showMe)
+                if (mode == Mode.EXPLORE) MapRoundButton(Icons.Filled.Directions, stringResource(R.string.directions), tint = Color.White, container = BrandTeal, modifier = Modifier.testTag("directionsFab")) {
+                    searchQuery = ""; searchForDirections = true; searching = true
+                }
             }
             if (hasGeo) {
                 val online = rememberIsOnline()
@@ -409,9 +526,30 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         }
     }
 
-    if (searching) SearchDialog(state, near = gps ?: current?.let { Geo.position(state.map, it) },
-        onGeo = { r -> searching = false; dropPin(r.at, r.name); camera = CameraRequest(++nonce, center = r.at, zoom = 17.0) },
-        onDismiss = { searching = false }, onNearest = { kind -> searching = false; placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }) { node -> searching = false; select(node) }
+    if (searching) {
+        var recents by remember { mutableStateOf(local.recents()) }
+        var home by remember { mutableStateOf(local.home()) }
+        var work by remember { mutableStateOf(local.work()) }
+        fun go(sp: com.accesspath.data.SavedPlace) {
+            searching = false
+            if (searchForDirections) { local.addRecent(sp.copy(time = System.currentTimeMillis())); directionsTo(LatLng(sp.lat, sp.lng), sp.name) } else openSaved(sp)
+        }
+        fun setHere(isHome: Boolean) {
+            val at = gps ?: mapCenter ?: return
+            val sp = com.accesspath.data.SavedPlace(context.getString(if (isHome) R.string.home else R.string.work), formatLatLng(at), at.lat, at.lng)
+            if (isHome) { local.setHome(sp); home = sp } else { local.setWork(sp); work = sp }
+            vm.message(UiMessage.Text(if (isHome) R.string.home_set else R.string.work_set))
+        }
+        SearchDialog(state, near = gps ?: mapCenter ?: current?.let { Geo.position(state.map, it) }, initialQuery = searchQuery,
+            title = if (searchForDirections) R.string.choose_destination else R.string.search_here,
+            recents = recents, home = home, work = work,
+            onHome = { home?.let(::go) ?: setHere(true) }, onWork = { work?.let(::go) ?: setHere(false) },
+            onRecent = ::go, onClearRecents = { local.clearRecents(); recents = emptyList() },
+            onCategory = { c -> searching = false; category = c; mode = Mode.EXPLORE },
+            onGeo = { r -> go(com.accesspath.data.SavedPlace(r.name, r.detail, r.at.lat, r.at.lng)) },
+            onDismiss = { searching = false }, onNearest = { kind -> searching = false; placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }) { node -> searching = false; select(node) }
+    }
+    if (layers) LayersSheet(mapStyle, category, onStyle = { mapStyle = it }, onCategory = { category = it; layers = false; mode = Mode.EXPLORE }, onDismiss = { layers = false })
     when (picking) {
         "from" -> PlacePickerDialog(state, stringResource(R.string.pick_from_title), { picking = null }) { picking = null; vm.setCurrent(it.id); moveTo(it) }
         "to" -> PlacePickerDialog(state, stringResource(R.string.pick_to_title), { picking = null }) { picking = null; startDirections(it.id) }
@@ -431,25 +569,6 @@ private fun read(context: android.content.Context, speaker: Speaker, steps: List
 }
 
 // ---- Top overlays ----------------------------------------------------------------------------
-
-@Composable
-private fun SearchPill(onClick: () -> Unit, profile: Profile, onProfile: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp,
-        modifier = Modifier.fillMaxWidth().height(56.dp)
-    ) {
-        Row(Modifier.fillMaxSize().clickable(role = Role.Button, onClick = onClick).padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(14.dp))
-            Text(stringResource(R.string.search_any), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            IconButton(onClick = onProfile) {
-                Box(Modifier.size(36.dp).background(GoogleBlue, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(mobilityIcon(profile.mobility), contentDescription = stringResource(R.string.profile_title), tint = Color.White, modifier = Modifier.size(22.dp))
-                }
-            }
-        }
-    }
-}
 
 fun mobilityIcon(m: Mobility): ImageVector = when (m) {
     Mobility.STANDARD -> Icons.AutoMirrored.Filled.DirectionsWalk
@@ -792,9 +911,15 @@ private fun NavigateSheet(state: AppSnapshot, found: RouteResult.Found?, problem
 // ---- Search ----------------------------------------------------------------------------------
 
 @Composable
-private fun SearchDialog(state: AppSnapshot, near: LatLng?, onGeo: (GeoResult) -> Unit, onDismiss: () -> Unit, onNearest: (NearbyKind) -> Unit, onPick: (Node) -> Unit) {
+private fun SearchDialog(
+    state: AppSnapshot, near: LatLng?, initialQuery: String, title: Int,
+    recents: List<com.accesspath.data.SavedPlace>, home: com.accesspath.data.SavedPlace?, work: com.accesspath.data.SavedPlace?,
+    onHome: () -> Unit, onWork: () -> Unit, onRecent: (com.accesspath.data.SavedPlace) -> Unit, onClearRecents: () -> Unit,
+    onCategory: (PoiCategory) -> Unit,
+    onGeo: (GeoResult) -> Unit, onDismiss: () -> Unit, onNearest: (NearbyKind) -> Unit, onPick: (Node) -> Unit
+) {
     val context = LocalContext.current
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf(initialQuery) }
     var geo by remember { mutableStateOf<List<GeoResult>>(emptyList()) }
     var geoError by remember { mutableStateOf<Int?>(null) }
     // Real-world places (MapTiler), searched shortly after typing stops.
@@ -820,7 +945,7 @@ private fun SearchDialog(state: AppSnapshot, near: LatLng?, onGeo: (GeoResult) -
                     IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
                     TextField(
                         value = query, onValueChange = { query = it.take(80) },
-                        placeholder = { Text(stringResource(R.string.search_any)) }, singleLine = true,
+                        placeholder = { Text(stringResource(title)) }, singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
                         trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close)) } },
@@ -829,15 +954,43 @@ private fun SearchDialog(state: AppSnapshot, near: LatLng?, onGeo: (GeoResult) -
                 }
                 HorizontalDivider()
                 LazyColumn(Modifier.fillMaxSize()) {
-                    if (query.isBlank()) item {
-                        Row(Modifier.horizontalScroll(rememberScrollState()).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            NearbyKind.entries.forEach { kind ->
-                                AssistChip(onClick = { onNearest(kind) }, label = { Text(stringResource(kind.label())) })
+                    if (query.isBlank()) {
+                        // Home and Work, like the shortcuts in other map apps; "Set location" uses where you are now.
+                        item {
+                            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(vertical = 8.dp)) {
+                                ShortcutCell(Icons.Filled.Home, stringResource(R.string.home), home?.detail ?: stringResource(R.string.set_location), Modifier.weight(1f), onHome)
+                                VerticalDivider()
+                                ShortcutCell(Icons.Filled.Work, stringResource(R.string.work), work?.detail ?: stringResource(R.string.set_location), Modifier.weight(1f), onWork)
                             }
+                            HorizontalDivider(thickness = 6.dp, color = MaterialTheme.colorScheme.surfaceContainerHigh)
+                        }
+                        item {
+                            Row(Modifier.horizontalScroll(rememberScrollState()).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(PoiCategory.ACCESSIBLE, PoiCategory.TOILETS, PoiCategory.HOSPITALS, PoiCategory.RESTAURANTS, PoiCategory.ATMS, PoiCategory.PETROL).forEach { c ->
+                                    AssistChip(onClick = { onCategory(c) }, label = { Text(stringResource(c.label())) }, leadingIcon = { Icon(c.icon(), null, Modifier.size(18.dp)) })
+                                }
+                                if (state.map.nodes.isNotEmpty()) NearbyKind.entries.forEach { kind ->
+                                    AssistChip(onClick = { onNearest(kind) }, label = { Text(stringResource(kind.label())) })
+                                }
+                            }
+                        }
+                        if (recents.isNotEmpty()) item {
+                            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.recent), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                TextButton(onClick = onClearRecents) { Text(stringResource(R.string.clear_recents)) }
+                            }
+                        }
+                        items(recents.size) { i ->
+                            val r = recents[i]
+                            ListItem(
+                                headlineContent = { Text(r.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { if (r.detail.isNotBlank()) Text(r.detail, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingContent = { Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.History, null) } },
+                                modifier = Modifier.clickable(role = Role.Button) { onRecent(r) }.testTag("recent")
+                            )
                         }
                     }
                     if (query.isNotBlank() && results.isNotEmpty()) item { SearchHeader(stringResource(R.string.campus_results)) }
-                    if (results.isEmpty() && geo.isEmpty() && query.isBlank()) item { Box(Modifier.padding(16.dp)) { InfoText(stringResource(R.string.no_campus_body)) } }
                     items(results, key = { it.id }) { node ->
                         ListItem(
                             headlineContent = { Text(node.name) },
@@ -862,6 +1015,18 @@ private fun SearchDialog(state: AppSnapshot, near: LatLng?, onGeo: (GeoResult) -
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ShortcutCell(icon: ImageVector, title: String, detail: String, modifier: Modifier, onClick: () -> Unit) {
+    Row(modifier.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).background(BrandTealSoft, CircleShape), contentAlignment = Alignment.Center) { Icon(icon, null, tint = BrandTeal) }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

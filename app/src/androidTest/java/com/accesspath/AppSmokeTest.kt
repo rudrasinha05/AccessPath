@@ -17,7 +17,7 @@ class AppSmokeTest {
 
     /** The first launch asks whether to check for unmapped areas; tests decline it. */
     private fun waitForMap(empty: Boolean = false) {
-        waitForText(s(R.string.search_any))
+        waitForText(s(R.string.search_here))
         TestCampus.load(empty)
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) {
@@ -67,13 +67,13 @@ class AppSmokeTest {
         compose.onNodeWithText(s(R.string.start)).performClick()
         waitForText(s(R.string.exit_navigation))
         compose.onNodeWithText(s(R.string.exit_navigation)).performClick()
-        waitForText(s(R.string.search_any))
+        waitForText(s(R.string.search_here))
     }
 
     @Test
     fun searchFindsAPlaceAndOpensItsCard() {
         waitForMap()
-        compose.onNodeWithText(s(R.string.search_any)).performClick()
+        compose.onNodeWithText(s(R.string.search_here)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))

@@ -26,14 +26,14 @@ class UseCaseTest {
         TestStorage().openOutputFile("screenshots/$name.png").use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
     private fun openCampus() {
-        waitForText(s(R.string.search_any))
+        waitForText(s(R.string.search_here))
         TestCampus.load()
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText(s(R.string.not_now)).performClick()
         waitForText(s(R.string.explore_title))
     }
     private fun directionsToLibrary() {
-        compose.onNodeWithText(s(R.string.search_any)).performClick()
+        compose.onNodeWithText(s(R.string.search_here)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))

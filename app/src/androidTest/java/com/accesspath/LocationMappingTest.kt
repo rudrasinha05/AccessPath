@@ -86,7 +86,7 @@ class LocationMappingTest {
 
     @Test
     fun walkingWithLocationMapsANewArea() {
-        waitForText(s(R.string.search_any))
+        waitForText(s(R.string.search_here))
         TestCampus.load()
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText(s(R.string.not_now)).performClick()

@@ -129,7 +129,7 @@ fun AccessPathApp(vm: AccessViewModel) {
                         Text(stringResource(R.string.loading))
                     }
                     else -> when (tab) {
-                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapCenter = { mapCenter = it }, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
+                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapCenter = { mapCenter = it }, onOpenYou = { tab = Tab.YOU }, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
                         Tab.CONTRIBUTE -> ReportsScreen(ui, vm)
                         Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false })
                             else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() })

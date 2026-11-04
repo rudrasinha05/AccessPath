@@ -57,10 +57,15 @@ private data class OverlayData(
     val selectedId: String?,
     val routeNodeIds: Set<String>,
     val pin: LatLng? = null,
-    val outdoorRoute: List<LatLng> = emptyList()
+    val outdoorRoute: List<LatLng> = emptyList(),
+    val pois: List<com.accesspath.data.remote.Poi> = emptyList(),
+    val selectedPoi: String? = null
 )
 
-private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> Unit, private val onEmptyTap: () -> Unit) : Overlay() {
+/** Map look, like the map-type picker in other map apps. */
+enum class MapStyle { DEFAULT, SATELLITE, TERRAIN }
+
+private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> Unit, private val onEmptyTap: () -> Unit, private val onPoiTap: (com.accesspath.data.remote.Poi) -> Unit = {}) : Overlay() {
     var data: OverlayData? = null
     var colors: WorldMapColors = WorldMapColors.Light
 
@@ -160,6 +165,20 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
             stroke.color = colors.route; stroke.strokeWidth = dp(6f); canvas.drawPath(path, stroke)
         }
 
+        // Real places nearby (OpenStreetMap), drawn as round category markers; names show when zoomed in.
+        val showNames = mapView.zoomLevelDouble >= 16.5
+        d.pois.forEach { poi ->
+            px(mapView, poi.at, p1)
+            val x = p1.x.toFloat(); val y = p1.y.toFloat()
+            if (x < -50 || y < -50 || x > mapView.width + 50 || y > mapView.height + 50) return@forEach
+            val sel = poi.id == d.selectedPoi
+            val r = if (sel) dp(13f) else dp(10f)
+            fill.color = colors.white; canvas.drawCircle(x, y, r + dp(2.5f), fill)
+            fill.color = poiColor(poi.kind); canvas.drawCircle(x, y, r, fill)
+            fill.color = colors.white; canvas.drawCircle(x, y, r * 0.35f, fill)
+            if (showNames || sel) drawLabel(canvas, poi.name, x, y + r + dp(16f), poiColor(poi.kind), sel)
+        }
+
         // Dropped pin from a long press or a search result.
         d.pin?.let { l -> drawPin(canvas, mapView, l) }
 
@@ -192,8 +211,18 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
         text.color = color; canvas.drawText(label, x, y, text)
     }
 
+    private fun poiColor(kind: String) = android.graphics.Color.parseColor(when (kind) {
+        "RESTAURANTS" -> "#E8710A"; "COFFEE" -> "#A0522D"; "PETROL" -> "#1967D2"; "HOTELS" -> "#C2185B"
+        "ATMS" -> "#188038"; "HOSPITALS" -> "#D93025"; "SHOPPING" -> "#1A73E8"; "TOILETS" -> "#00897B"; else -> "#5E35B1"
+    })
+
     override fun onSingleTapConfirmed(e: MotionEvent, mapView: MapView): Boolean {
         val d = data ?: return false
+        val poiHit = d.pois.minByOrNull { px(mapView, it.at, p1); hypot(p1.x - e.x, p1.y - e.y) }
+        if (poiHit != null) {
+            px(mapView, poiHit.at, p1)
+            if (hypot(p1.x - e.x, p1.y - e.y) <= dp(24f)) { onPoiTap(poiHit); return true }
+        }
         val hit = d.places.minByOrNull { (_, l) -> px(mapView, l, p1); hypot(p1.x - e.x, p1.y - e.y) }
         if (hit != null) {
             px(mapView, hit.second, p1)
@@ -246,6 +275,10 @@ fun WorldMap(
     onCenter: (LatLng) -> Unit = {},
     /** Live GPS position while following an outdoor route; replaces the confirmed campus position dot. */
     myLocation: LatLng? = null,
+    mapStyle: MapStyle = MapStyle.DEFAULT,
+    pois: List<com.accesspath.data.remote.Poi> = emptyList(),
+    selectedPoi: String? = null,
+    onPoiTap: (com.accesspath.data.remote.Poi) -> Unit = {},
     description: String,
     modifier: Modifier = Modifier,
     onPlaceTap: (Node) -> Unit,
@@ -256,8 +289,9 @@ fun WorldMap(
     val latestPlaceTap by rememberUpdatedState(onPlaceTap)
     val latestEmptyTap by rememberUpdatedState(onEmptyTap)
     val latestLongPress by rememberUpdatedState(onLongPress)
+    val latestPoiTap by rememberUpdatedState(onPoiTap)
 
-    val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }) }
+    val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }, { latestPoiTap(it) }) }
     val mapView = remember {
         Configuration.getInstance().apply {
             userAgentValue = "AccessPath/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})"
@@ -296,7 +330,7 @@ fun WorldMap(
     }
 
     // Prepare drawing data for the selected floor level (all buildings at the same level).
-    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation) {
+    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation, pois, selectedPoi) {
         val map = state.map
         val floors = map.floors.associateBy { it.id }
         val selected = floors[state.selectedFloor]
@@ -336,8 +370,13 @@ fun WorldMap(
             destination = state.destination.takeIf { it in visibleIds && it != state.current }?.let(pos::get),
             currentId = state.current, destinationId = state.destination, selectedId = selectedPlaceId,
             routeNodeIds = route?.nodes?.map { it.id }?.toSet().orEmpty(),
-            pin = pin, outdoorRoute = outdoorRoute
+            pin = pin, outdoorRoute = outdoorRoute, pois = pois, selectedPoi = selectedPoi
         )
+    }
+
+    LaunchedEffect(mapStyle) {
+        val src = campusTileSource(mapStyle)
+        if (mapView.tileProvider.tileSource.name() != src.name()) { mapView.setTileSource(src); mapView.invalidate() }
     }
 
     // Report the map rotation so the compass needle can follow it.
@@ -398,11 +437,12 @@ fun WorldMap(
 }
 
 /** MapTiler streets tiles when a key is configured (production), otherwise OpenStreetMap's demo tiles. */
-private fun campusTileSource(): org.osmdroid.tileprovider.tilesource.ITileSource {
+private fun campusTileSource(style: MapStyle = MapStyle.DEFAULT): org.osmdroid.tileprovider.tilesource.ITileSource {
     val key = BuildConfig.MAPTILER_KEY
     if (key.isBlank()) return TileSourceFactory.MAPNIK
+    val (id, ext) = when (style) { MapStyle.DEFAULT -> "streets-v2" to ".png"; MapStyle.SATELLITE -> "satellite" to ".jpg"; MapStyle.TERRAIN -> "outdoor-v2" to ".png" }
     return object : org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase(
-        "MapTiler-streets", 0, 20, 256, ".png", arrayOf("https://api.maptiler.com/maps/streets-v2/256/"),
+        "MapTiler-$id", 0, 20, 256, ext, arrayOf("https://api.maptiler.com/maps/$id/256/"),
         "© MapTiler © OpenStreetMap contributors"
     ) {
         override fun getTileURLString(index: Long): String =
