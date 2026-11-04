@@ -38,10 +38,9 @@ object AreaCheckPrefs {
  * areas it stays silent.
  */
 @Composable
-fun UnmappedAreaCheck(state: AppSnapshot?, onStartMapping: (LatLng) -> Unit) {
+fun UnmappedAreaCheck(state: AppSnapshot?, alreadyChecked: Boolean, onChecked: () -> Unit, onStartMapping: (LatLng) -> Unit) {
     val context = LocalContext.current
     var choice by remember { mutableStateOf(AreaCheckPrefs.get(context)) }
-    var checkedThisLaunch by rememberSaveable { mutableStateOf(false) }
     var unmappedAt by remember { mutableStateOf<LatLng?>(null) }
     var granted by remember { mutableStateOf(DeviceSensors.hasLocationPermission(context)) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -67,8 +66,8 @@ fun UnmappedAreaCheck(state: AppSnapshot?, onStartMapping: (LatLng) -> Unit) {
     }
 
     LaunchedEffect(state != null, choice, granted) {
-        if (state == null || checkedThisLaunch || choice != AreaCheckPrefs.Choice.ON || !granted) return@LaunchedEffect
-        checkedThisLaunch = true
+        if (state == null || alreadyChecked || choice != AreaCheckPrefs.Choice.ON || !granted) return@LaunchedEffect
+        onChecked()
         val fix = DeviceSensors.currentLocation(context) ?: return@LaunchedEffect
         if (!fix.hasAccuracy() || fix.accuracy > DeviceSensors.MAX_ACCURACY_M) return@LaunchedEffect
         val here = fix.toLatLng()

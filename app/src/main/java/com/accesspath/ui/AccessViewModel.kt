@@ -88,6 +88,11 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
         }
     }
 
+    /** The unmapped-area check runs once per app start, even if its screen is left and re-entered. */
+    var areaChecked = false
+        private set
+    fun markAreaChecked() { areaChecked = true }
+
     fun message(m: UiMessage?) = ui_.update { it.copy(message = m) }
 
     private fun nodeName(id: String) = ui_.value.snapshot?.node(id)?.name ?: id

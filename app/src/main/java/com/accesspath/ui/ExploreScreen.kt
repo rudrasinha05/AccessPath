@@ -237,8 +237,9 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
                 ) { Icon(Icons.Filled.MyLocation, contentDescription = stringResource(R.string.recenter)) }
             }
             if (hasGeo) {
+                val online = rememberIsOnline()
                 Text(
-                    stringResource(R.string.map_attribution),
+                    stringResource(if (online) R.string.map_attribution else R.string.map_offline),
                     style = MaterialTheme.typography.labelSmall, color = Color(0xFF3C4043),
                     modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = peek + 6.dp)
                         .background(Color.White.copy(alpha = 0.75f), RoundedCornerShape(4.dp)).padding(horizontal = 4.dp, vertical = 1.dp)
@@ -678,4 +679,24 @@ private fun SearchDialog(state: AppSnapshot, onDismiss: () -> Unit, onNearest: (
             }
         }
     }
+}
+
+/** Whether the phone has a working internet connection, updated as it changes. Only the map background needs it. */
+@Composable
+fun rememberIsOnline(): Boolean {
+    val context = LocalContext.current
+    val cm = remember { context.getSystemService(android.net.ConnectivityManager::class.java) }
+    fun now(): Boolean = cm?.getNetworkCapabilities(cm.activeNetwork)
+        ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    var online by remember { mutableStateOf(now()) }
+    DisposableEffect(cm) {
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) { online = now() }
+            override fun onLost(network: android.net.Network) { online = now() }
+            override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) { online = now() }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(cb) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(cb) } }
+    }
+    return online
 }

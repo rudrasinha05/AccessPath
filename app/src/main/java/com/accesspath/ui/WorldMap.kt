@@ -229,6 +229,9 @@ fun WorldMap(
             isTilesScaledToDpi = true
             isVerticalMapRepetitionEnabled = false
             isHorizontalMapRepetitionEnabled = false
+            // Plain light background instead of a checkerboard while tiles load or when offline.
+            overlayManager.tilesOverlay.loadingBackgroundColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
+            overlayManager.tilesOverlay.loadingLineColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
             overlays.add(overlay)
             controller.setZoom(18.5)
         }

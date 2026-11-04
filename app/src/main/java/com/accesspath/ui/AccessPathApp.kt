@@ -113,6 +113,6 @@ fun AccessPathApp(vm: AccessViewModel) {
                 }
             }
         }
-        UnmappedAreaCheck(ui.snapshot, onStartMapping = ::startMapping)
+        UnmappedAreaCheck(ui.snapshot, vm.areaChecked, vm::markAreaChecked, onStartMapping = ::startMapping)
     }
 }
