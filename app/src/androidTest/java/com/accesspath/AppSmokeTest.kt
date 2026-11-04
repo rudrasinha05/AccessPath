@@ -80,6 +80,8 @@ class AppSmokeTest {
     @Test
     fun nearestWashroomShowsDirectionsAndNavigationStarts() {
         waitForMap()
+        compose.onNodeWithTag("sheet").performTouchInput { swipeUp() }
+        compose.waitForIdle()
         compose.onAllNodesWithText(s(R.string.nearby_washroom))[0].performClick()
         waitForText(s(R.string.start))
         compose.onNodeWithText(s(R.string.start)).performClick()

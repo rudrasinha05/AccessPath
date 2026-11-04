@@ -262,8 +262,10 @@ private fun DetailRow(icon: ImageVector, text: String, onClick: (() -> Unit)? = 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LayersSheet(style: MapStyle, category: PoiCategory?, onStyle: (MapStyle) -> Unit, onCategory: (PoiCategory?) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    AlertDialog(onDismissRequest = onDismiss, modifier = Modifier.testTag("layersSheet"),
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+        text = {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(R.string.map_type), style = MaterialTheme.typography.titleLarge)
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 LayerTile(stringResource(R.string.map_default), Icons.Filled.Map, Color(0xFFDDEFE3), style == MapStyle.DEFAULT) { onStyle(MapStyle.DEFAULT) }
@@ -284,18 +286,18 @@ fun LayersSheet(style: MapStyle, category: PoiCategory?, onStyle: (MapStyle) -> 
                 }
             }
         }
-    }
+    })
 }
 
 @Composable
 private fun LayerTile(label: String, icon: ImageVector, bg: Color, selected: Boolean, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(96.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onClick).padding(4.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onClick).padding(2.dp)) {
         Box(
-            Modifier.size(76.dp).border(if (selected) 3.dp else 0.dp, if (selected) BrandTeal else Color.Transparent, RoundedCornerShape(16.dp))
+            Modifier.size(64.dp).border(if (selected) 3.dp else 0.dp, if (selected) BrandTeal else Color.Transparent, RoundedCornerShape(16.dp))
                 .padding(4.dp).background(bg, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) { Icon(icon, contentDescription = null, tint = if (bg == Color(0xFF5F6B5A)) Color.White else Color(0xFF3C4043), modifier = Modifier.size(32.dp)) }
         Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) BrandTeal else MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = if (selected) BrandTeal else MaterialTheme.colorScheme.onSurface, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }

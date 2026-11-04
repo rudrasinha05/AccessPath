@@ -90,7 +90,7 @@ class ScreenshotTest {
         waitForText(s(R.string.map_satellite))
         save("14-map-type", 1000)
         compose.onNodeWithText(s(R.string.map_default)).performClick()
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText(s(R.string.close)).performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("chip_hospitals").performScrollTo().performClick()
         // Real data from OpenStreetMap: wait for the list, a "none found" note or an error, whichever comes.
