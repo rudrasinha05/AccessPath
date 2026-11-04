@@ -92,3 +92,54 @@ object SurveyBuilder {
         return Survey(building, floor, nodes, edges)
     }
 }
+
+/**
+ * Records a walked path from location fixes (the blue dot), for phones without ARCore or when the camera can't be used.
+ * Converts positions to the same trail format camera mapping uses (x east, z south, metres from the first point), so
+ * [SurveyBuilder.build] with heading 0 places it correctly. Weak fixes are skipped instead of drawing a wrong path.
+ */
+class GpsTrailRecorder(private val maxAccuracyM: Double = MAX_ACCURACY_M, private val minStepM: Double = MIN_STEP_M) {
+    private val pts = mutableListOf<LatLng>()
+    private val placeList = mutableListOf<SurveyPlace>()
+    var paused = false
+    var distance = 0.0; private set
+    val start: LatLng? get() = pts.firstOrNull()
+    val size get() = pts.size
+    val points: List<LatLng> get() = pts.toList()
+    val places: List<SurveyPlace> get() = placeList.toList()
+
+    /** Returns true when the fix was kept. */
+    fun add(at: LatLng, accuracyM: Double): Boolean {
+        if (paused || accuracyM > maxAccuracyM) return false
+        val last = pts.lastOrNull()
+        if (last != null) {
+            val step = Coverage.distanceMetres(last, at)
+            if (step < minStepM) return false
+            distance += step
+        }
+        pts += at
+        return true
+    }
+
+    /** Names the place at the latest kept point. */
+    fun addPlace(name: String, type: String) {
+        if (pts.isEmpty()) return
+        placeList.removeAll { it.trailIndex == pts.lastIndex }
+        placeList += SurveyPlace(pts.lastIndex, name, type)
+    }
+
+    fun trail(): List<TrailPoint> {
+        val o = pts.firstOrNull() ?: return emptyList()
+        return pts.map { p ->
+            val north = (p.lat - o.lat) * 111_320.0
+            val east = (p.lng - o.lng) * 111_320.0 * cos(o.lat * PI / 180.0)
+            TrailPoint(x = east, z = -north)
+        }
+    }
+
+    companion object {
+        /** Indoors, fixes worse than this jump around too much to draw a path. */
+        const val MAX_ACCURACY_M = 25.0
+        const val MIN_STEP_M = 1.5
+    }
+}

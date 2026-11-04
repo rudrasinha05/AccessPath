@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -38,6 +39,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.accesspath.R
+import com.accesspath.domain.GpsTrailRecorder
+import com.accesspath.domain.LatLng
 import com.accesspath.domain.SurveyPlace
 import com.accesspath.domain.TrailPoint
 import com.accesspath.ui.formatNumber
@@ -59,7 +62,19 @@ private tailrec fun Context.activity(): Activity? = when (this) {
  * [onFinish] receives the trail and named places; nothing is saved unless the person taps Finish.
  */
 @Composable
-fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyPlace>) -> Unit) {
+fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyPlace>, LatLng?, Double?) -> Unit) {
+    // Camera (ARCore) or walking with location (the blue dot). Chosen first; camera is the more accurate one indoors.
+    var method by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(onBack = onClose)
+    when (method) {
+        null -> MethodChooser(onClose, onCamera = { method = "camera" }, onGps = { method = "gps" })
+        "gps" -> GpsRecording(onClose) { t, p, start -> onFinish(t, p, start, 0.0) }
+        else -> CameraMapping(onClose, onUseGps = { method = "gps" }) { t, p -> onFinish(t, p, null, null) }
+    }
+}
+
+@Composable
+private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyPlace>) -> Unit) {
     val context = LocalContext.current
     val activity = remember { context.activity() }
     var arState by remember { mutableStateOf(ArState.CHECKING) }
@@ -92,8 +107,6 @@ fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyP
         lifecycle.addObserver(obs)
         onDispose { lifecycle.removeObserver(obs) }
     }
-    BackHandler(onBack = onClose)
-
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         when (arState) {
             ArState.READY -> ArRecording(onClose, onFinish) { arState = ArState.UNSUPPORTED }
@@ -117,6 +130,9 @@ fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyP
                     Button(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }) { Text(stringResource(R.string.grant_camera)) }
                 }
                 if (arState == ArState.CHECKING || arState == ArState.INSTALLING) CircularProgressIndicator(color = Color.White)
+                if (arState == ArState.UNSUPPORTED || arState == ArState.DENIED) {
+                    Button(onClick = onUseGps) { Text(stringResource(R.string.mapping_use_gps)) }
+                }
                 Spacer(Modifier.height(12.dp))
                 TextButton(onClick = onClose) { Text(stringResource(R.string.close), color = Color.White) }
             }
@@ -259,4 +275,123 @@ private fun FlowRowChips(options: List<Pair<String, String>>, selected: String, 
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { (key, label) -> FilterChip(selected = key == selected, onClick = { onSelect(key) }, label = { Text(label) }) }
     }
+}
+
+@Composable
+private fun MethodChooser(onClose: () -> Unit, onCamera: () -> Unit, onGps: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().background(Color(0xFF0F2238)).statusBarsPadding().navigationBarsPadding().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
+    ) {
+        Text(stringResource(R.string.mapping_choose_title), color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        MethodCard(Icons.Filled.CameraAlt, stringResource(R.string.mapping_method_camera), stringResource(R.string.mapping_method_camera_desc), onCamera)
+        MethodCard(Icons.Filled.MyLocation, stringResource(R.string.mapping_method_gps), stringResource(R.string.mapping_method_gps_desc), onGps)
+        TextButton(onClick = onClose, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.close), color = Color.White) }
+    }
+}
+
+@Composable
+private fun MethodCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.10f), contentColor = Color.White, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(36.dp), tint = Color(0xFF8AB4F8))
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+            }
+        }
+    }
+}
+
+/**
+ * Mapping by walking with location: every good fix of the blue dot becomes a point of the path. Works on any phone;
+ * indoors location is weaker than the camera, so weak fixes are skipped and the accuracy is shown.
+ */
+@Composable
+private fun GpsRecording(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyPlace>, LatLng) -> Unit) {
+    val context = LocalContext.current
+    val recorder = remember { GpsTrailRecorder() }
+    var granted by remember { mutableStateOf(DeviceSensors.hasLocationPermission(context)) }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r -> granted = r.values.any { it } }
+    var accuracy by remember { mutableStateOf<Double?>(null) }
+    var version by remember { mutableIntStateOf(0) }
+    var paused by remember { mutableStateOf(false) }
+    var addingPlace by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    var tooShort by remember { mutableStateOf(false) }
+
+    LaunchedEffect(granted) {
+        if (!granted) { launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)); return@LaunchedEffect }
+        DeviceSensors.locationUpdates(context).collect { loc ->
+            val acc = if (loc.hasAccuracy()) loc.accuracy.toDouble() else 99.0
+            accuracy = acc
+            if (recorder.add(LatLng(loc.latitude, loc.longitude), acc)) version++
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(Color(0xFF0F2238)).statusBarsPadding().navigationBarsPadding().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { if (recorder.size > 1) confirmDiscard = true else onClose() }) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.close), tint = Color.White) }
+            Column(Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }) {
+                Text(stringResource(R.string.mapping_method_gps), color = Color.White, fontWeight = FontWeight.Bold)
+                val acc = accuracy
+                Text(
+                    when {
+                        !granted -> stringResource(R.string.out_need_location)
+                        paused -> stringResource(R.string.mapping_status_paused)
+                        acc == null -> stringResource(R.string.gps_status_waiting)
+                        acc > GpsTrailRecorder.MAX_ACCURACY_M -> stringResource(R.string.gps_status_poor, formatNumber(acc))
+                        else -> stringResource(R.string.gps_status_accuracy, formatNumber(acc))
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (acc != null && acc > GpsTrailRecorder.MAX_ACCURACY_M) Color(0xFFFDD663) else Color.White.copy(alpha = 0.85f)
+                )
+            }
+        }
+        // The walked path, drawn to fit: a blue line with the blue dot at the newest point.
+        Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp).background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(20.dp))) {
+            val trail = remember(version) { recorder.trail() }
+            val placeIdx = remember(version) { recorder.places.map { it.trailIndex }.toSet() }
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(24.dp)) {
+                if (trail.isEmpty()) return@Canvas
+                val xs = trail.map { it.x }; val ys = trail.map { -it.z }
+                val span = maxOf(xs.max() - xs.min(), ys.max() - ys.min(), 10.0)
+                val scale = (minOf(size.width, size.height) / span).toFloat()
+                val cx = ((xs.max() + xs.min()) / 2).toFloat(); val cy = ((ys.max() + ys.min()) / 2).toFloat()
+                fun pt(i: Int) = androidx.compose.ui.geometry.Offset(size.width / 2 + (xs[i].toFloat() - cx) * scale, size.height / 2 - (ys[i].toFloat() - cy) * scale)
+                for (i in 1 until trail.size) drawLine(Color(0xFF8AB4F8), pt(i - 1), pt(i), strokeWidth = 10f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                placeIdx.forEach { drawCircle(Color(0xFFFFB070), 14f, pt(it)) }
+                drawCircle(Color.White, 20f, pt(trail.lastIndex)); drawCircle(Color(0xFF1A73E8), 14f, pt(trail.lastIndex))
+            }
+        }
+        Surface(shape = RoundedCornerShape(24.dp), color = Color.White.copy(alpha = 0.08f), contentColor = Color.White) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val v = version // re-read the counts when a point is kept
+                Text(stringResource(R.string.mapping_stats, stringResource(R.string.metres, formatNumber(recorder.distance + v * 0.0)), recorder.size, recorder.places.size), style = MaterialTheme.typography.titleMedium)
+                if (tooShort) Text(stringResource(R.string.mapping_too_short), color = Color(0xFFFDD663), style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    FilledTonalButton(onClick = { addingPlace = true }, enabled = recorder.size > 0, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.AddLocationAlt, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.add_place))
+                    }
+                    OutlinedButton(onClick = { paused = !paused; recorder.paused = paused }, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) {
+                        Icon(if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, contentDescription = stringResource(if (paused) R.string.resume else R.string.pause))
+                    }
+                }
+                Button(onClick = {
+                    val start = recorder.start
+                    if (recorder.size < 2 || start == null) tooShort = true else onFinish(recorder.trail(), recorder.places, start)
+                }, modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                    Icon(Icons.Filled.Check, contentDescription = null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.finish))
+                }
+            }
+        }
+    }
+    if (addingPlace) AddPlaceDialog(onDismiss = { addingPlace = false }) { name, type -> addingPlace = false; recorder.addPlace(name, type); version++ }
+    if (confirmDiscard) AlertDialog(
+        onDismissRequest = { confirmDiscard = false },
+        title = { Text(stringResource(R.string.discard_title)) },
+        confirmButton = { TextButton(onClick = { confirmDiscard = false; onClose() }) { Text(stringResource(R.string.discard)) } },
+        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.cancel)) } }
+    )
 }

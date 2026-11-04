@@ -245,7 +245,7 @@
     <string name="delete">हटाएँ</string>
     <string name="delete_draft_title">यह ड्राफ़्ट जगह हटाएँ</string>
     <string name="draft_deleted">ड्राफ़्ट जगह हटा दी गई।</string>
-    <string name="map_new_area">कैमरे से नई जगह का नक्शा बनाएँ</string>
+    <string name="map_new_area">नई जगह का नक्शा बनाएँ</string>
     <string name="map_new_area_desc">जहाँ कैंपस का नक्शा नहीं बना, वहाँ रास्ते और जगहें रिकॉर्ड करें</string>
     <string name="area_check_setting">ऐप खुलने पर बिना नक्शे वाली जगह जाँचें</string>
     <string name="report_short">रिपोर्ट</string>
@@ -372,4 +372,13 @@
     <string name="geo_lift_body">%1$s ख़राब है। AccessPath के रास्ते इससे बचते हैं।</string>
     <string name="geo_closed_title">पास में रास्ता बंद है</string>
     <string name="geo_closed_body">%1$s अभी बंद है। AccessPath के रास्ते इससे बचते हैं।</string>
+    <string name="mapping_choose_title">इस जगह का नक्शा कैसे बनाना है?</string>
+    <string name="mapping_method_camera">कैमरा (ARCore)</string>
+    <string name="mapping_method_camera_desc">इमारत के अंदर सबसे सटीक। ARCore वाला फ़ोन चाहिए।</string>
+    <string name="mapping_method_gps">लोकेशन के साथ चलकर (नीला बिंदु)</string>
+    <string name="mapping_method_gps_desc">चलते समय नीले बिंदु से आपका रास्ता रिकॉर्ड होता है। हर फ़ोन पर चलता है; अंदर 5–25 मीटर तक फ़र्क हो सकता है।</string>
+    <string name="mapping_use_gps">इसके बजाय लोकेशन से नक्शा बनाएँ</string>
+    <string name="gps_status_waiting">लोकेशन का इंतज़ार…</string>
+    <string name="gps_status_accuracy">रिकॉर्ड हो रहा है · लोकेशन ±%1$s मीटर तक सही</string>
+    <string name="gps_status_poor">यहाँ लोकेशन कमज़ोर है (±%1$s मीटर)। सुधरने तक बिंदु छोड़े जा रहे हैं; खिड़की या दरवाज़े के पास कोशिश करें।</string>
 </resources>

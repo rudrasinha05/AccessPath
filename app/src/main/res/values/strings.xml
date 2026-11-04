@@ -259,8 +259,8 @@
     <string name="delete">Delete</string>
     <string name="delete_draft_title">Delete this draft area</string>
     <string name="draft_deleted">Draft area deleted.</string>
-    <string name="map_new_area">Map a new area with the camera</string>
-    <string name="map_new_area_desc">Record paths and places where the campus isn\'t mapped yet</string>
+    <string name="map_new_area">Map a new area</string>
+    <string name="map_new_area_desc">With the camera or by walking with location, where the campus isn\'t mapped yet</string>
     <string name="area_check_setting">Check for unmapped areas when the app opens</string>
     <string name="report_short">Report</string>
     <string name="route_updated">Route updated because a path or lift changed.</string>
@@ -386,4 +386,13 @@
     <string name="geo_lift_body">%1$s is out of service. AccessPath routes avoid it.</string>
     <string name="geo_closed_title">Path closed nearby</string>
     <string name="geo_closed_body">%1$s is closed right now. AccessPath routes avoid it.</string>
+    <string name="mapping_choose_title">How do you want to map this area?</string>
+    <string name="mapping_method_camera">Camera (ARCore)</string>
+    <string name="mapping_method_camera_desc">Most accurate inside buildings. Needs a phone that supports ARCore.</string>
+    <string name="mapping_method_gps">Walk with location (blue dot)</string>
+    <string name="mapping_method_gps_desc">Records your path from the blue dot as you walk. Works on any phone; indoors it can be off by 5–25 m.</string>
+    <string name="mapping_use_gps">Map with location instead</string>
+    <string name="gps_status_waiting">Waiting for location…</string>
+    <string name="gps_status_accuracy">Recording · location accurate to ±%1$s m</string>
+    <string name="gps_status_poor">Location is weak here (±%1$s m). Points are skipped until it improves; try near a window or door.</string>
 </resources>
