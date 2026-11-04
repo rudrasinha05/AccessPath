@@ -77,7 +77,7 @@ class ScreenshotTest {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("mode_bus").performScrollTo().performClick()
         save("10-travel-modes", 2000)
-        waitForText(s(R.string.open_google_maps))
+        waitForText(s(R.string.open_transit))
     }
 
     /** The new home screen: category chips with real nearby places, and the map type sheet. */
@@ -95,6 +95,9 @@ class ScreenshotTest {
             }
         }
         save("13-category-hospitals", 3000)
+        // Back closes the list (the sheet may cover the map buttons on a small screen), then the map type sheet.
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
         compose.onNodeWithTag("layers").performClick()
         waitForText(s(R.string.map_satellite))
         save("14-map-type", 1000)

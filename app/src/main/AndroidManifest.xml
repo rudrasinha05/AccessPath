@@ -15,6 +15,9 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Turn-by-turn navigation keeps following GPS with the screen off, shown as an ongoing notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
@@ -62,6 +65,7 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".nav.NavigationService" android:exported="false" android:foregroundServiceType="location" />
         <receiver android:name=".geofence.GeofenceReceiver" android:exported="false" />
         <receiver android:name=".geofence.GeofenceBootReceiver" android:exported="true">
             <intent-filter>

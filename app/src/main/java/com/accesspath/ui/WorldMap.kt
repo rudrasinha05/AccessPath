@@ -59,13 +59,20 @@ private data class OverlayData(
     val pin: LatLng? = null,
     val outdoorRoute: List<LatLng> = emptyList(),
     val pois: List<com.accesspath.data.remote.Poi> = emptyList(),
-    val selectedPoi: String? = null
+    val selectedPoi: String? = null,
+    val altRoutes: List<List<LatLng>> = emptyList(),
+    val barriers: List<com.accesspath.data.OutdoorBarrier> = emptyList()
 )
 
 /** Map look, like the map-type picker in other map apps. */
 enum class MapStyle { DEFAULT, SATELLITE, TERRAIN }
 
-private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> Unit, private val onEmptyTap: () -> Unit, private val onPoiTap: (com.accesspath.data.remote.Poi) -> Unit = {}) : Overlay() {
+private class CampusOverlay(
+    context: Context, private val onPlaceTap: (Node) -> Unit, private val onEmptyTap: () -> Unit,
+    private val onPoiTap: (com.accesspath.data.remote.Poi) -> Unit = {},
+    private val onAltTap: (Int) -> Unit = {},
+    private val onBarrierTap: (com.accesspath.data.OutdoorBarrier) -> Unit = {}
+) : Overlay() {
     var data: OverlayData? = null
     var colors: WorldMapColors = WorldMapColors.Light
 
@@ -156,6 +163,15 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
             drawLabel(canvas, d.places.firstOrNull { it.first.id == d.destinationId }?.first?.name ?: "", x, y + dp(14f), colors.label, bold = true)
         }
 
+        // Other route choices, lighter and under the chosen one; tap one to pick it.
+        d.altRoutes.forEach { alt ->
+            if (alt.size < 2) return@forEach
+            path.reset()
+            alt.forEachIndexed { i, l -> px(mapView, l, p1); if (i == 0) path.moveTo(p1.x.toFloat(), p1.y.toFloat()) else path.lineTo(p1.x.toFloat(), p1.y.toFloat()) }
+            stroke.pathEffect = null
+            stroke.color = colors.routeCasing; stroke.strokeWidth = dp(9f); canvas.drawPath(path, stroke)
+            stroke.color = android.graphics.Color.rgb(0xA8, 0xC7, 0xFA); stroke.strokeWidth = dp(5.5f); canvas.drawPath(path, stroke)
+        }
         // Outdoor route (roads and paths between campuses).
         if (d.outdoorRoute.size >= 2) {
             path.reset()
@@ -177,6 +193,20 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
             fill.color = poiColor(poi.kind); canvas.drawCircle(x, y, r, fill)
             fill.color = colors.white; canvas.drawCircle(x, y, r * 0.35f, fill)
             if (showNames || sel) drawLabel(canvas, poi.name, x, y + r + dp(16f), poiColor(poi.kind), sel)
+        }
+
+        // Reported outdoor barriers: red warning markers.
+        d.barriers.forEach { b ->
+            px(mapView, b.at, p1)
+            val x = p1.x.toFloat(); val y = p1.y.toFloat()
+            if (x < -50 || y < -50 || x > mapView.width + 50 || y > mapView.height + 50) return@forEach
+            path.reset()
+            path.moveTo(x, y - dp(13f)); path.lineTo(x + dp(12f), y + dp(9f)); path.lineTo(x - dp(12f), y + dp(9f)); path.close()
+            stroke.pathEffect = null; stroke.color = colors.white; stroke.strokeWidth = dp(4f); canvas.drawPath(path, stroke)
+            fill.color = android.graphics.Color.rgb(0xD9, 0x30, 0x25); canvas.drawPath(path, fill)
+            fill.color = colors.white
+            canvas.drawRect(x - dp(1.4f), y - dp(5f), x + dp(1.4f), y + dp(2f), fill)
+            canvas.drawCircle(x, y + dp(5f), dp(1.6f), fill)
         }
 
         // Dropped pin from a long press or a search result.
@@ -211,6 +241,12 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
         text.color = color; canvas.drawText(label, x, y, text)
     }
 
+    private fun segDist(x: Float, y: Float, ax: Float, ay: Float, bx: Float, by: Float): Float {
+        val dx = bx - ax; val dy = by - ay; val len = dx * dx + dy * dy
+        val t = if (len == 0f) 0f else (((x - ax) * dx + (y - ay) * dy) / len).coerceIn(0f, 1f)
+        return hypot(x - (ax + t * dx), y - (ay + t * dy))
+    }
+
     private fun poiColor(kind: String) = android.graphics.Color.parseColor(when (kind) {
         "RESTAURANTS" -> "#E8710A"; "COFFEE" -> "#A0522D"; "PETROL" -> "#1967D2"; "HOTELS" -> "#C2185B"
         "ATMS" -> "#188038"; "HOSPITALS" -> "#D93025"; "SHOPPING" -> "#1A73E8"; "TOILETS" -> "#00897B"; else -> "#5E35B1"
@@ -218,6 +254,13 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
 
     override fun onSingleTapConfirmed(e: MotionEvent, mapView: MapView): Boolean {
         val d = data ?: return false
+        d.barriers.firstOrNull { px(mapView, it.at, p1); hypot(p1.x - e.x, p1.y - e.y) <= dp(22f) }?.let { onBarrierTap(it); return true }
+        d.altRoutes.forEachIndexed { i, alt ->
+            for (j in 0 until alt.lastIndex) {
+                px(mapView, alt[j], p1); px(mapView, alt[j + 1], p2)
+                if (segDist(e.x, e.y, p1.x.toFloat(), p1.y.toFloat(), p2.x.toFloat(), p2.y.toFloat()) <= dp(16f)) { onAltTap(i); return true }
+            }
+        }
         val poiHit = d.pois.minByOrNull { px(mapView, it.at, p1); hypot(p1.x - e.x, p1.y - e.y) }
         if (poiHit != null) {
             px(mapView, poiHit.at, p1)
@@ -279,6 +322,11 @@ fun WorldMap(
     pois: List<com.accesspath.data.remote.Poi> = emptyList(),
     selectedPoi: String? = null,
     onPoiTap: (com.accesspath.data.remote.Poi) -> Unit = {},
+    /** Other route choices, drawn lighter; tapping one picks it. */
+    altRoutes: List<List<LatLng>> = emptyList(),
+    onAltTap: (Int) -> Unit = {},
+    barriers: List<com.accesspath.data.OutdoorBarrier> = emptyList(),
+    onBarrierTap: (com.accesspath.data.OutdoorBarrier) -> Unit = {},
     description: String,
     modifier: Modifier = Modifier,
     onPlaceTap: (Node) -> Unit,
@@ -290,8 +338,10 @@ fun WorldMap(
     val latestEmptyTap by rememberUpdatedState(onEmptyTap)
     val latestLongPress by rememberUpdatedState(onLongPress)
     val latestPoiTap by rememberUpdatedState(onPoiTap)
+    val latestAltTap by rememberUpdatedState(onAltTap)
+    val latestBarrierTap by rememberUpdatedState(onBarrierTap)
 
-    val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }, { latestPoiTap(it) }) }
+    val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }, { latestPoiTap(it) }, { latestAltTap(it) }, { latestBarrierTap(it) }) }
     val mapView = remember {
         Configuration.getInstance().apply {
             userAgentValue = "AccessPath/${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})"
@@ -330,7 +380,7 @@ fun WorldMap(
     }
 
     // Prepare drawing data for the selected floor level (all buildings at the same level).
-    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation, pois, selectedPoi) {
+    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation, pois, selectedPoi, altRoutes, barriers) {
         val map = state.map
         val floors = map.floors.associateBy { it.id }
         val selected = floors[state.selectedFloor]
@@ -370,7 +420,7 @@ fun WorldMap(
             destination = state.destination.takeIf { it in visibleIds && it != state.current }?.let(pos::get),
             currentId = state.current, destinationId = state.destination, selectedId = selectedPlaceId,
             routeNodeIds = route?.nodes?.map { it.id }?.toSet().orEmpty(),
-            pin = pin, outdoorRoute = outdoorRoute, pois = pois, selectedPoi = selectedPoi
+            pin = pin, outdoorRoute = outdoorRoute, pois = pois, selectedPoi = selectedPoi, altRoutes = altRoutes, barriers = barriers
         )
     }
 

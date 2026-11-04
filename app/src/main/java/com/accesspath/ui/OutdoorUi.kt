@@ -14,7 +14,15 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.annotation.StringRes
+import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.ui.res.pluralStringResource
+import com.accesspath.data.BarrierKind
+import com.accesspath.data.OutdoorBarrier
+import com.accesspath.data.onLine
+import com.accesspath.data.remote.metresTo
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -108,7 +116,7 @@ fun ZoomButtons(onIn: () -> Unit, onOut: () -> Unit) {
 @Composable
 fun PinSheet(
     pin: LatLng, title: String?, nearPlace: String?, hasCampus: Boolean,
-    onDirections: () -> Unit, onViewCampus: () -> Unit, onMapArea: () -> Unit,
+    onDirections: () -> Unit, onViewCampus: () -> Unit, onMapArea: () -> Unit, onReport: () -> Unit,
     onZoomIn: () -> Unit, onZoomOut: () -> Unit, onClose: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("pinSheet")) {
@@ -127,6 +135,9 @@ fun PinSheet(
             }
             if (hasCampus) OutlinedButton(onClick = onViewCampus) {
                 Icon(Icons.Filled.Apartment, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.view_campus))
+            }
+            OutlinedButton(onClick = onReport, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD93025))) {
+                Icon(Icons.Filled.AddAlert, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.report_barrier_here))
             }
             OutlinedButton(onClick = onMapArea) {
                 Icon(Icons.Filled.CameraAlt, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.map_this_area))
@@ -154,13 +165,64 @@ sealed interface OutdoorState {
     data object Loading : OutdoorState
     data object Unsupported : OutdoorState
     data object Failed : OutdoorState
-    data class Ready(val route: OutdoorRoute) : OutdoorState
+    /** Route choices (best first) with the reported barriers on each; [index] is the one in use. */
+    data class Ready(val routes: List<OutdoorRoute>, val index: Int = 0, val blocked: List<List<OutdoorBarrier>> = routes.map { emptyList() }) : OutdoorState {
+        val route get() = routes[index]
+        val barriersOnRoute get() = blocked.getOrElse(index) { emptyList() }
+    }
+}
+
+/**
+ * Picks the route to use: the quickest one with no reported barrier on it; when every route has one,
+ * the one with the fewest. This is how AccessPath turns people's reports into a different path.
+ */
+fun chooseRoute(routes: List<OutdoorRoute>, barriers: List<OutdoorBarrier>): OutdoorState.Ready {
+    val blocked = routes.map { barriers.onLine(it.line) }
+    val best = routes.indices.minWithOrNull(compareBy<Int>({ blocked[it].size }, { routes[it].durationSec })) ?: 0
+    return OutdoorState.Ready(routes, best, blocked)
+}
+
+/** "350 m", "1.2 km": rounded like other map apps. */
+fun distanceText(context: Context, m: Double): String = when {
+    m < 100 -> context.getString(R.string.metres, Math.round(m).toString())
+    m < 1000 -> context.getString(R.string.metres, (Math.round(m / 10) * 10).toString())
+    else -> context.getString(R.string.km, String.format(Locale.getDefault(), "%.1f", m / 1000))
+}
+@Composable fun dist(m: Double) = distanceText(LocalContext.current, m)
+
+fun arrivalTime(sec: Double): String = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(System.currentTimeMillis() + (sec * 1000).toLong()))
+
+@StringRes fun BarrierKind.label() = when (this) {
+    BarrierKind.CONSTRUCTION -> R.string.barrier_construction; BarrierKind.ROAD_BLOCKED -> R.string.barrier_blocked
+    BarrierKind.FLOODING -> R.string.barrier_flooding; BarrierKind.NO_RAMP -> R.string.barrier_no_ramp
+    BarrierKind.BROKEN_FOOTPATH -> R.string.barrier_footpath; BarrierKind.OTHER -> R.string.barrier_other
+}
+fun BarrierKind.icon(): ImageVector = when (this) {
+    BarrierKind.CONSTRUCTION -> Icons.Filled.Construction; BarrierKind.ROAD_BLOCKED -> Icons.Filled.Block
+    BarrierKind.FLOODING -> Icons.Filled.Water; BarrierKind.NO_RAMP -> Icons.Filled.Stairs
+    BarrierKind.BROKEN_FOOTPATH -> Icons.Filled.Warning; BarrierKind.OTHER -> Icons.Filled.ReportProblem
+}
+
+/** Travel modes with the real travel time of each, like the mode tabs of a map app. */
+@Composable
+fun TravelModeChips(selected: TravelMode, times: Map<TravelMode, Double> = emptyMap(), onPick: (TravelMode) -> Unit) {
+    val context = LocalContext.current
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TravelMode.entries.forEach { m ->
+            FilterChip(selected = m == selected, onClick = { onPick(m) },
+                label = { Text(times[m]?.let { duration(context, it) } ?: stringResource(m.label())) },
+                leadingIcon = { Icon(m.icon(), contentDescription = stringResource(m.label()), modifier = Modifier.size(18.dp)) },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = BrandTealSoft, selectedLabelColor = BrandTeal, selectedLeadingIconColor = BrandTeal),
+                modifier = Modifier.testTag("mode_${m.name.lowercase()}"))
+        }
+    }
 }
 
 @Composable
 fun OutdoorDirectionsSheet(
-    state: OutdoorState, mode: TravelMode, destination: LatLng,
-    onAllowLocation: () -> Unit, onRetry: () -> Unit, onStart: () -> Unit, onOpenTransit: () -> Unit
+    state: OutdoorState, mode: TravelMode, destinationName: String, saved: Boolean,
+    onAllowLocation: () -> Unit, onRetry: () -> Unit, onStart: () -> Unit, onOpenTransit: () -> Unit,
+    onPickRoute: (Int) -> Unit, onShare: () -> Unit, onSave: () -> Unit
 ) {
     val context = LocalContext.current
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag("outdoorSheet")) {
@@ -177,35 +239,67 @@ fun OutdoorDirectionsSheet(
             OutdoorState.Unsupported -> item {
                 if (mode == TravelMode.BUS) {
                     InfoText(stringResource(R.string.out_bus_none))
-                    Button(onClick = onOpenTransit) { Icon(Icons.Filled.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.open_google_maps)) }
+                    Button(onClick = onOpenTransit) { Icon(Icons.Filled.Map, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.open_transit)) }
                 } else Banner(stringResource(R.string.out_wheelchair_none), warning = true)
             }
             is OutdoorState.Ready -> {
                 val r = state.route
+                val fastest = state.routes.minOf { it.durationSec }
                 item {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Text(duration(context, r.durationSec), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = Color(0xFF188038))
+                        Text(duration(context, r.durationSec), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+                            color = if (state.barriersOnRoute.isEmpty()) Color(0xFF188038) else Color(0xFFE37400), modifier = Modifier.testTag("routeDuration"))
                         Spacer(Modifier.width(10.dp))
-                        Text("(${metres(r.distance)})", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                        Text("(${dist(r.distance)})", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                     }
-                    InfoText(stringResource(R.string.out_from_here) + " → " + formatLatLng(destination))
-                    Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White), modifier = Modifier.padding(top = 8.dp).height(48.dp)) {
-                        Icon(Icons.Filled.Navigation, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.start))
+                    val avoided = state.blocked.withIndex().filter { it.index != state.index }.sumOf { it.value.size }
+                    when {
+                        state.barriersOnRoute.isNotEmpty() -> Banner(pluralStringResource(R.plurals.barriers_on_route, state.barriersOnRoute.size, state.barriersOnRoute.size,
+                            stringResource(state.barriersOnRoute.first().kind.label())), warning = true)
+                        avoided > 0 && r.durationSec > fastest -> Text(pluralStringResource(R.plurals.barriers_avoided, avoided, avoided), color = Color(0xFF188038), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        r.durationSec <= fastest -> InfoText(stringResource(R.string.fastest_route))
+                        else -> InfoText(stringResource(R.string.to_place, destinationName))
                     }
-                    HorizontalDivider(Modifier.padding(top = 12.dp))
-                    Text(stringResource(R.string.steps_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onStart, colors = ButtonDefaults.buttonColors(containerColor = BrandTeal, contentColor = Color.White), modifier = Modifier.height(44.dp).testTag("startNav")) {
+                            Icon(Icons.Filled.Navigation, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.start))
+                        }
+                        OutlinedButton(onClick = onShare, modifier = Modifier.height(44.dp)) { Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.share)) }
+                        OutlinedButton(onClick = onSave, modifier = Modifier.height(44.dp)) {
+                            Icon(if (saved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                            Text(stringResource(if (saved) R.string.saved else R.string.save_place))
+                        }
+                    }
+                    if (state.routes.size > 1) {
+                        HorizontalDivider(Modifier.padding(top = 12.dp))
+                        Text(stringResource(R.string.route_options), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+                    }
                 }
-                items(r.steps.size) { i ->
-                    val s = r.steps[i]
-                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(outStepIcon(s), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(s.text(context), style = MaterialTheme.typography.bodyLarge)
-                            if (s.distance > 0) Text(metres(s.distance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.routes.size > 1) items(state.routes.size) { i ->
+                    val alt = state.routes[i]; val sel = i == state.index; val bad = state.blocked.getOrElse(i) { emptyList() }
+                    Surface(onClick = { onPickRoute(i) }, shape = RoundedCornerShape(14.dp),
+                        color = if (sel) BrandTealSoft else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth().testTag("routeOption$i")) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (sel) Icons.Filled.CheckCircle else Icons.Filled.Route, null, tint = if (sel) BrandTeal else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("${duration(context, alt.durationSec)} · ${dist(alt.distance)}", fontWeight = FontWeight.SemiBold)
+                                val via = alt.steps.filter { it.road.isNotBlank() }.maxByOrNull { it.distance }?.road
+                                Text(listOfNotNull(via?.let { stringResource(R.string.via_road, it) },
+                                    if (bad.isNotEmpty()) pluralStringResource(R.plurals.barrier_count, bad.size, bad.size) else stringResource(R.string.no_barriers_reported)).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall, color = if (bad.isNotEmpty()) Color(0xFFD93025) else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            val diff = Math.round((alt.durationSec - fastest) / 60.0)
+                            if (diff > 0) Text("+" + context.getString(R.string.dur_min, diff.toInt()), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
+                item {
+                    HorizontalDivider(Modifier.padding(top = 8.dp))
+                    Text(stringResource(R.string.steps_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+                }
+                items(r.steps.size) { i -> StepRow(r.steps[i]) }
                 item {
                     Text(stringResource(if (r.mode == TravelMode.WHEELCHAIR) R.string.route_credit_ors else R.string.route_credit_osrm),
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -215,38 +309,172 @@ fun OutdoorDirectionsSheet(
     }
 }
 
-/** Big green instruction banner during outdoor navigation. */
+@Composable
+private fun StepRow(s: OutdoorStep) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(outStepIcon(s), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(s.text(context), style = MaterialTheme.typography.bodyLarge)
+            if (s.distance > 0) Text(dist(s.distance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private val NavTeal = Color(0xFF0B5F66)
+private val NavTealDark = Color(0xFF074349)
+
+/** Navigation banner: the next turn in big type, and the turn after it in a small tab underneath. */
 @Composable
 fun OutdoorNavBanner(step: OutdoorStep?, toStep: Double?, next: OutdoorStep?, status: String?) {
     val context = LocalContext.current
-    Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
-        Surface(color = Color(0xFF0B6E4F), contentColor = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
-            Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(step?.let(::outStepIcon) ?: Icons.Filled.GpsFixed, null, Modifier.size(40.dp))
+    Column(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.testTag("navBanner")) {
+        Surface(color = NavTeal, contentColor = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(step?.let(::outStepIcon) ?: Icons.Filled.GpsFixed, null, Modifier.size(44.dp))
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    toStep?.let { Text(metres(it), style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.85f)) }
-                    Text(status ?: step?.text(context).orEmpty(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    next?.let { Text(stringResource(R.string.then_step, it.text(context)), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    if (status == null && toStep != null) Text(dist(toStep), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(status ?: step?.text(context).orEmpty(), style = if (status == null && toStep != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
+            }
+        }
+        if (next != null && status == null) Surface(color = NavTealDark, contentColor = Color.White, shape = RoundedCornerShape(bottomStart = 14.dp, bottomEnd = 14.dp),
+            modifier = Modifier.padding(start = 14.dp)) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.then), style = MaterialTheme.typography.labelLarge); Spacer(Modifier.width(8.dp))
+                Icon(outStepIcon(next), contentDescription = next.text(context), modifier = Modifier.size(20.dp))
             }
         }
     }
 }
 
+/** Live speed from GPS, bottom left during navigation. */
 @Composable
-fun OutdoorNavSheet(remaining: Double?, mode: TravelMode, speaking: Boolean, onRead: () -> Unit, onStopReading: () -> Unit, onExit: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("outdoorNav")) {
-        Box(Modifier.size(40.dp).background(Blue.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(mode.icon(), null, tint = Blue)
+fun SpeedBubble(kmh: Int) {
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp, modifier = Modifier.size(64.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(kmh.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.kmh), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Spacer(Modifier.width(12.dp))
-        Text(remaining?.let { metres(it) } ?: stringResource(R.string.out_waiting_gps), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        IconButton(onClick = if (speaking) onStopReading else onRead) {
-            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = stringResource(if (speaking) R.string.stop_reading else R.string.read_aloud))
-        }
-        OutlinedButton(onClick = onExit, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD93025))) { Text(stringResource(R.string.exit_navigation)) }
     }
+}
+
+/**
+ * Bottom of the navigation screen: exit, time left, distance and arrival time. Swiping it up shows the menu:
+ * add a report, share trip progress, search along the route, the step list, satellite view, voice and settings.
+ */
+@Composable
+fun OutdoorNavSheet(
+    remainingM: Double?, remainingSec: Double?, route: OutdoorRoute?, currentStep: Int,
+    muted: Boolean, satellite: Boolean, alongResults: List<com.accesspath.data.remote.Poi>?, alongLoading: Boolean, here: LatLng?,
+    onExit: () -> Unit, onReport: () -> Unit, onShareProgress: () -> Unit, onAlong: (com.accesspath.data.remote.PoiCategory) -> Unit,
+    onGoAlong: (com.accesspath.data.remote.Poi) -> Unit, onSatellite: (Boolean) -> Unit, onMute: (Boolean) -> Unit, onSettings: () -> Unit
+) {
+    val context = LocalContext.current
+    var showSteps by remember { mutableStateOf(false) }
+    Column(Modifier.testTag("outdoorNav")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FilledTonalIconButton(onClick = onExit, modifier = Modifier.size(48.dp).testTag("exitNav")) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.exit_navigation)) }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(remainingSec?.let { duration(context, it) } ?: stringResource(R.string.out_waiting_gps),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF188038))
+                if (remainingM != null && remainingSec != null)
+                    Text("${dist(remainingM)} · ${arrivalTime(remainingSec)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.more_options), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+        }
+        HorizontalDivider(Modifier.padding(vertical = 12.dp))
+        NavMenuRow(Icons.Filled.AddAlert, stringResource(R.string.add_report), onReport)
+        NavMenuRow(Icons.Filled.Share, stringResource(R.string.share_progress), onShareProgress)
+        Text(stringResource(R.string.search_along_route), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(com.accesspath.data.remote.PoiCategory.PETROL, com.accesspath.data.remote.PoiCategory.RESTAURANTS, com.accesspath.data.remote.PoiCategory.TOILETS,
+                com.accesspath.data.remote.PoiCategory.HOSPITALS, com.accesspath.data.remote.PoiCategory.ATMS).forEach { c ->
+                AssistChip(onClick = { onAlong(c) }, label = { Text(stringResource(c.label())) }, leadingIcon = { Icon(c.icon(), null, Modifier.size(18.dp)) })
+            }
+        }
+        when {
+            alongLoading -> LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
+            alongResults != null && alongResults.isEmpty() -> InfoText(stringResource(R.string.none_along_route))
+            alongResults != null -> alongResults.take(5).forEach { p ->
+                ListItem(headlineContent = { Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = { here?.let { Text(dist(it.metresTo(p.at))) } },
+                    trailingContent = { TextButton(onClick = { onGoAlong(p) }) { Text(stringResource(R.string.go_here)) } },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+            }
+        }
+        NavMenuRow(Icons.AutoMirrored.Filled.FormatListBulleted, stringResource(R.string.steps_title)) { showSteps = !showSteps }
+        if (showSteps) route?.steps?.drop(currentStep)?.forEach { StepRow(it) }
+        NavSwitchRow(Icons.Filled.Satellite, stringResource(R.string.show_satellite), satellite, onSatellite)
+        NavSwitchRow(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp, stringResource(R.string.voice_guidance), !muted) { onMute(!it) }
+        NavMenuRow(Icons.Filled.Settings, stringResource(R.string.settings_title), onSettings)
+    }
+}
+
+@Composable
+private fun NavMenuRow(icon: ImageVector, text: String, onClick: () -> Unit) {
+    Surface(onClick = onClick, color = Color.Transparent, shape = RoundedCornerShape(12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(20.dp)); Text(text, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+@Composable
+private fun NavSwitchRow(icon: ImageVector, text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(20.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** "What's blocking the way?" Report form for a spot outdoors, like a traffic report. */
+@Composable
+fun ReportBarrierDialog(signedIn: Boolean, atPin: Boolean = false, onDismiss: () -> Unit, onSend: (BarrierKind, String) -> Unit) {
+    var kind by remember { mutableStateOf<BarrierKind?>(null) }
+    var note by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.AddAlert, null, tint = Color(0xFFD93025)) },
+        title = { Text(stringResource(R.string.report_what)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("barrierForm")) {
+                InfoText(stringResource(if (atPin) R.string.report_here_pin_hint else R.string.report_here_hint))
+                BarrierKind.entries.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { k ->
+                            FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label()), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingIcon = { Icon(k.icon(), null, Modifier.size(18.dp)) }, modifier = Modifier.weight(1f).testTag("barrier_${k.name.lowercase()}"))
+                        }
+                    }
+                }
+                OutlinedTextField(note, { note = it.take(300) }, label = { Text(stringResource(R.string.report_note_optional)) }, maxLines = 3, modifier = Modifier.fillMaxWidth())
+                if (!signedIn) Text(stringResource(R.string.report_local_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { Button(onClick = { kind?.let { onSend(it, note) } }, enabled = kind != null, modifier = Modifier.testTag("sendBarrier")) { Text(stringResource(R.string.send)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } })
+}
+
+/** Details of a reported barrier tapped on the map. */
+@Composable
+fun BarrierInfoDialog(b: OutdoorBarrier, here: LatLng?, onDismiss: () -> Unit, onCleared: () -> Unit) {
+    val ago = android.text.format.DateUtils.getRelativeTimeSpanString(b.time, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
+    AlertDialog(onDismissRequest = onDismiss,
+        icon = { Icon(b.kind.icon(), null, tint = Color(0xFFD93025)) },
+        title = { Text(stringResource(b.kind.label())) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(listOfNotNull(stringResource(R.string.reported_ago, ago), here?.let { dist(it.metresTo(b.at)) }).joinToString(" · "))
+                if (b.note.isNotBlank()) Text("\u201C${b.note}\u201D", style = MaterialTheme.typography.bodyMedium)
+                InfoText(stringResource(R.string.barrier_routes_avoid))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+        dismissButton = { TextButton(onClick = onCleared) { Text(stringResource(R.string.barrier_cleared)) } })
 }
 
 @Composable

@@ -441,4 +441,62 @@
     <string name="work_set">Work set to where you are now</string>
     <string name="recent">Recent</string>
     <string name="clear_recents">Clear</string>
+
+    <!-- Directions and navigation -->
+    <string name="km">%1$s km</string>
+    <string name="kmh">km/h</string>
+    <string name="then">Then</string>
+    <string name="settings_title">Settings</string>
+    <string name="send">Send</string>
+    <string name="more_options">More options</string>
+    <string name="to_place">To %1$s</string>
+    <string name="open_transit">Open transit directions</string>
+    <string name="fastest_route">Fastest route, no reported barriers</string>
+    <string name="route_options">Route options</string>
+    <string name="via_road">via %1$s</string>
+    <string name="no_barriers_reported">no barriers reported</string>
+    <plurals name="barriers_on_route">
+        <item quantity="one">%1$d reported barrier on this route (%2$s). No route without one was found.</item>
+        <item quantity="other">%1$d reported barriers on this route (%2$s…). No route without them was found.</item>
+    </plurals>
+    <plurals name="barriers_avoided">
+        <item quantity="one">Avoids %1$d reported barrier</item>
+        <item quantity="other">Avoids %1$d reported barriers</item>
+    </plurals>
+    <plurals name="barrier_count">
+        <item quantity="one">%1$d barrier</item>
+        <item quantity="other">%1$d barriers</item>
+    </plurals>
+    <string name="barrier_construction">Construction</string>
+    <string name="barrier_blocked">Road or path blocked</string>
+    <string name="barrier_flooding">Flooding</string>
+    <string name="barrier_no_ramp">Steps, no ramp</string>
+    <string name="barrier_footpath">Broken footpath</string>
+    <string name="barrier_other">Other hazard</string>
+    <string name="add_report">Add a report</string>
+    <string name="share_progress">Share trip progress</string>
+    <string name="search_along_route">Search along route</string>
+    <string name="none_along_route">Nothing found close to your route</string>
+    <string name="go_here">Go here</string>
+    <string name="show_satellite">Show satellite map</string>
+    <string name="voice_guidance">Voice guidance</string>
+    <string name="report_what">What is blocking the way?</string>
+    <string name="report_here_hint">The report is placed where you are now. Routes for everyone will avoid it.</string>
+    <string name="report_here_pin_hint">The report is placed at the dropped pin. Routes for everyone will avoid it.</string>
+    <string name="report_note_optional">Details (optional)</string>
+    <string name="report_local_only">You are not signed in, so the report stays on this phone.</string>
+    <string name="reported_ago">Reported %1$s</string>
+    <string name="barrier_routes_avoid">AccessPath picks a route around this until it is cleared or 14 days pass.</string>
+    <string name="barrier_cleared">It is cleared</string>
+    <string name="barrier_removed">Report removed</string>
+    <string name="barrier_reported">Thanks! Barrier reported and shared. Routes now avoid it.</string>
+    <string name="barrier_reported_local">Barrier saved on this phone. Sign in to share it with everyone.</string>
+    <string name="barrier_ahead">Reported barrier ahead: %1$s</string>
+    <string name="report_barrier_here">Report barrier</string>
+    <string name="progress_message">I\'m on my way to %1$s, arriving about %2$s (%3$s left). Where I am now: %4$s</string>
+    <string name="directions_message">Directions to %1$s: %2$s, %3$s. %4$s</string>
+    <string name="nav_channel">Navigation</string>
+    <string name="nav_channel_desc">Turn-by-turn directions while you travel</string>
+    <string name="nav_eta">%1$s left · arrive %2$s</string>
+    <string name="in_distance">In %1$s, %2$s</string>
 </resources>

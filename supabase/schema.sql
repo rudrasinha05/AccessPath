@@ -311,3 +311,30 @@ create policy "surveys insert own" on public.surveys for insert to authenticated
 drop policy if exists "surveys reviewers delete" on public.surveys;
 create policy "surveys reviewers delete" on public.surveys for delete to authenticated
   using ((select private.is_reviewer()));
+
+-- ---------------------------------------------------------------------------------------------
+-- Outdoor barriers: blockages outside buildings (digging, flooding, no ramp...) reported on the
+-- spot. Anyone can read; a signed-in person adds their own; the reporter or a reviewer removes one.
+-- The app hides reports older than 14 days.
+-- ---------------------------------------------------------------------------------------------
+create table if not exists public.outdoor_barriers (
+  id uuid primary key,
+  lat double precision not null check (lat between -90 and 90),
+  lng double precision not null check (lng between -180 and 180),
+  kind text not null check (kind in ('CONSTRUCTION', 'ROAD_BLOCKED', 'FLOODING', 'NO_RAMP', 'BROKEN_FOOTPATH', 'OTHER')),
+  note text not null default '' check (char_length(note) <= 300),
+  created_by uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists outdoor_barriers_lat_lng_idx on public.outdoor_barriers (lat, lng);
+create index if not exists outdoor_barriers_created_by_idx on public.outdoor_barriers (created_by);
+alter table public.outdoor_barriers enable row level security;
+
+drop policy if exists outdoor_barriers_read on public.outdoor_barriers;
+create policy outdoor_barriers_read on public.outdoor_barriers for select to anon, authenticated using (true);
+drop policy if exists outdoor_barriers_insert on public.outdoor_barriers;
+create policy outdoor_barriers_insert on public.outdoor_barriers for insert to authenticated
+  with check (created_by = (select auth.uid()));
+drop policy if exists outdoor_barriers_delete on public.outdoor_barriers;
+create policy outdoor_barriers_delete on public.outdoor_barriers for delete to authenticated
+  using (created_by = (select auth.uid()) or (select private.is_reviewer()));

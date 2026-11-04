@@ -76,19 +76,27 @@ object Outdoor {
         }
     }
 
-    suspend fun route(mode: TravelMode, from: LatLng, to: LatLng): OutdoorRoute = guarded { routeRaw(mode, from, to) }
+    suspend fun route(mode: TravelMode, from: LatLng, to: LatLng): OutdoorRoute = routes(mode, from, to).first()
 
-    private suspend fun routeRaw(mode: TravelMode, from: LatLng, to: LatLng): OutdoorRoute = when (mode) {
-        TravelMode.BUS -> throw AppError(ErrorCode.SERVER, "No public transport data")
-        TravelMode.WHEELCHAIR -> ors(from, to)
-        else -> osrm(mode, from, to)
+    /** The best route first, then up to two alternatives when the routing service has them. */
+    suspend fun routes(mode: TravelMode, from: LatLng, to: LatLng): List<OutdoorRoute> = guarded {
+        when (mode) {
+            TravelMode.BUS -> throw AppError(ErrorCode.SERVER, "No public transport data")
+            TravelMode.WHEELCHAIR -> listOf(ors(from, to))
+            else -> osrm(mode, from, to)
+        }
     }
 
-    private suspend fun osrm(mode: TravelMode, from: LatLng, to: LatLng): OutdoorRoute {
+    private suspend fun osrm(mode: TravelMode, from: LatLng, to: LatLng): List<OutdoorRoute> {
         val profile = when (mode) { TravelMode.CAR -> "routed-car"; TravelMode.BIKE -> "routed-bike"; else -> "routed-foot" }
-        val body = http("https://routing.openstreetmap.de/$profile/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=true")
+        val body = http("https://routing.openstreetmap.de/$profile/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=true&alternatives=3")
         val root = json.parseToJsonElement(body).jsonObject
-        val r = root["routes"]?.jsonArray?.firstOrNull()?.jsonObject ?: throw AppError(ErrorCode.SERVER, "No route")
+        val all = root["routes"]?.jsonArray?.map { it.jsonObject }.orEmpty()
+        if (all.isEmpty()) throw AppError(ErrorCode.SERVER, "No route")
+        return all.take(3).map { r -> osrmRoute(mode, r) }
+    }
+
+    private fun osrmRoute(mode: TravelMode, r: JsonObject): OutdoorRoute {
         val line = r["geometry"]!!.jsonObject["coordinates"]!!.jsonArray.map { it.toLatLng() }
         val steps = r["legs"]!!.jsonArray.flatMap { leg ->
             leg.jsonObject["steps"]!!.jsonArray.map { s ->

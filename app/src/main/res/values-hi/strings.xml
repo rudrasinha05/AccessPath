@@ -427,4 +427,61 @@
     <string name="work_set">काम अभी की जगह पर सेट हुआ</string>
     <string name="recent">हाल की</string>
     <string name="clear_recents">साफ़ करें</string>
+
+    <string name="km">%1$s कि.मी.</string>
+    <string name="kmh">कि.मी./घं.</string>
+    <string name="then">फिर</string>
+    <string name="settings_title">सेटिंग्स</string>
+    <string name="send">भेजें</string>
+    <string name="more_options">और विकल्प</string>
+    <string name="to_place">%1$s तक</string>
+    <string name="open_transit">पब्लिक ट्रांसपोर्ट दिशाएँ खोलें</string>
+    <string name="fastest_route">सबसे तेज़ रास्ता, कोई रुकावट दर्ज नहीं</string>
+    <string name="route_options">रास्ते के विकल्प</string>
+    <string name="via_road">%1$s से होकर</string>
+    <string name="no_barriers_reported">कोई रुकावट दर्ज नहीं</string>
+    <plurals name="barriers_on_route">
+        <item quantity="one">इस रास्ते पर %1$d रुकावट दर्ज है (%2$s)। बिना रुकावट वाला रास्ता नहीं मिला।</item>
+        <item quantity="other">इस रास्ते पर %1$d रुकावटें दर्ज हैं (%2$s…)। बिना रुकावट वाला रास्ता नहीं मिला।</item>
+    </plurals>
+    <plurals name="barriers_avoided">
+        <item quantity="one">%1$d दर्ज रुकावट से बचाता है</item>
+        <item quantity="other">%1$d दर्ज रुकावटों से बचाता है</item>
+    </plurals>
+    <plurals name="barrier_count">
+        <item quantity="one">%1$d रुकावट</item>
+        <item quantity="other">%1$d रुकावटें</item>
+    </plurals>
+    <string name="barrier_construction">निर्माण कार्य</string>
+    <string name="barrier_blocked">सड़क या रास्ता बंद</string>
+    <string name="barrier_flooding">पानी भरा है</string>
+    <string name="barrier_no_ramp">सीढ़ियाँ, रैम्प नहीं</string>
+    <string name="barrier_footpath">टूटा फुटपाथ</string>
+    <string name="barrier_other">दूसरा खतरा</string>
+    <string name="add_report">रिपोर्ट जोड़ें</string>
+    <string name="share_progress">यात्रा की प्रगति शेयर करें</string>
+    <string name="search_along_route">रास्ते में खोजें</string>
+    <string name="none_along_route">आपके रास्ते के पास कुछ नहीं मिला</string>
+    <string name="go_here">यहाँ जाएँ</string>
+    <string name="show_satellite">सैटेलाइट मैप दिखाएँ</string>
+    <string name="voice_guidance">आवाज़ में निर्देश</string>
+    <string name="report_what">रास्ते में क्या रुकावट है?</string>
+    <string name="report_here_hint">रिपोर्ट आपकी अभी की जगह पर लगेगी। सबके रास्ते इससे बचेंगे।</string>
+    <string name="report_here_pin_hint">रिपोर्ट पिन वाली जगह पर लगेगी। सबके रास्ते इससे बचेंगे।</string>
+    <string name="report_note_optional">विवरण (वैकल्पिक)</string>
+    <string name="report_local_only">आपने साइन इन नहीं किया है, इसलिए रिपोर्ट इसी फ़ोन पर रहेगी।</string>
+    <string name="reported_ago">%1$s दर्ज की गई</string>
+    <string name="barrier_routes_avoid">हटने तक या 14 दिन तक AccessPath इसके आसपास से रास्ता चुनेगा।</string>
+    <string name="barrier_cleared">अब हट गई है</string>
+    <string name="barrier_removed">रिपोर्ट हटा दी गई</string>
+    <string name="barrier_reported">धन्यवाद! रुकावट दर्ज और शेयर हो गई। रास्ते अब इससे बचेंगे।</string>
+    <string name="barrier_reported_local">रुकावट इस फ़ोन पर सेव हुई। सबके साथ शेयर करने के लिए साइन इन करें।</string>
+    <string name="barrier_ahead">आगे रुकावट दर्ज है: %1$s</string>
+    <string name="report_barrier_here">रुकावट बताएँ</string>
+    <string name="progress_message">मैं %1$s जा रहा/रही हूँ, लगभग %2$s तक पहुँचूँगा/गी (%3$s बाकी)। अभी मैं यहाँ हूँ: %4$s</string>
+    <string name="directions_message">%1$s तक का रास्ता: %2$s, %3$s। %4$s</string>
+    <string name="nav_channel">नेविगेशन</string>
+    <string name="nav_channel_desc">यात्रा के दौरान मोड़-दर-मोड़ निर्देश</string>
+    <string name="nav_eta">%1$s बाकी · %2$s तक पहुँचें</string>
+    <string name="in_distance">%1$s बाद, %2$s</string>
 </resources>

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -53,9 +54,27 @@ class AppSmokeTest {
         compose.onNodeWithText(s(R.string.directions)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("mode_bus").performScrollTo().performClick()
-        waitForText(s(R.string.open_google_maps))
+        waitForText(s(R.string.open_transit))
         compose.onNodeWithTag("mode_car").assertExists()
         compose.onNodeWithTag("mode_wheelchair").assertExists()
+    }
+
+    /** Outdoors: report a blockage at a dropped pin; it is saved and drawn so routes can avoid it. */
+    @Test
+    fun reportingAnOutdoorBarrierSavesIt() {
+        waitForMap()
+        val app = compose.activity.application as AccessPathApplication
+        val before = app.barriers.local().size
+        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.4f, 0.52f)) }
+        waitForText(s(R.string.pin_title))
+        compose.onNodeWithText(s(R.string.report_barrier_here)).performScrollTo().performClick()
+        waitForText(s(R.string.report_what))
+        compose.onNodeWithTag("barrier_construction").performClick()
+        compose.onNodeWithTag("sendBarrier").performClick()
+        compose.waitUntil(10_000) { app.barriers.local().size == before + 1 }
+        assertEquals(com.accesspath.data.BarrierKind.CONSTRUCTION, app.barriers.local().first().kind)
+        // Clean up so other tests start from the same state.
+        kotlinx.coroutines.runBlocking { app.barriers.clear(app.barriers.local().first()) }
     }
 
     @Test

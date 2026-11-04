@@ -19,6 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.Accessible
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import kotlinx.coroutines.async
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -151,6 +153,20 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var searchForDirections by rememberSaveable { mutableStateOf(false) }
     var savedTick by remember { mutableIntStateOf(0) }
+    // Directions and navigation: real travel time per mode, reported outdoor barriers, voice and speed.
+    val app = context.applicationContext as com.accesspath.AccessPathApplication
+    var modeTimes by remember { mutableStateOf<Map<TravelMode, Double>>(emptyMap()) }
+    var barriers by remember { mutableStateOf<List<com.accesspath.data.OutdoorBarrier>>(emptyList()) }
+    var barrierTick by remember { mutableIntStateOf(0) }
+    var reportAt by remember { mutableStateOf<LatLng?>(null) }
+    var reportAtPin by remember { mutableStateOf(false) }
+    var barrierInfo by remember { mutableStateOf<com.accesspath.data.OutdoorBarrier?>(null) }
+    var muted by rememberSaveable { mutableStateOf(false) }
+    var speedKmh by remember { mutableStateOf<Int?>(null) }
+    var along by remember { mutableStateOf<List<Poi>?>(null) }
+    var alongLoading by remember { mutableStateOf(false) }
+    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun say(text: String) { if (!muted) speaker.speak(listOf(text), context.resources.configuration.locales[0]) }
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { searchQuery = it; searchForDirections = false; searching = true }
     }
@@ -240,31 +256,91 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         val from = DeviceSensors.currentLocation(context, 10_000)?.let { LatLng(it.latitude, it.longitude) } ?: gps
         if (from == null) { outdoor = OutdoorState.Failed; vm.message(UiMessage.Text(R.string.location_off)); return@LaunchedEffect }
         gps = from
-        outdoor = try { OutdoorState.Ready(Outdoor.route(travelMode, from, pin)) } catch (e: AppError) { OutdoorState.Failed }
+        // Reported barriers around the trip decide which of the route choices to use.
+        val mid = LatLng((from.lat + pin.lat) / 2, (from.lng + pin.lng) / 2)
+        val known = runCatching { app.barriers.near(mid, (from.metresTo(pin) / 2 + 1500).toInt().coerceAtMost(30_000)) }.getOrElse { app.barriers.local() }
+        barriers = (known + barriers).distinctBy { it.id }
+        outdoor = try { chooseRoute(Outdoor.routes(travelMode, from, pin), barriers) } catch (e: AppError) { OutdoorState.Failed }
         if (autoStart && outdoor is OutdoorState.Ready) { autoStart = false; mode = Mode.OUT_NAVIGATE }
         (outdoor as? OutdoorState.Ready)?.route?.line?.takeIf { it.size >= 2 }?.let { camera = CameraRequest(++nonce, bounds = it + pin) }
     }
-    // Outdoor navigation: follow live GPS, move to the next instruction, re-route when off the line.
+    // Real travel time of every mode for the mode tabs, fetched together.
+    LaunchedEffect(pinText, mode == Mode.OUT_DIRECTIONS, gps != null) {
+        if (mode != Mode.OUT_DIRECTIONS || pin == null) return@LaunchedEffect
+        val from = gps ?: return@LaunchedEffect
+        val to = pin
+        modeTimes = kotlinx.coroutines.coroutineScope {
+            listOf(TravelMode.CAR, TravelMode.BIKE, TravelMode.WALK, TravelMode.WHEELCHAIR).filter(Outdoor::supports)
+                .map { m -> async { runCatching { m to Outdoor.route(m, from, to).durationSec }.getOrNull() } }
+                .mapNotNull { it.await() }.toMap()
+        }
+    }
+    // Outdoor navigation: follow live GPS, move to the next instruction, speak it, warn about reported
+    // barriers ahead, and re-route (around barriers) when off the line.
     LaunchedEffect(mode) {
         if (mode != Mode.OUT_NAVIGATE) return@LaunchedEffect
-        outStep = 0; outStatus = null
+        outStep = 0; outStatus = null; along = null
         var lastReroute = 0L
+        var spokenStep = -1; var spokenNear = -1
+        val warned = mutableSetOf<String>()
+        (outdoor as? OutdoorState.Ready)?.route?.steps?.firstOrNull()?.let { say(it.text(context)); spokenStep = 0 }
         DeviceSensors.locationUpdates(context).collect { loc ->
             val here = LatLng(loc.latitude, loc.longitude)
             gps = here
+            speedKmh = if (loc.hasSpeed()) Math.round(loc.speed * 3.6f) else null
             camera = CameraRequest(++nonce, center = here, zoom = 18.0)
             val dest = pin ?: return@collect
-            val r = (outdoor as? OutdoorState.Ready)?.route ?: return@collect
-            if (here.metresTo(dest) < 20.0) { outStatus = R.string.out_arrived; return@collect }
+            val ready = outdoor as? OutdoorState.Ready ?: return@collect
+            val r = ready.route
+            if (here.metresTo(dest) < 20.0) {
+                if (outStatus != R.string.out_arrived) say(context.getString(R.string.out_arrived))
+                outStatus = R.string.out_arrived; return@collect
+            }
             outStatus = null
             while (outStep + 1 < r.steps.size && here.metresTo(r.steps[outStep + 1].location) < 20.0) outStep++
+            // Voice: the coming turn once early, and again just before it.
+            r.steps.getOrNull(outStep + 1)?.let { next ->
+                val d = here.metresTo(next.location)
+                if (spokenStep != outStep + 1 && d < 400) { spokenStep = outStep + 1; say(context.getString(R.string.in_distance, distanceText(context, d), next.text(context))) }
+                else if (spokenNear != outStep + 1 && d < 40) { spokenNear = outStep + 1; say(next.text(context)) }
+            }
+            // Reported barriers on the route within 150 m.
+            ready.barriersOnRoute.firstOrNull { it.id !in warned && here.metresTo(it.at) < 150 }?.let { b ->
+                warned += b.id
+                val text = context.getString(R.string.barrier_ahead, context.getString(b.kind.label()))
+                vm.message(UiMessage.Text(R.string.barrier_ahead, listOf(context.getString(b.kind.label())))); say(text)
+            }
             val now = System.currentTimeMillis()
             if (here.metresToLine(r.line) > 50.0 && now - lastReroute > 15_000) {
                 lastReroute = now; outStatus = R.string.out_rerouting
-                runCatching { Outdoor.route(travelMode, here, dest) }.onSuccess { outdoor = OutdoorState.Ready(it); outStep = 0; outStatus = null }
+                runCatching { chooseRoute(Outdoor.routes(travelMode, here, dest), barriers) }.onSuccess { outdoor = it; outStep = 0; outStatus = null }
             }
         }
     }
+    // The ongoing notification ("120 m · Turn left …", Exit navigation) while navigating.
+    val navReady = outdoor as? OutdoorState.Ready
+    val navNext = navReady?.route?.steps?.let { it.getOrNull(outStep + 1) ?: it.getOrNull(outStep) }
+    val navRemaining = gps?.let { g -> pin?.let { g.metresTo(it) } }?.let { straight ->
+        navReady?.route?.let { r -> r.steps.drop(outStep + 2).sumOf { it.distance } + (navNext?.let { gps!!.metresTo(it.location) } ?: 0.0) }?.coerceAtLeast(straight) ?: straight
+    }
+    val navRemainingSec = navReady?.route?.let { r -> navRemaining?.let { if (r.distance > 0) r.durationSec * (it / r.distance).coerceAtMost(1.5) else null } }
+    DisposableEffect(mode == Mode.OUT_NAVIGATE) {
+        if (mode == Mode.OUT_NAVIGATE) {
+            if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                runCatching { notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+            com.accesspath.nav.NavSession.start(context, com.accesspath.nav.NavInfo("", context.getString(R.string.out_waiting_gps), pinTitle.orEmpty()))
+        }
+        onDispose { if (mode == Mode.OUT_NAVIGATE) com.accesspath.nav.NavSession.stop(context) }
+    }
+    LaunchedEffect(navNext, navRemaining?.let { Math.round(it / 10) }, outStatus) {
+        if (mode != Mode.OUT_NAVIGATE) return@LaunchedEffect
+        val g = gps ?: return@LaunchedEffect
+        com.accesspath.nav.NavSession.update(com.accesspath.nav.NavInfo(
+            navNext?.let { distanceText(context, g.metresTo(it.location)) } ?: "",
+            outStatus?.let(context::getString) ?: navNext?.text(context).orEmpty(),
+            navRemainingSec?.let { context.getString(R.string.nav_eta, duration(context, it), arrivalTime(it)) } ?: pinTitle.orEmpty()))
+    }
+    LaunchedEffect(Unit) { com.accesspath.nav.NavSession.exitRequests.collect { speaker.stop(); if (mode == Mode.OUT_NAVIGATE) mode = Mode.OUT_DIRECTIONS } }
     fun startDirections(to: String) {
         vm.setDestination(to); mode = Mode.DIRECTIONS
         current?.let { if (it.floorId != state.selectedFloor) vm.selectFloor(it.floorId) }
@@ -313,6 +389,12 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         runCatching { Places.areaName(at) }.getOrNull()?.let { area = it }
     }
 
+    // Reported outdoor barriers around the visible area.
+    LaunchedEffect(areaKey, barrierTick) {
+        val at = areaAt ?: return@LaunchedEffect
+        runCatching { app.barriers.near(at) }.getOrNull()?.let { near -> barriers = (near + barriers.filter { it.at.metresTo(at) > 5_000 }).distinctBy { it.id } }
+    }
+
     BackHandler(enabled = mode != Mode.EXPLORE || category != null) {
         if (mode == Mode.EXPLORE) { category = null; return@BackHandler }
         mode = when (mode) {
@@ -324,7 +406,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     }
 
     val peek: Dp = when (mode) {
-        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 96.dp; Mode.EXPLORE -> if (category != null) 260.dp else 240.dp
+        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 104.dp; Mode.EXPLORE -> if (category != null) 260.dp else 240.dp
         Mode.PIN -> 200.dp; Mode.OUT_DIRECTIONS -> 280.dp; Mode.POI -> 290.dp; else -> 236.dp
     }
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -397,20 +479,53 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     Mode.PIN -> if (pin != null) PinSheet(pin, pinTitle, nearPin?.name, hasCampus,
                         onDirections = { directionsFrom = Mode.PIN; outdoor = OutdoorState.Idle; mode = Mode.OUT_DIRECTIONS },
                         onViewCampus = ::showCampus, onMapArea = { onMapArea(pin) },
+                        onReport = { reportAtPin = true; reportAt = pin },
                         onZoomIn = { camera = CameraRequest(++nonce, zoomStep = 1) },
                         onZoomOut = { camera = CameraRequest(++nonce, zoomStep = -1) },
                         onClose = { pinText = null; mode = Mode.EXPLORE }) else LaunchedEffect(Unit) { mode = Mode.EXPLORE }
-                    Mode.OUT_DIRECTIONS -> if (pin != null) OutdoorDirectionsSheet(outdoor, travelMode, pin,
-                        onAllowLocation = { locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                        onRetry = { routeRequest++ },
-                        onStart = { mode = Mode.OUT_NAVIGATE },
-                        onOpenTransit = { runCatching { context.startActivity(Outdoor.transitIntent(pin)) } }) else LaunchedEffect(Unit) { mode = Mode.EXPLORE }
+                    Mode.OUT_DIRECTIONS -> if (pin != null) {
+                        val destName = pinTitle ?: nearPin?.name ?: formatLatLng(pin)
+                        val sp = com.accesspath.data.SavedPlace(destName, selectedPoi?.address ?: formatLatLng(pin), pin.lat, pin.lng, poi = selectedPoi?.takeIf { it.at == pin })
+                        val saved = remember(savedTick, pinText) { local.isSaved(sp) }
+                        OutdoorDirectionsSheet(outdoor, travelMode, destName, saved,
+                            onAllowLocation = { locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                            onRetry = { routeRequest++ },
+                            onStart = { mode = Mode.OUT_NAVIGATE },
+                            onOpenTransit = { runCatching { context.startActivity(Outdoor.transitIntent(pin)) } },
+                            onPickRoute = { i -> (outdoor as? OutdoorState.Ready)?.let { outdoor = it.copy(index = i) } },
+                            onShare = {
+                                val r = (outdoor as? OutdoorState.Ready)?.route
+                                share(if (r != null) context.getString(R.string.directions_message, destName, duration(context, r.durationSec), distanceText(context, r.distance), mapLink(pin)) else mapLink(pin))
+                            },
+                            onSave = { val now = local.toggleSaved(sp); savedTick++; vm.message(UiMessage.Text(if (now) R.string.place_saved else R.string.place_unsaved)) })
+                    } else LaunchedEffect(Unit) { mode = Mode.EXPLORE }
                     Mode.OUT_NAVIGATE -> {
                         val r = (outdoor as? OutdoorState.Ready)?.route
-                        OutdoorNavSheet(gps?.let { g -> pin?.let { g.metresTo(it) } }, travelMode, speaker.speaking,
-                            onRead = { r?.steps?.getOrNull(outStep)?.let { st -> if (!speaker.speak(listOf(st.text(context)), context.resources.configuration.locales[0])) vm.message(UiMessage.Text(R.string.tts_unavailable)) } },
-                            onStopReading = speaker::stop,
-                            onExit = { speaker.stop(); mode = Mode.OUT_DIRECTIONS })
+                        OutdoorNavSheet(navRemaining, navRemainingSec, r, outStep, muted, mapStyle == MapStyle.SATELLITE, along, alongLoading, gps,
+                            onExit = { speaker.stop(); mode = Mode.OUT_DIRECTIONS },
+                            onReport = { reportAtPin = false; reportAt = gps ?: mapCenter },
+                            onShareProgress = {
+                                val g = gps
+                                if (g != null && navRemainingSec != null) share(context.getString(R.string.progress_message, pinTitle ?: formatLatLng(pin ?: g),
+                                    arrivalTime(navRemainingSec), duration(context, navRemainingSec), mapLink(g)))
+                                else g?.let { share(context.getString(R.string.share_my_location, mapLink(it))) }
+                            },
+                            onAlong = { c ->
+                                val line = r?.line.orEmpty(); val g = gps ?: line.firstOrNull()
+                                if (g != null) scope.launch {
+                                    alongLoading = true; along = null
+                                    // Search ahead on the route: around a point about 1.5 km further along, and near you.
+                                    val ahead = line.firstOrNull { it.metresTo(g) > 1500 } ?: pin ?: g
+                                    val found = (runCatching { Places.nearby(c, g, 1500) }.getOrDefault(emptyList()) +
+                                        runCatching { Places.nearby(c, ahead, 1500) }.getOrDefault(emptyList())).distinctBy { it.id }
+                                    along = found.filter { line.size < 2 || it.at.metresToLine(line) <= 300 }.sortedBy { g.metresTo(it.at) }
+                                    alongLoading = false
+                                }
+                            },
+                            onGoAlong = { p -> along = null; speaker.stop(); directionsTo(p.at, p.name, start = true) },
+                            onSatellite = { mapStyle = if (it) MapStyle.SATELLITE else MapStyle.DEFAULT },
+                            onMute = { muted = it; if (it) speaker.stop() },
+                            onSettings = { editProfile = true })
                     }
                 }
             }
@@ -424,14 +539,18 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     centerOffsetPx = centerOffsetPx,
                     pin = pin.takeIf { mode == Mode.PIN || outdoorMode },
                     outdoorRoute = if (outdoorMode) (outdoor as? OutdoorState.Ready)?.route?.line.orEmpty() else emptyList(),
+                    altRoutes = (outdoor as? OutdoorState.Ready)?.takeIf { mode == Mode.OUT_DIRECTIONS }?.let { o -> o.routes.filterIndexed { i, _ -> i != o.index }.map { it.line } }.orEmpty(),
+                    onAltTap = { i -> (outdoor as? OutdoorState.Ready)?.let { o -> outdoor = o.copy(index = o.routes.indices.filter { it != o.index }[i]) } },
+                    barriers = barriers,
+                    onBarrierTap = { barrierInfo = it },
                     onLongPress = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) dropPin(it) },
                     onOrientation = { orientation = it },
                     onCenter = { mapCenter = it; onMapCenter(it) },
                     myLocation = gps.takeIf { outdoorMode || !hasCampus },
                     mapStyle = mapStyle,
-                    pois = if (mode == Mode.EXPLORE || mode == Mode.POI) (pois + listOfNotNull(selectedPoi)).distinctBy { it.id } else emptyList(),
+                    pois = when (mode) { Mode.EXPLORE, Mode.POI -> (pois + listOfNotNull(selectedPoi)).distinctBy { it.id }; Mode.OUT_NAVIGATE -> along.orEmpty(); else -> emptyList() },
                     selectedPoi = selectedPoi?.id.takeIf { mode == Mode.POI },
-                    onPoiTap = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) openPoi(it) },
+                    onPoiTap = { if (mode == Mode.OUT_NAVIGATE) { along = null; directionsTo(it.at, it.name, start = true) } else if (mode != Mode.NAVIGATE) openPoi(it) },
                     description = stringResource(R.string.world_map_a11y, floorLabel),
                     modifier = Modifier.fillMaxSize().testTag("worldMap"),
                     onPlaceTap = { if (mode != Mode.NAVIGATE) select(it) },
@@ -464,7 +583,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                                     EndpointBox(Icons.Filled.Place, Color(0xFFEA4335), pinTitle ?: nearPin?.name ?: pin?.let(::formatLatLng).orEmpty()) { mode = Mode.PIN }
                                 }
                             }
-                            Box(Modifier.padding(start = 8.dp, top = 6.dp)) { TravelModeChips(travelMode) { travelMode = it } }
+                            Box(Modifier.padding(start = 8.dp, top = 6.dp)) { TravelModeChips(travelMode, modeTimes) { travelMode = it } }
                         }
                     }
                     Mode.DIRECTIONS -> DirectionsHeader(state,
@@ -507,7 +626,14 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             }
             // Bottom right, above the sheet: zoom, share, my location and directions.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (hasGeo && mode == Mode.OUT_NAVIGATE) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                if (hasGeo && mode == Mode.OUT_NAVIGATE) {
+                    CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                    MapRoundButton(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        stringResource(R.string.voice_guidance), modifier = Modifier.testTag("muteNav")) { muted = !muted; if (muted) speaker.stop() }
+                    MapRoundButton(Icons.Filled.AddAlert, stringResource(R.string.add_report), tint = Color.White, container = Color(0xFFE37400), modifier = Modifier.testTag("reportNav")) {
+                        reportAtPin = false; reportAt = gps ?: mapCenter
+                    }
+                }
                 // Share only where there is room; small screens keep the map clear (the place card has Share too).
                 val tall = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 720
                 if (browsing && tall) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
@@ -517,6 +643,9 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                 if (mode == Mode.EXPLORE) MapRoundButton(Icons.Filled.Directions, stringResource(R.string.directions), tint = Color.White, container = BrandTeal, modifier = Modifier.testTag("directionsFab")) {
                     searchQuery = ""; searchForDirections = true; searching = true
                 }
+            }
+            if (mode == Mode.OUT_NAVIGATE) speedKmh?.let { k ->
+                Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = peek + 28.dp)) { SpeedBubble(k) }
             }
             if (hasGeo) {
                 val online = rememberIsOnline()
@@ -552,6 +681,30 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             onCategory = { c -> searching = false; category = c; mode = Mode.EXPLORE },
             onGeo = { r -> go(com.accesspath.data.SavedPlace(r.name, r.detail, r.at.lat, r.at.lng)) },
             onDismiss = { searching = false }, onNearest = { kind -> searching = false; placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }) { node -> searching = false; select(node) }
+    }
+    reportAt?.let { at ->
+        ReportBarrierDialog(signedIn = app.supabase.session != null, atPin = reportAtPin, onDismiss = { reportAt = null }) { kind, note ->
+            reportAt = null
+            scope.launch {
+                val shared = app.barriers.report(at, kind, note)
+                vm.message(UiMessage.Text(if (shared) R.string.barrier_reported else R.string.barrier_reported_local))
+                barriers = (app.barriers.local() + barriers).distinctBy { it.id }
+                // Pick again with the new report, so the route goes around it when another way exists.
+                (outdoor as? OutdoorState.Ready)?.let { o -> outdoor = chooseRoute(o.routes, barriers) }
+                barrierTick++
+            }
+        }
+    }
+    barrierInfo?.let { b ->
+        BarrierInfoDialog(b, gps, onDismiss = { barrierInfo = null }) {
+            barrierInfo = null
+            scope.launch {
+                app.barriers.clear(b)
+                barriers = barriers.filterNot { it.id == b.id }
+                (outdoor as? OutdoorState.Ready)?.let { o -> outdoor = chooseRoute(o.routes, barriers) }
+                vm.message(UiMessage.Text(R.string.barrier_removed))
+            }
+        }
     }
     if (layers) LayersSheet(mapStyle, category, onStyle = { mapStyle = it }, onCategory = { category = it; layers = false; mode = Mode.EXPLORE }, onDismiss = { layers = false })
     when (picking) {
