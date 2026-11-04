@@ -285,3 +285,29 @@ as $$
 $$;
 revoke execute on function public.review_report(uuid, text, text) from public, anon;
 grant execute on function public.review_report(uuid, text, text) to authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- Camera surveys: draft areas recorded with the phone camera, shared with every phone.
+-- Anyone can read; a signed-in person can add their own; only reviewers can delete.
+-- ---------------------------------------------------------------------------------------------
+create table if not exists public.surveys (
+  id text primary key,
+  map_id text not null,
+  name text not null default '',
+  payload jsonb not null,
+  created_by uuid default auth.uid() references auth.users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists surveys_map_id_idx on public.surveys (map_id, created_at);
+alter table public.surveys enable row level security;
+
+drop policy if exists "surveys readable" on public.surveys;
+create policy "surveys readable" on public.surveys for select using (true);
+
+drop policy if exists "surveys insert own" on public.surveys;
+create policy "surveys insert own" on public.surveys for insert to authenticated
+  with check (created_by = (select auth.uid()) and octet_length(payload::text) < 2000000);
+
+drop policy if exists "surveys reviewers delete" on public.surveys;
+create policy "surveys reviewers delete" on public.surveys for delete to authenticated
+  using ((select private.is_reviewer()));

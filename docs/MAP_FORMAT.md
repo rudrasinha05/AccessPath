@@ -1,10 +1,10 @@
 # Campus map format
 
-Use `app/src/main/assets/maps/demo-campus.json` as a complete example. Import a map in **Settings → Map data → Import map**. Schema version `1`. Maximum file size 10 MB; at most 10,000 places and 50,000 directed paths. Fields the app does not know are ignored; invalid values are rejected and the stored map stays unchanged.
+Use `app/src/test/resources/demo-campus.json` (a test fixture) as a complete example. Import a map in **Settings → Map data → Import map**. Schema version `1`. Maximum file size 10 MB; at most 10,000 places and 50,000 directed paths. Fields the app does not know are ignored; invalid values are rejected and the stored map stays unchanged.
 
 | Field | Contract |
 |---|---|
-| `version`, `name`, `provenance` | Required non-empty strings. Say whether the data is illustrative or surveyed. The value `Illustrative demo` marks the resettable sample map. |
+| `version`, `name`, `provenance` | Required non-empty strings. Say whether the data is illustrative or surveyed. The value `Illustrative demo` marks the old sample map, which the app now removes on start. |
 | `verifiedAt` | Optional UTC epoch milliseconds of the field survey |
 | `buildings` | Unique `id`, `name` |
 | `floors` | Unique `id`, existing `buildingId`, `label` (shown to people, e.g. "Second floor"), integer `ordinal` |

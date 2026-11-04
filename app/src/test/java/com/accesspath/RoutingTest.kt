@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 class RoutingTest {
-    private val demo: CampusMap = MapJson.decodeFromString(File("src/main/assets/maps/demo-campus.json").readText())
+    private val demo: CampusMap = MapJson.decodeFromString(File("src/test/resources/demo-campus.json").readText())
     private fun state() = AppSnapshot(demo)
     private fun found(s: AppSnapshot) = Routing.calculate(s) as RouteResult.Found
     private fun cause(s: AppSnapshot) = (Routing.calculate(s) as RouteResult.Unavailable).cause
@@ -16,7 +16,7 @@ class RoutingTest {
 
     @Test fun demoMapIsValidWithDisconnectedWarning() {
         assertEquals(31, demo.nodes.size); assertEquals(72, demo.edges.size)
-        assertTrue(demo.isDemo)
+        assertFalse(demo.isDemo)
         assertTrue(MapValidator.validate(demo).isNotEmpty())
     }
 

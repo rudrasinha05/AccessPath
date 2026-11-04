@@ -19,7 +19,9 @@ Automated checks run in GitHub Actions on every push (`.github/workflows/android
 | 1,000 places / 5,000 paths warm routing p95 < 500 ms | `RoutingTest` |
 | Atomic review + audit, idempotent submit, stale update refused, parallel writes | `RepositoryTest` (device) |
 | Confirm position, close/reopen path, import/reset rules, unreadable data recovery, persistence across reopen | `RepositoryTest` (device) |
-| Map position of the sample campus, geo conversion | `RoutingTest` |
+| Map position of the test campus, geo conversion | `RoutingTest` |
+| Outdoor distance and off-route checks, survey sharing format | `OutdoorTest` |
+| Empty campus, dropped pin options, travel modes | `AppSmokeTest` |
 | Mapped vs unmapped area check; camera survey → draft paths with unknown accessibility; wheelchair routes skip drafts | `RoutingTest` |
 | Draft area add / idempotent / delete | `RepositoryTest` (device) |
 | Map opens, search, place card, directions → navigation → exit, Contribute, You → Campus management | `AppSmokeTest` (device) |
@@ -36,4 +38,4 @@ Automated checks run in GitHub Actions on every push (`.github/workflows/android
 - Unmapped-area prompt outdoors away from the campus (and no prompt inside it).
 - Import a surveyed map and walk a route on the real campus.
 
-The sample campus is illustrative. Passing these checks does not certify any real building as accessible.
+The test campus is a fixture, not a real building. Passing these checks does not certify any real building as accessible.

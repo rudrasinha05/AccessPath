@@ -1,8 +1,9 @@
 {
+  "id": "demo-campus",
   "schemaVersion": 1,
   "version": "demo-1.0",
   "name": "AccessPath Demonstration Campus",
-  "provenance": "Illustrative demo",
+  "provenance": "Test fixture",
   "geo": {
     "lat": 28.473,
     "lng": 77.4882,

@@ -113,7 +113,6 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, o
             InfoText(stringResource(R.string.map_source, map.provenance))
             InfoText(map.verifiedAt?.let { stringResource(R.string.map_verified, formatTime(it)) } ?: stringResource(R.string.map_not_verified))
             InfoText(stringResource(R.string.map_counts, map.nodes.size, map.edges.distinctBy { listOf(it.from, it.to).sorted() }.size, map.floors.size))
-            if (map.isDemo) Banner(stringResource(R.string.demo_warning), warning = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScrollable()) {
                 OutlinedButton(enabled = !ui.busy, onClick = { importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text(stringResource(R.string.import_map)) }
                 OutlinedButton(enabled = !ui.busy, onClick = { exporter.launch("accesspath-map-${map.version}.json") }) { Text(stringResource(R.string.export_map)) }

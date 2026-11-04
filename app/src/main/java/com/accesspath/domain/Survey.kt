@@ -26,7 +26,19 @@ data class TrailPoint(val x: Double, val z: Double)
 /** A named place the surveyor added at a trail point. */
 data class SurveyPlace(val trailIndex: Int, val name: String, val type: String)
 
-data class Survey(val building: Building, val floor: Floor, val nodes: List<Node>, val edges: List<Edge>)
+@kotlinx.serialization.Serializable
+data class Survey(val building: Building, val floor: Floor, val nodes: List<Node>, val edges: List<Edge>) {
+    companion object {
+        /** Rebuilds the survey of a draft building from the map, so it can be shared. */
+        fun of(map: CampusMap, buildingId: String): Survey? {
+            val b = map.buildings.firstOrNull { it.id == buildingId && it.draft } ?: return null
+            val floor = map.floors.firstOrNull { it.buildingId == b.id } ?: return null
+            val nodes = map.nodes.filter { it.floorId == floor.id }
+            val ids = nodes.map { it.id }.toSet()
+            return Survey(b, floor, nodes, map.edges.filter { it.from in ids && it.to in ids })
+        }
+    }
+}
 
 /**
  * Turns a camera-tracked walk into draft map data. Path width, slope and step-free status cannot be

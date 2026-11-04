@@ -62,12 +62,12 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
 )
 @Serializable data class CampusMap(
     /** Stable campus identifier shared with the server; reports and statuses are stored per campus. */
-    val id: String = "demo-campus",
+    val id: String = "main-campus",
     val schemaVersion: Int = 1, val version: String, val name: String,
     val provenance: String, val verifiedAt: Long? = null, val geo: GeoAnchor? = null, val buildings: List<Building>,
     val floors: List<Floor>, val nodes: List<Node>, val edges: List<Edge>, val facilities: List<Facility>
 ) {
-    /** The bundled sample map may be reset; imported maps never are. */
+    /** Older app versions shipped an illustrative sample campus; it is removed when found. */
     val isDemo: Boolean get() = provenance == DEMO_PROVENANCE
 
     companion object { const val DEMO_PROVENANCE = "Illustrative demo" }
@@ -132,7 +132,7 @@ object MapValidator {
         fun check(ok: Boolean, detail: () -> String) { if (!ok) throw AppError(ErrorCode.MAP_INVALID, detail()) }
         check(map.schemaVersion == 1) { "Unsupported map schema ${map.schemaVersion}. Expected 1." }
         check(map.name.isNotBlank() && map.version.isNotBlank() && map.provenance.isNotBlank()) { "Map name, version and provenance are required." }
-        check(map.nodes.size in 1..10000 && map.edges.size <= 50000) { "Map must have 1–10,000 places and at most 50,000 segments." }
+        check(map.nodes.size <= 10000 && map.edges.size <= 50000) { "Map must have at most 10,000 places and 50,000 segments." }
         fun unique(ids: List<String>, label: String) = check(ids.all { it.isNotBlank() } && ids.toSet().size == ids.size) { "Duplicate or empty $label IDs." }
         unique(map.buildings.map { it.id }, "building"); unique(map.floors.map { it.id }, "floor")
         unique(map.nodes.map { it.id }, "place"); unique(map.edges.map { it.id }, "segment"); unique(map.facilities.map { it.id }, "facility")
@@ -161,6 +161,7 @@ object MapValidator {
                     (a.buildingId != b.buildingId && a.ordinal == b.ordinal && e.type == Segment.OUTDOOR)
             ) { "Invalid floor transition for ${e.id}." }
         }
+        if (map.nodes.isEmpty()) return emptyList()
         val reached = mutableSetOf(map.nodes.first().id)
         val adjacency = map.edges.flatMap { listOf(it.from to it.to, it.to to it.from) }.groupBy({ it.first }, { it.second })
         val queue = ArrayDeque(reached)

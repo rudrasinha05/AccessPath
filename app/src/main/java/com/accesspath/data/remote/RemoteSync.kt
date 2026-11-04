@@ -28,6 +28,7 @@ class RemoteSync(private val api: SupabaseClient, private val repo: CampusReposi
         val s = repo.snapshot()
         val id = enc(s.map.id)
         pullNewerMap(s)
+        syncSurveys()
         val reports = json.decodeFromString(ListSerializer(RemoteReport.serializer()), api.get("reports?map_id=eq.$id&select=*&order=created_at.desc&limit=2000"))
         val facilities = json.decodeFromString(ListSerializer(RemoteFacility.serializer()), api.get("facility_status?map_id=eq.$id&select=*"))
         val closures = json.decodeFromString(ListSerializer(RemoteClosure.serializer()), api.get("closures?map_id=eq.$id&select=*"))
@@ -43,6 +44,34 @@ class RemoteSync(private val api: SupabaseClient, private val repo: CampusReposi
         val rows = json.parseToJsonElement(api.get("campus_maps?id=eq.${enc(s.map.id)}&select=payload")) as kotlinx.serialization.json.JsonArray
         val payload = (rows.firstOrNull() as? kotlinx.serialization.json.JsonObject)?.get("payload") ?: return
         runCatching { repo.importMap(payload.toString()) }
+    }
+
+    /** Camera surveys: uploads local drafts (safe to repeat) and adds drafts other phones recorded. */
+    suspend fun syncSurveys() {
+        val s = repo.snapshot()
+        if (api.signedIn()) s.map.buildings.filter { it.draft }.forEach { b ->
+            val survey = Survey.of(s.map, b.id) ?: return@forEach
+            val body = buildJsonObject {
+                put("id", b.id); put("map_id", s.map.id); put("name", b.name)
+                put("payload", json.parseToJsonElement(MapJson.encodeToString(Survey.serializer(), survey)))
+            }
+            api.insertIgnoringDuplicates("surveys", body.toString())
+        }
+        val known = s.map.buildings.map { it.id }.toSet()
+        val rows = json.parseToJsonElement(api.get("surveys?map_id=eq.${enc(s.map.id)}&select=id,payload&order=created_at.asc&limit=500")) as kotlinx.serialization.json.JsonArray
+        rows.forEach { row ->
+            val o = row as? kotlinx.serialization.json.JsonObject ?: return@forEach
+            val id = (o["id"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
+            if (id in known) return@forEach
+            val survey = runCatching { MapJson.decodeFromString(Survey.serializer(), o["payload"].toString()) }.getOrNull() ?: return@forEach
+            runCatching { repo.addSurvey(survey) }
+        }
+    }
+
+    /** Removes a draft survey from the server too, so other phones drop it. Only reviewers may. */
+    suspend fun deleteSurvey(id: String) {
+        // An empty result is fine: the draft may never have been uploaded. The caller has checked the role.
+        api.delete("surveys", "id=eq.${enc(id)}")
     }
 
     suspend fun pushPendingReports() {

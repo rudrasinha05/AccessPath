@@ -105,7 +105,7 @@ fun AccessPathApp(vm: AccessViewModel) {
                         Text(stringResource(R.string.loading))
                     }
                     else -> when (tab) {
-                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker)
+                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
                         Tab.CONTRIBUTE -> ReportsScreen(ui, vm)
                         Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false })
                             else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() })

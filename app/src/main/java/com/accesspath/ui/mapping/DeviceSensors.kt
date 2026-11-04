@@ -14,6 +14,7 @@ import android.os.CancellationSignal
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.accesspath.domain.LatLng
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
@@ -49,6 +50,20 @@ object DeviceSensors {
     }
 
     fun Location.toLatLng() = LatLng(latitude, longitude)
+
+    /** Live positions while collected (used only during outdoor navigation); stops when collection stops. */
+    @SuppressLint("MissingPermission")
+    fun locationUpdates(context: Context): kotlinx.coroutines.flow.Flow<Location> = kotlinx.coroutines.flow.callbackFlow {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        if (lm == null || !hasLocationPermission(context)) { close(); return@callbackFlow }
+        val listener = androidx.core.location.LocationListenerCompat { trySend(it) }
+        val request = androidx.core.location.LocationRequestCompat.Builder(1_000L).setMinUpdateDistanceMeters(2f)
+            .setQuality(androidx.core.location.LocationRequestCompat.QUALITY_HIGH_ACCURACY).build()
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+            .forEach { LocationManagerCompat.requestLocationUpdates(lm, it, request, ContextCompat.getMainExecutor(context), listener) }
+        awaitClose { LocationManagerCompat.removeUpdates(lm, listener) }
+    }
 
     /** Compass direction the phone's back camera faces, degrees clockwise from north; null without a sensor. */
     suspend fun heading(context: Context, timeoutMs: Long = 2_000): Double? {

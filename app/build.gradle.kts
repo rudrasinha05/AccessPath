@@ -32,6 +32,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Map tiles key (secret-ish: kept out of git). Empty = fall back to OpenStreetMap tiles.
         buildConfigField("String", "MAPTILER_KEY", "\"${config("MAPTILER_KEY")}\"")
+        buildConfigField("String", "ORS_KEY", "\"${config("ORS_KEY")}\"")
         // Public client values: the publishable key and OAuth client ID are meant to ship inside apps.
         buildConfigField("String", "SUPABASE_URL", "\"${config("SUPABASE_URL", "https://jjpussjaccbgcufsgqpu.supabase.co")}\"")
         buildConfigField("String", "SUPABASE_KEY", "\"${config("SUPABASE_KEY", "sb_publishable_ZJvQgC1S0XPYmMpB-JT_YQ_aKGSiqqQ")}\"")

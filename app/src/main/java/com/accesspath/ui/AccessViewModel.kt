@@ -250,14 +250,17 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
             val survey = withContext(Dispatchers.Default) { SurveyBuilder.build("survey_$stamp", name, trail, places, start, headingDeg) }
                 ?: return@perform UiMessage.Text(R.string.mapping_too_short)
             repository.addSurvey(survey)
+            // Share it right away when signed in; otherwise the next sync sends it.
+            if (ui_.value.server && ui_.value.account != null) runCatching { sync.syncSurveys() }
             null
         }
 
     fun deleteSurvey(buildingId: String, reason: String) =
-        perform(UiMessage.Text(R.string.draft_deleted)) { repository.deleteSurvey(buildingId, reason); null }
+        perform(UiMessage.Text(R.string.draft_deleted)) {
+            if (ui_.value.server) { requireReviewer(); sync.deleteSurvey(buildingId) }
+            repository.deleteSurvey(buildingId, reason); null
+        }
 
-    fun simulateAllLifts(available: Boolean) = perform { repository.simulateAllLifts(available); null }
-    fun resetDemo() = perform(UiMessage.Text(R.string.reset_done)) { repository.resetDemo(); null }
 
     fun importMap(uri: Uri) = perform {
         val text = withContext(Dispatchers.IO) {

@@ -34,7 +34,6 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     var closing by rememberSaveable { mutableStateOf(false) }
     var closeEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var reopenEdge by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirmReset by rememberSaveable { mutableStateOf(false) }
     var deleteDraft by rememberSaveable { mutableStateOf<String?>(null) }
     val qrExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri -> uri?.let(vm::exportQrPlacards) }
     // One entry per physical segment (both directions are closed together).
@@ -140,18 +139,6 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
 
-        if (state.map.isDemo && !ui.server) item {
-            SectionCard(stringResource(R.string.demo_title)) {
-                InfoText(stringResource(R.string.demo_intro))
-                OutlinedButton(enabled = canEdit, onClick = { vm.simulateAllLifts(false) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.lifts_down)) }
-                OutlinedButton(enabled = canEdit, onClick = { vm.simulateAllLifts(true) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.lifts_up)) }
-                Button(
-                    enabled = canEdit, onClick = { confirmReset = true }, modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
-                ) { Text(stringResource(R.string.reset_demo)) }
-            }
-        }
-
         item { SectionTitle(stringResource(R.string.audit_title)) }
         val events = state.audit.asReversed().take(50)
         if (events.isEmpty()) item { InfoText(stringResource(R.string.audit_empty)) }
@@ -197,13 +184,5 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
         ReasonDialog(stringResource(R.string.delete_draft_title), stringResource(R.string.delete), onDismiss = { deleteDraft = null },
             extra = { InfoText(state.map.buildings.firstOrNull { it.id == id }?.name.orEmpty()) }) { reason -> deleteDraft = null; vm.deleteSurvey(id, reason) }
     }
-    if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text(stringResource(R.string.reset_confirm_title)) },
-            text = { Text(stringResource(R.string.reset_confirm_body)) },
-            confirmButton = { Button(onClick = { confirmReset = false; vm.resetDemo() }) { Text(stringResource(R.string.reset)) } },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.cancel)) } }
-        )
-    }
+
 }

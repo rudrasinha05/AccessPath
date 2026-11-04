@@ -22,13 +22,15 @@ class ScreenshotTest {
     private fun waitForText(text: String) = compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
     /** The first launch asks whether to check for unmapped areas; tests decline it. */
-    private fun waitForMap() {
-        waitForText(s(R.string.search_campus))
+    private fun waitForMap(empty: Boolean = false) {
+        waitForText(s(R.string.search_any))
+        TestCampus.load(empty)
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText(s(R.string.area_check_title)).assertExists()
             compose.onNodeWithText(s(R.string.not_now)).performClick()
         }
+        waitForText(s(if (empty) R.string.no_campus_title else R.string.explore_title))
     }
 
     private fun save(name: String, settleMs: Long = 0) {
@@ -42,7 +44,7 @@ class ScreenshotTest {
     fun captureMainScreens() {
         waitForMap()
         save("1-explore", 6000)
-        compose.onNodeWithText(s(R.string.search_campus)).performClick()
+        compose.onNodeWithText(s(R.string.search_any)).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))
@@ -63,11 +65,30 @@ class ScreenshotTest {
     }
 
     @Test
+    fun capturePinAndTravelModes() {
+        waitForMap()
+        compose.onNodeWithTag("worldMap").performTouchInput { longClick(center) }
+        waitForText(s(R.string.pin_title))
+        save("9-pin", 3000)
+        compose.onNodeWithText(s(R.string.directions)).performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("mode_bus").performClick()
+        waitForText(s(R.string.open_google_maps))
+        save("10-travel-modes", 2000)
+    }
+
+    @Test
+    fun captureEmptyCampus() {
+        waitForMap(empty = true)
+        save("11-empty-campus", 4000)
+    }
+
+    @Test
     fun captureHindi() {
         waitForMap()
         try {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("hi")) }
-            waitForText("कैंपस में जगह खोजें")
+            waitForText("जगह या कैंपस खोजें")
             save("8-explore-hindi", 4000)
         } finally {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }

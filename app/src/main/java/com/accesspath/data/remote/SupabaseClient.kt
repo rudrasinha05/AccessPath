@@ -97,6 +97,12 @@ class SupabaseClient(context: Context, private val baseUrl: String, private val 
         call("POST", "/rest/v1/$table?on_conflict=id", body, bearer = token, prefer = "resolution=ignore-duplicates,return=minimal")
     }
 
+    /** Deletes matching rows as the signed-in user; returns the deleted rows as JSON (empty when RLS refused). */
+    suspend fun delete(table: String, filter: String): String {
+        val token = accessToken() ?: throw AppError(ErrorCode.NEEDS_SIGN_IN)
+        return call("DELETE", "/rest/v1/$table?$filter", null, bearer = token, prefer = "return=representation")
+    }
+
     /** Calls a database function (POST /rest/v1/rpc/name) as the signed-in user. */
     suspend fun rpc(name: String, body: String): String {
         val token = accessToken() ?: throw AppError(ErrorCode.NEEDS_SIGN_IN)

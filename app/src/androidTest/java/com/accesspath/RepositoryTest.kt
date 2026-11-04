@@ -15,7 +15,8 @@ class RepositoryTest {
     private lateinit var db: AccessDatabase
     private lateinit var repo: CampusRepository
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
-    private fun seed() = context.assets.open("maps/demo-campus.json").bufferedReader().use { it.readText() }
+    // The fixture lives in the test APK, so read it with the instrumentation context.
+    private fun seed() = InstrumentationRegistry.getInstrumentation().context.assets.open("maps/demo-campus.json").bufferedReader().use { it.readText() }
 
     @Before
     fun setup() {
@@ -110,21 +111,27 @@ class RepositoryTest {
         val s = repo.snapshot()
         assertEquals("survey-2", s.map.version)
         assertFalse(s.map.isDemo)
-        val e = runCatching { repo.resetDemo() }.exceptionOrNull()
-        assertEquals(ErrorCode.RESET_ONLY_DEMO, (e as AppError).code)
     }
 
     @Test
-    fun resetRestoresDemoAndKeepsProfile() = runBlocking {
-        repo.initialize()
-        repo.setProfile(Profile(Mobility.AVOID_STAIRS))
-        repo.simulateAllLifts(false)
-        repo.submitReport("r", "hall2", BarrierCategory.BLOCKED_PATH, "Construction debris")
-        repo.resetDemo()
-        val s = repo.snapshot()
-        assertTrue(s.reports.isEmpty())
-        assertEquals(Mobility.AVOID_STAIRS, s.profile.mobility)
-        assertTrue(Routing.calculate(s) is RouteResult.Found)
+    fun oldSampleCampusIsRemovedAndFirstSurveyBecomesPosition() = runBlocking {
+        val old = MapJson.decodeFromString(CampusMap.serializer(), seed()).copy(provenance = "Illustrative demo")
+        db.stateDao().insert(StateRow(revision = 1, payload = MapJson.encodeToString(AppSnapshot.serializer(),
+            AppSnapshot(old, profile = Profile(Mobility.WHEELCHAIR)))))
+        val empty = """{"id":"main-campus","schemaVersion":1,"version":"0","name":"Campus","provenance":"Field survey","buildings":[],"floors":[],"nodes":[],"edges":[],"facilities":[]}"""
+        val r = CampusRepository(db) { empty }
+        r.initialize()
+        val s = r.snapshot()
+        assertTrue(s.map.nodes.isEmpty())
+        assertEquals(Mobility.WHEELCHAIR, s.profile.mobility)
+
+        val trail = (0..20).map { TrailPoint(0.0, -it * 0.5) }
+        r.addSurvey(SurveyBuilder.build("survey_e", "Draft", trail, emptyList(), LatLng(28.48, 77.49), 0.0)!!)
+        val after = r.snapshot()
+        assertTrue(after.map.nodes.any { it.id == after.current })
+        assertEquals(after.node(after.current)?.floorId, after.selectedFloor)
+        r.deleteSurvey("survey_e", "Recorded by mistake")
+        assertEquals("", r.snapshot().current)
     }
 
     @Test

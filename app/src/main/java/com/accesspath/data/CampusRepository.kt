@@ -24,16 +24,14 @@ class CampusRepository(
         .map { row -> row?.let { MapJson.decodeFromString<AppSnapshot>(it.payload) } }
         .flowOn(Dispatchers.Default)
 
-    private fun fresh(): AppSnapshot {
+    /** The map that ships with the app: an empty campus until surveys or a published map fill it. */
+    private fun fresh(profile: Profile = Profile()): AppSnapshot {
         val map = MapJson.decodeFromString<CampusMap>(seed())
         MapValidator.validate(map)
-        val first = map.nodes.first()
-        fun pick(id: String, fallback: String) = if (map.nodes.any { it.id == id }) id else fallback
-        val start = pick("gate", first.id)
+        val first = map.nodes.firstOrNull()
         return AppSnapshot(
-            map = map, start = start, current = start,
-            destination = pick("classroom", map.nodes.last().id),
-            selectedFloor = map.nodes.first { it.id == start }.floorId
+            map = map, profile = profile, start = first?.id.orEmpty(), current = first?.id.orEmpty(),
+            destination = first?.id.orEmpty(), selectedFloor = first?.floorId ?: map.floors.firstOrNull()?.id.orEmpty()
         )
     }
 
@@ -45,9 +43,11 @@ class CampusRepository(
                 db.stateDao().insert(StateRow(revision = 0, payload = MapJson.encodeToString(fresh())))
             } else {
                 val readable = runCatching { MapJson.decodeFromString<AppSnapshot>(row.payload) }
-                readable.getOrNull()?.let { saved -> withSampleGeo(saved)?.let { upgraded ->
-                    db.stateDao().compareAndSet(MapJson.encodeToString(upgraded), saved.revision + 1, saved.revision)
-                } }
+                // Remove the illustrative sample campus that older versions shipped; keep the person's settings.
+                readable.getOrNull()?.takeIf { it.map.isDemo }?.let { saved ->
+                    val clean = fresh(saved.profile).copy(revision = saved.revision + 1)
+                    db.stateDao().compareAndSet(MapJson.encodeToString(clean), clean.revision, saved.revision)
+                }
                 if (readable.isFailure) {
                     Log.w(TAG, "Saved state unreadable; restoring bundled map", readable.exceptionOrNull())
                     val recovered = fresh().let {
@@ -57,18 +57,6 @@ class CampusRepository(
                 }
             }
         }
-    }
-
-    /** Saved sample maps from before world-map support get the sample's real-world position. Returns null if nothing changes. */
-    private fun withSampleGeo(saved: AppSnapshot): AppSnapshot? {
-        if (!saved.map.isDemo || Geo.hasGeo(saved.map)) return null
-        val seedMap = runCatching { MapJson.decodeFromString<CampusMap>(seed()) }.getOrNull() ?: return null
-        if (seedMap.geo == null) return null
-        val buildingGeo = seedMap.buildings.associate { it.id to it.geo }
-        return saved.copy(
-            revision = saved.revision + 1,
-            map = saved.map.copy(geo = seedMap.geo, buildings = saved.map.buildings.map { it.copy(geo = buildingGeo[it.id] ?: it.geo) })
-        )
     }
 
     suspend fun snapshot(): AppSnapshot = withContext(Dispatchers.IO) {
@@ -160,26 +148,6 @@ class CampusRepository(
         )
     }
 
-    /** Demo only: sets every lift facility at once to show the "no accessible route" case. */
-    suspend fun simulateAllLifts(available: Boolean) = mutate { s ->
-        if (!s.map.isDemo) throw AppError(ErrorCode.RESET_ONLY_DEMO)
-        val liftIds = s.map.edges.filter { it.type == Segment.ELEVATOR }.mapNotNull { it.facilityId }.toSet()
-        s.copy(
-            map = s.map.copy(facilities = s.map.facilities.map {
-                if (it.id in liftIds) it.copy(
-                    availability = if (available) Availability.AVAILABLE else Availability.UNAVAILABLE,
-                    reason = "Demo simulation", source = "Demo simulation", updatedAt = clock()
-                ) else it
-            }),
-            audit = s.audit + event("Simulate all lifts", "all", "", if (available) "AVAILABLE" else "UNAVAILABLE", "Demo simulation")
-        )
-    }
-
-    suspend fun resetDemo() = mutate { s ->
-        if (!s.map.isDemo) throw AppError(ErrorCode.RESET_ONLY_DEMO)
-        fresh().copy(profile = s.profile)
-    }
-
     // ---- Campus server ---------------------------------------------------------------------------
 
     /** Replaces shared state with what the server has. Not audited locally: the server keeps the log. */
@@ -191,7 +159,7 @@ class CampusRepository(
 
     // ---- Camera surveys --------------------------------------------------------------------------
 
-    /** Adds a camera-recorded draft area. Its paths have unknown accessibility until reviewed. */
+    /** Adds a camera-recorded draft area. Its paths have unknown accessibility until reviewed. Adding the same survey twice changes nothing. */
     suspend fun addSurvey(survey: Survey) = mutate { s ->
         if (s.map.buildings.any { it.id == survey.building.id }) s
         else {
@@ -200,8 +168,17 @@ class CampusRepository(
                 nodes = s.map.nodes + survey.nodes, edges = s.map.edges + survey.edges
             )
             MapValidator.validate(next)
-            s.copy(map = next, audit = s.audit + event("Add camera survey", survey.building.id, "", survey.building.name,
-                "${survey.nodes.size} places, ${survey.edges.size / 2} paths recorded with the camera"))
+            // On an empty campus the first survey also becomes where the person is.
+            val ids = next.nodes.map { it.id }.toSet()
+            val first = survey.nodes.firstOrNull()?.id.orEmpty()
+            val current = if (s.current in ids) s.current else first
+            s.copy(
+                map = next, start = if (s.start in ids) s.start else current, current = current,
+                destination = if (s.destination in ids) s.destination else current,
+                selectedFloor = if (next.floors.any { it.id == s.selectedFloor }) s.selectedFloor else survey.floor.id,
+                audit = s.audit + event("Add camera survey", survey.building.id, "", survey.building.name,
+                    "${survey.nodes.size} places, ${survey.edges.size / 2} paths recorded with the camera")
+            )
         }
     }
 
@@ -213,14 +190,17 @@ class CampusRepository(
         val nodeIds = s.map.nodes.filter { it.floorId in floorIds }.map { it.id }.toSet()
         val edgeIds = s.map.edges.filter { it.from in nodeIds || it.to in nodeIds }.map { it.id }.toSet()
         if (s.reports.any { it.isActive && it.edgeId in edgeIds }) throw AppError(ErrorCode.IMPORT_ORPHANS_REPORTS)
-        if (s.current in nodeIds || s.destination in nodeIds) throw AppError(ErrorCode.UNKNOWN_LOCATION)
         val next = s.map.copy(
             buildings = s.map.buildings.filter { it.id != buildingId }, floors = s.map.floors.filter { it.id !in floorIds },
             nodes = s.map.nodes.filter { it.id !in nodeIds }, edges = s.map.edges.filter { it.id !in edgeIds }
         )
+        val fallback = next.nodes.firstOrNull()
+        fun keep(id: String) = if (id in nodeIds) fallback?.id.orEmpty() else id
+        val current = keep(s.current)
         s.copy(
             map = next, reports = s.reports.filter { it.edgeId !in edgeIds }, blockedEdges = s.blockedEdges - edgeIds,
-            selectedFloor = if (s.selectedFloor in floorIds) s.node(s.current)?.floorId ?: next.floors.first().id else s.selectedFloor,
+            start = keep(s.start), current = current, destination = keep(s.destination),
+            selectedFloor = if (s.selectedFloor in floorIds) next.nodes.firstOrNull { it.id == current }?.floorId ?: next.floors.firstOrNull()?.id.orEmpty() else s.selectedFloor,
             audit = s.audit + event("Delete camera survey", buildingId, building.name, "Deleted", reason.trim())
         )
     }
@@ -237,15 +217,15 @@ class CampusRepository(
         mutate { s ->
             if (!s.reports.filter { it.isActive }.all { r -> map.edges.any { it.id == r.edgeId } }) throw AppError(ErrorCode.IMPORT_ORPHANS_REPORTS)
             val ids = map.nodes.map { it.id }.toSet()
-            val first = map.nodes.first()
-            val current = if (s.current in ids) s.current else first.id
+            val first = map.nodes.firstOrNull()
+            val current = if (s.current in ids) s.current else first?.id.orEmpty()
             s.copy(
                 map = map,
                 reports = s.reports.filter { r -> map.edges.any { it.id == r.edgeId } },
                 blockedEdges = s.blockedEdges.intersect(map.edges.map { it.id }.toSet()),
                 start = current, current = current,
-                destination = if (s.destination in ids) s.destination else first.id,
-                selectedFloor = map.nodes.first { it.id == current }.floorId,
+                destination = if (s.destination in ids) s.destination else first?.id.orEmpty(),
+                selectedFloor = map.nodes.firstOrNull { it.id == current }?.floorId ?: map.floors.firstOrNull()?.id.orEmpty(),
                 audit = s.audit + event("Import map", map.version, s.map.version, map.version, map.provenance)
             )
         }

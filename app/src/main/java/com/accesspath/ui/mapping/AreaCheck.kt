@@ -41,7 +41,6 @@ object AreaCheckPrefs {
 fun UnmappedAreaCheck(state: AppSnapshot?, alreadyChecked: Boolean, onChecked: () -> Unit, onStartMapping: (LatLng) -> Unit) {
     val context = LocalContext.current
     var choice by remember { mutableStateOf(AreaCheckPrefs.get(context)) }
-    var unmappedAt by remember { mutableStateOf<LatLng?>(null) }
     var granted by remember { mutableStateOf(DeviceSensors.hasLocationPermission(context)) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         granted = result.values.any { it }
@@ -71,16 +70,8 @@ fun UnmappedAreaCheck(state: AppSnapshot?, alreadyChecked: Boolean, onChecked: (
         val fix = DeviceSensors.currentLocation(context) ?: return@LaunchedEffect
         if (!fix.hasAccuracy() || fix.accuracy > DeviceSensors.MAX_ACCURACY_M) return@LaunchedEffect
         val here = fix.toLatLng()
-        if (!Coverage.isMapped(state.map, here)) unmappedAt = here
-    }
-
-    unmappedAt?.let { here ->
-        AlertDialog(
-            onDismissRequest = { unmappedAt = null },
-            title = { Text(stringResource(R.string.unmapped_title)) },
-            text = { Text(stringResource(R.string.unmapped_body)) },
-            confirmButton = { Button(onClick = { unmappedAt = null; onStartMapping(here) }) { Text(stringResource(R.string.start_mapping)) } },
-            dismissButton = { TextButton(onClick = { unmappedAt = null }) { Text(stringResource(R.string.not_now)) } }
-        )
+        // The person agreed to this in the permission popup (and can turn it off in You > Settings),
+        // so mapping starts straight away; the camera screen asks for camera permission and has a close button.
+        if (!Coverage.isMapped(state.map, here)) onStartMapping(here)
     }
 }

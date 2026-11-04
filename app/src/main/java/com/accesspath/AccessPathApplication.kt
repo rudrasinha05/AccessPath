@@ -10,6 +10,6 @@ class AccessPathApplication : Application() {
 
     val repository by lazy {
         val db = Room.databaseBuilder(this, AccessDatabase::class.java, "accesspath.db").build()
-        CampusRepository(db, seed = { assets.open("maps/demo-campus.json").bufferedReader().use { it.readText() } })
+        CampusRepository(db, seed = { assets.open("maps/campus.json").bufferedReader().use { it.readText() } })
     }
 }

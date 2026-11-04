@@ -32,7 +32,13 @@ import java.io.File
 import kotlin.math.hypot
 
 /** Where the map camera should go. A new [nonce] re-runs the move even if the target is unchanged. */
-data class CameraRequest(val nonce: Int, val center: LatLng? = null, val zoom: Double = 19.5, val bounds: List<LatLng> = emptyList())
+data class CameraRequest(
+    val nonce: Int, val center: LatLng? = null, val zoom: Double = 19.5, val bounds: List<LatLng> = emptyList(),
+    /** +1 zooms in one level, -1 zooms out, 0 leaves the zoom alone. */
+    val zoomStep: Int = 0,
+    /** Turn the map so north is up again. */
+    val northUp: Boolean = false
+)
 
 /** Everything the campus overlay draws, prepared outside the draw loop. */
 private data class OverlayData(
@@ -45,7 +51,9 @@ private data class OverlayData(
     val currentId: String,
     val destinationId: String,
     val selectedId: String?,
-    val routeNodeIds: Set<String>
+    val routeNodeIds: Set<String>,
+    val pin: LatLng? = null,
+    val outdoorRoute: List<LatLng> = emptyList()
 )
 
 private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> Unit, private val onEmptyTap: () -> Unit) : Overlay() {
@@ -139,6 +147,18 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
             drawLabel(canvas, d.places.firstOrNull { it.first.id == d.destinationId }?.first?.name ?: "", x, y + dp(14f), colors.label, bold = true)
         }
 
+        // Outdoor route (roads and paths between campuses).
+        if (d.outdoorRoute.size >= 2) {
+            path.reset()
+            d.outdoorRoute.forEachIndexed { i, l -> px(mapView, l, p1); if (i == 0) path.moveTo(p1.x.toFloat(), p1.y.toFloat()) else path.lineTo(p1.x.toFloat(), p1.y.toFloat()) }
+            stroke.pathEffect = null
+            stroke.color = colors.routeCasing; stroke.strokeWidth = dp(10f); canvas.drawPath(path, stroke)
+            stroke.color = colors.route; stroke.strokeWidth = dp(6f); canvas.drawPath(path, stroke)
+        }
+
+        // Dropped pin from a long press or a search result.
+        d.pin?.let { l -> drawPin(canvas, mapView, l) }
+
         // You: blue dot with halo.
         d.current?.let { l ->
             px(mapView, l, p1)
@@ -146,6 +166,18 @@ private class CampusOverlay(context: Context, private val onPlaceTap: (Node) -> 
             fill.color = colors.white; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), dp(10f), fill)
             fill.color = colors.you; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), dp(7.5f), fill)
         }
+    }
+
+    private fun drawPin(canvas: Canvas, mapView: MapView, l: LatLng) {
+        px(mapView, l, p1)
+        val x = p1.x.toFloat(); val y = p1.y.toFloat()
+        path.reset()
+        path.moveTo(x, y)
+        path.cubicTo(x - dp(4f), y - dp(10f), x - dp(12f), y - dp(14f), x - dp(12f), y - dp(24f))
+        path.arcTo(RectF(x - dp(12f), y - dp(36f), x + dp(12f), y - dp(12f)), 180f, 180f)
+        path.cubicTo(x + dp(12f), y - dp(14f), x + dp(4f), y - dp(10f), x, y)
+        fill.color = colors.destination; canvas.drawPath(path, fill)
+        fill.color = colors.white; canvas.drawCircle(x, y - dp(24f), dp(4.5f), fill)
     }
 
     private fun drawLabel(canvas: Canvas, s: String, x: Float, y: Float, color: Int, bold: Boolean) {
@@ -203,6 +235,12 @@ fun WorldMap(
     selectedPlaceId: String?,
     camera: CameraRequest,
     centerOffsetPx: Int,
+    pin: LatLng? = null,
+    outdoorRoute: List<LatLng> = emptyList(),
+    onLongPress: (LatLng) -> Unit = {},
+    onOrientation: (Float) -> Unit = {},
+    /** Live GPS position while following an outdoor route; replaces the confirmed campus position dot. */
+    myLocation: LatLng? = null,
     description: String,
     modifier: Modifier = Modifier,
     onPlaceTap: (Node) -> Unit,
@@ -212,6 +250,7 @@ fun WorldMap(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val latestPlaceTap by rememberUpdatedState(onPlaceTap)
     val latestEmptyTap by rememberUpdatedState(onEmptyTap)
+    val latestLongPress by rememberUpdatedState(onLongPress)
 
     val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }) }
     val mapView = remember {
@@ -232,6 +271,16 @@ fun WorldMap(
             // Plain light background instead of a checkerboard while tiles load or when offline.
             overlayManager.tilesOverlay.loadingBackgroundColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
             overlayManager.tilesOverlay.loadingLineColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
+            // Long press anywhere drops a pin. Added first so campus places still get taps.
+            overlays.add(0, org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
+                override fun singleTapConfirmedHelper(p: GeoPoint?) = false
+                override fun longPressHelper(p: GeoPoint?): Boolean {
+                    p?.let { latestLongPress(LatLng(it.latitude, it.longitude)) }
+                    return p != null
+                }
+            }))
+            // Two-finger rotation, like Google Maps; the compass button turns north up again.
+            overlays.add(org.osmdroid.views.overlay.gestures.RotationGestureOverlay(this).apply { isEnabled = true })
             overlays.add(overlay)
             controller.setZoom(18.5)
         }
@@ -250,7 +299,7 @@ fun WorldMap(
     }
 
     // Prepare drawing data for the selected floor level (all buildings at the same level).
-    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId) {
+    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation) {
         val map = state.map
         val floors = map.floors.associateBy { it.id }
         val selected = floors[state.selectedFloor]
@@ -286,14 +335,28 @@ fun WorldMap(
         OverlayData(
             buildings = buildings, segments = segments, route = routeLines,
             places = visible.map { it to pos.getValue(it.id) },
-            current = state.current.takeIf { it in visibleIds }?.let(pos::get),
+            current = myLocation ?: state.current.takeIf { it in visibleIds }?.let(pos::get),
             destination = state.destination.takeIf { it in visibleIds && it != state.current }?.let(pos::get),
             currentId = state.current, destinationId = state.destination, selectedId = selectedPlaceId,
-            routeNodeIds = route?.nodes?.map { it.id }?.toSet().orEmpty()
+            routeNodeIds = route?.nodes?.map { it.id }?.toSet().orEmpty(),
+            pin = pin, outdoorRoute = outdoorRoute
         )
     }
 
+    // Report the map rotation so the compass needle can follow it.
+    LaunchedEffect(mapView) {
+        var last = Float.NaN
+        while (true) {
+            val o = mapView.mapOrientation
+            if (o != last) { last = o; onOrientation(o) }
+            kotlinx.coroutines.delay(150)
+        }
+    }
+
     LaunchedEffect(camera.nonce) {
+        if (camera.northUp) { mapView.controller.animateTo(mapView.mapCenter, mapView.zoomLevelDouble, 400L, 0f); return@LaunchedEffect }
+        if (camera.zoomStep > 0) { mapView.controller.zoomIn(); return@LaunchedEffect }
+        if (camera.zoomStep < 0) { mapView.controller.zoomOut(); return@LaunchedEffect }
         val pts = camera.bounds
         if (pts.size >= 2) {
             val box = BoundingBox.fromGeoPoints(pts.map { GeoPoint(it.lat, it.lng) })
