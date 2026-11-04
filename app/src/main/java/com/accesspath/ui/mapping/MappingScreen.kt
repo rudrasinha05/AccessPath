@@ -84,7 +84,8 @@ fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyP
             Log.w("MappingScreen", "ARCore unavailable", e); ArState.UNSUPPORTED
         }
     }
-    LaunchedEffect(Unit) { check() }
+    // Runs on open and again after the camera permission answer (which sets CHECKING).
+    LaunchedEffect(arState) { if (arState == ArState.CHECKING) check() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME && arState == ArState.INSTALLING) check() }
@@ -108,7 +109,7 @@ fun MappingScreen(onClose: () -> Unit, onFinish: (List<TrailPoint>, List<SurveyP
                     ArState.DENIED -> R.string.mapping_camera_denied
                     ArState.INSTALLING -> R.string.mapping_installing
                     ArState.UNSUPPORTED -> R.string.mapping_unsupported
-                    else -> R.string.loading
+                    else -> R.string.mapping_checking
                 }
                 Text(stringResource(msg), color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodyLarge)
                 Spacer(Modifier.height(24.dp))

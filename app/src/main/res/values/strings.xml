@@ -286,4 +286,5 @@
     <string name="qr_button">Create printable PDF</string>
     <string name="qr_saved">QR placards saved for %1$d places.</string>
     <string name="qr_hint">Scan to confirm you are here in AccessPath</string>
+    <string name="mapping_checking">Checking camera mapping support…</string>
 </resources>

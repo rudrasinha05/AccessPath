@@ -271,4 +271,5 @@
     <string name="qr_button">प्रिंट करने लायक PDF बनाएँ</string>
     <string name="qr_saved">%1$d जगहों के QR कोड सेव हो गए।</string>
     <string name="qr_hint">AccessPath में अपनी जगह पक्की करने के लिए स्कैन करें</string>
+    <string name="mapping_checking">कैमरा मैपिंग की सुविधा जाँची जा रही है…</string>
 </resources>
