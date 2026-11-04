@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import com.accesspath.domain.LatLng
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
@@ -51,18 +52,35 @@ object DeviceSensors {
 
     fun Location.toLatLng() = LatLng(latitude, longitude)
 
-    /** Live positions while collected (used only during outdoor navigation); stops when collection stops. */
+    /**
+     * Live positions while collected (outdoor navigation and walk mapping); stops when collection stops.
+     * Listens to every enabled provider (GPS, network, fused) and also checks the latest known fix every 1.5 s,
+     * because some phones deliver updates late or batch them.
+     */
     @SuppressLint("MissingPermission")
     fun locationUpdates(context: Context): kotlinx.coroutines.flow.Flow<Location> = kotlinx.coroutines.flow.callbackFlow {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         if (lm == null || !hasLocationPermission(context)) { close(); return@callbackFlow }
-        val listener = androidx.core.location.LocationListenerCompat { trySend(it) }
+        var lastTime = 0L
+        fun offer(l: Location?) {
+            if (l == null || l.time <= lastTime) return
+            lastTime = l.time
+            trySend(l)
+        }
+        val listener = androidx.core.location.LocationListenerCompat { offer(it) }
         val request = androidx.core.location.LocationRequestCompat.Builder(1_000L).setMinUpdateDistanceMeters(0f) // callers filter steps themselves
             .setQuality(androidx.core.location.LocationRequestCompat.QUALITY_HIGH_ACCURACY).build()
-        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
-            .forEach { LocationManagerCompat.requestLocationUpdates(lm, it, request, ContextCompat.getMainExecutor(context), listener) }
-        awaitClose { LocationManagerCompat.removeUpdates(lm, listener) }
+        fun providers() = runCatching { lm.getProviders(true) }.getOrDefault(emptyList()).filter { it != LocationManager.PASSIVE_PROVIDER }
+        providers().forEach { p ->
+            runCatching { LocationManagerCompat.requestLocationUpdates(lm, p, request, ContextCompat.getMainExecutor(context), listener) }
+        }
+        val poll = launch {
+            while (true) {
+                providers().mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }?.let(::offer)
+                kotlinx.coroutines.delay(1_500)
+            }
+        }
+        awaitClose { poll.cancel(); LocationManagerCompat.removeUpdates(lm, listener) }
     }
 
     /** Compass direction the phone's back camera faces, degrees clockwise from north; null without a sensor. */
