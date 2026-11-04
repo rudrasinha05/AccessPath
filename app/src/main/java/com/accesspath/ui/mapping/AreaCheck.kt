@@ -30,6 +30,12 @@ object AreaCheckPrefs {
 
     fun set(context: Context, choice: Choice) =
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(KEY, choice.name).apply()
+
+    /** Where mapping was last offered automatically; it is not offered again within 500 m of that spot. */
+    fun lastOffered(context: Context): LatLng? = context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString("last_offer", null)
+        ?.split(",")?.mapNotNull { it.toDoubleOrNull() }?.takeIf { it.size == 2 }?.let { LatLng(it[0], it[1]) }
+    fun setLastOffered(context: Context, at: LatLng) =
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString("last_offer", "${at.lat},${at.lng}").apply()
 }
 
 /**
@@ -72,6 +78,11 @@ fun UnmappedAreaCheck(state: AppSnapshot?, alreadyChecked: Boolean, onChecked: (
         val here = fix.toLatLng()
         // The person agreed to this in the permission popup (and can turn it off in You > Settings),
         // so mapping starts straight away; the camera screen asks for camera permission and has a close button.
-        if (!Coverage.isMapped(state.map, here)) onStartMapping(here)
+        if (Coverage.isMapped(state.map, here)) return@LaunchedEffect
+        // Offer once per area: not again near the spot where it was already offered (the Map this area button stays).
+        val last = AreaCheckPrefs.lastOffered(context)
+        if (last != null && com.accesspath.data.remote.Places.distance(last, here) < 500) return@LaunchedEffect
+        AreaCheckPrefs.setLastOffered(context, here)
+        onStartMapping(here)
     }
 }

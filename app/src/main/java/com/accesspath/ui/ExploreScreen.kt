@@ -524,11 +524,17 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                                 val line = r?.line.orEmpty(); val g = gps ?: line.firstOrNull()
                                 if (g != null) scope.launch {
                                     alongLoading = true; along = null
-                                    // Search ahead on the route: around a point about 1.5 km further along, and near you.
-                                    val ahead = line.firstOrNull { it.metresTo(g) > 1500 } ?: pin ?: g
-                                    val found = (runCatching { Places.nearby(c, g, 1500) }.getOrDefault(emptyList()) +
-                                        runCatching { Places.nearby(c, ahead, 1500) }.getOrDefault(emptyList())).distinctBy { it.id }
-                                    along = found.filter { line.size < 2 || it.at.metresToLine(line) <= 300 }.sortedBy { g.metresTo(it.at) }
+                                    // Search the rest of the route: around you and every 2 km along the line (up to 5 spots),
+                                    // one request at a time as the OpenStreetMap search service asks.
+                                    val spots = mutableListOf(g)
+                                    line.forEach { p -> if (spots.size < 5 && p.metresTo(spots.last()) >= 2000) spots += p }
+                                    pin?.let { if (spots.size < 6 && it.metresTo(spots.last()) > 800) spots += it }
+                                    val found = mutableListOf<Poi>()
+                                    spots.forEachIndexed { i, p ->
+                                        if (i > 0) delay(1_100)
+                                        found += runCatching { Places.nearby(c, p, 1200) }.getOrDefault(emptyList())
+                                    }
+                                    along = found.distinctBy { it.id }.filter { line.size < 2 || it.at.metresToLine(line) <= 400 }.sortedBy { g.metresTo(it.at) }
                                     alongLoading = false
                                 }
                             },
