@@ -2,10 +2,12 @@ package com.accesspath.ui
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -371,12 +373,13 @@ fun OutdoorNavSheet(
     remainingM: Double?, remainingSec: Double?, route: OutdoorRoute?, currentStep: Int,
     muted: Boolean, satellite: Boolean, alongResults: List<com.accesspath.data.remote.Poi>?, alongLoading: Boolean, here: LatLng?,
     onExit: () -> Unit, onReport: () -> Unit, onShareProgress: () -> Unit, onAlong: (com.accesspath.data.remote.PoiCategory) -> Unit,
-    onGoAlong: (com.accesspath.data.remote.Poi) -> Unit, onSatellite: (Boolean) -> Unit, onMute: (Boolean) -> Unit, onSettings: () -> Unit
+    onGoAlong: (com.accesspath.data.remote.Poi) -> Unit, onSatellite: (Boolean) -> Unit, onMute: (Boolean) -> Unit, onSettings: () -> Unit,
+    expanded: Boolean = false, onToggleMenu: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showSteps by remember { mutableStateOf(false) }
-    Column(Modifier.testTag("outdoorNav")) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.verticalScroll(rememberScrollState()).testTag("outdoorNav")) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(onClick = onToggleMenu)) {
             FilledTonalIconButton(onClick = onExit, modifier = Modifier.size(48.dp).testTag("exitNav")) { Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.exit_navigation)) }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(remainingSec?.let { duration(context, it) } ?: stringResource(R.string.out_waiting_gps),
@@ -384,7 +387,10 @@ fun OutdoorNavSheet(
                 if (remainingM != null && remainingSec != null)
                     Text("${dist(remainingM)} · ${arrivalTime(remainingSec)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.more_options), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+            IconButton(onClick = onToggleMenu, modifier = Modifier.testTag("navMenu")) {
+                Icon(if (expanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.more_options),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+            }
         }
         HorizontalDivider(Modifier.padding(vertical = 12.dp))
         NavMenuRow(Icons.Filled.AddAlert, stringResource(R.string.add_report), onReport)
@@ -443,13 +449,9 @@ fun ReportBarrierDialog(signedIn: Boolean, atPin: Boolean = false, onDismiss: ()
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("barrierForm")) {
                 InfoText(stringResource(if (atPin) R.string.report_here_pin_hint else R.string.report_here_hint))
-                BarrierKind.entries.chunked(2).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { k ->
-                            FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label()), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = { Icon(k.icon(), null, Modifier.size(18.dp)) }, modifier = Modifier.weight(1f).testTag("barrier_${k.name.lowercase()}"))
-                        }
-                    }
+                BarrierKind.entries.forEach { k ->
+                    FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(stringResource(k.label())) },
+                        leadingIcon = { Icon(k.icon(), null, Modifier.size(18.dp)) }, modifier = Modifier.fillMaxWidth().height(40.dp).testTag("barrier_${k.name.lowercase()}"))
                 }
                 OutlinedTextField(note, { note = it.take(300) }, label = { Text(stringResource(R.string.report_note_optional)) }, maxLines = 3, modifier = Modifier.fillMaxWidth())
                 if (!signedIn) Text(stringResource(R.string.report_local_only), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

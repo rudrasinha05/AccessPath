@@ -535,7 +535,9 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                             onGoAlong = { p -> along = null; speaker.stop(); directionsTo(p.at, p.name, start = true) },
                             onSatellite = { mapStyle = if (it) MapStyle.SATELLITE else MapStyle.DEFAULT },
                             onMute = { muted = it; if (it) speaker.stop() },
-                            onSettings = { editProfile = true })
+                            onSettings = { editProfile = true },
+                            expanded = sheetState.bottomSheetState.currentValue == SheetValue.Expanded,
+                            onToggleMenu = { scope.launch { if (sheetState.bottomSheetState.currentValue == SheetValue.Expanded) sheetState.bottomSheetState.partialExpand() else sheetState.bottomSheetState.expand() } })
                     }
                 }
             }
