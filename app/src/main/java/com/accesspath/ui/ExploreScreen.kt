@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Accessible
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -60,7 +61,7 @@ fun placeIcon(type: String): ImageVector = when (type.uppercase()) {
     "ELEVATOR" -> Icons.Filled.Elevator
     "ENTRANCE", "EXIT" -> Icons.Filled.MeetingRoom
     "STAIRS" -> Icons.Filled.Stairs
-    "RAMP" -> Icons.Filled.Accessible
+    "RAMP" -> Icons.AutoMirrored.Filled.Accessible
     "LANDMARK" -> Icons.Filled.Place
     else -> Icons.Filled.Room
 }
@@ -77,7 +78,7 @@ fun stepIcon(type: Segment): ImageVector = when (type) {
     Segment.CORRIDOR -> Icons.Filled.ArrowUpward
     Segment.OUTDOOR -> Icons.Filled.Park
     Segment.DOOR -> Icons.Filled.MeetingRoom
-    Segment.RAMP -> Icons.Filled.Accessible
+    Segment.RAMP -> Icons.AutoMirrored.Filled.Accessible
     Segment.STAIRS -> Icons.Filled.Stairs
     Segment.ELEVATOR -> Icons.Filled.Elevator
 }
@@ -264,7 +265,7 @@ private fun SearchPill(onClick: () -> Unit, profile: Profile, onProfile: () -> U
 fun mobilityIcon(m: Mobility): ImageVector = when (m) {
     Mobility.STANDARD -> Icons.AutoMirrored.Filled.DirectionsWalk
     Mobility.AVOID_STAIRS -> Icons.Filled.Elevator
-    Mobility.WHEELCHAIR -> Icons.Filled.Accessible
+    Mobility.WHEELCHAIR -> Icons.AutoMirrored.Filled.Accessible
 }
 
 @Composable

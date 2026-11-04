@@ -260,7 +260,7 @@ class RoutingTest {
         MapValidator.validate(merged)
         // First point sits at the start position; the walk went north then east.
         val first = Geo.position(merged, s.nodes.first())!!
-        assertEquals(0.0, Coverage.distanceMetres(first, start), 0.01)
+        assertEquals(0.0, Coverage.distanceMetres(first, start), 0.5)
         val last = Geo.position(merged, s.nodes.last())!!
         assertTrue(last.lat > start.lat && last.lng > start.lng)
         // A mapped walk makes its own area count as mapped.

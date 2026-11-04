@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Accessible
+import androidx.compose.material.icons.automirrored.filled.Accessible
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -40,7 +40,7 @@ fun ReportsScreen(ui: ScreenState, vm: AccessViewModel) {
             Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Accessible, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+                        Icon(Icons.AutoMirrored.Filled.Accessible, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
                     }
                     Spacer(Modifier.width(16.dp))
                     Column {
