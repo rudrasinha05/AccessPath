@@ -28,7 +28,8 @@ class RemoteSync(private val api: SupabaseClient, private val repo: CampusReposi
         val s = repo.snapshot()
         val id = enc(s.map.id)
         pullNewerMap(s)
-        syncSurveys()
+        // Surveys are optional extra data: a missing table or a bad row must not stop reports and lift status syncing.
+        runCatching { syncSurveys() }.onFailure { android.util.Log.w("RemoteSync", "Survey sync failed", it) }
         val reports = json.decodeFromString(ListSerializer(RemoteReport.serializer()), api.get("reports?map_id=eq.$id&select=*&order=created_at.desc&limit=2000"))
         val facilities = json.decodeFromString(ListSerializer(RemoteFacility.serializer()), api.get("facility_status?map_id=eq.$id&select=*"))
         val closures = json.decodeFromString(ListSerializer(RemoteClosure.serializer()), api.get("closures?map_id=eq.$id&select=*"))
