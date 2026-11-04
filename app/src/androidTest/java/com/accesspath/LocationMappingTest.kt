@@ -43,7 +43,10 @@ class LocationMappingTest {
     @Suppress("DEPRECATION")
     @Before
     fun fakeGps() {
-        inst.uiAutomation.executeShellCommand("appops set ${inst.targetContext.packageName} android:mock_location allow").close()
+        // Wait for the shell command to finish; closing its output early can cancel it.
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            inst.uiAutomation.executeShellCommand("appops set ${inst.targetContext.packageName} android:mock_location allow")
+        ).use { it.readBytes() }
         providers.forEach { p ->
             runCatching { lm.removeTestProvider(p) }
             lm.addTestProvider(p, false, false, false, false, true, true, true, 1, 1)
