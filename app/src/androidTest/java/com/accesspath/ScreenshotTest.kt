@@ -67,7 +67,7 @@ class ScreenshotTest {
     @Test
     fun capturePinAndTravelModes() {
         waitForMap()
-        compose.realLongPress("worldMap")
+        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.5f, 0.35f)) }
         waitForText(s(R.string.pin_title))
         save("9-pin", 3000)
         compose.onNodeWithText(s(R.string.directions)).performClick()

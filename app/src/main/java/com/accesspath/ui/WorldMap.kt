@@ -17,6 +17,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.accesspath.BuildConfig
@@ -271,14 +275,6 @@ fun WorldMap(
             // Plain light background instead of a checkerboard while tiles load or when offline.
             overlayManager.tilesOverlay.loadingBackgroundColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
             overlayManager.tilesOverlay.loadingLineColor = android.graphics.Color.rgb(0xF1, 0xF3, 0xF4)
-            // Long press anywhere drops a pin. Added first so campus places still get taps.
-            overlays.add(0, org.osmdroid.views.overlay.MapEventsOverlay(object : org.osmdroid.events.MapEventsReceiver {
-                override fun singleTapConfirmedHelper(p: GeoPoint?) = false
-                override fun longPressHelper(p: GeoPoint?): Boolean {
-                    p?.let { latestLongPress(LatLng(it.latitude, it.longitude)) }
-                    return p != null
-                }
-            }))
             // Two-finger rotation, like Google Maps; the compass button turns north up again.
             overlays.add(org.osmdroid.views.overlay.gestures.RotationGestureOverlay(this).apply { isEnabled = true })
             overlays.add(overlay)
@@ -369,7 +365,26 @@ fun WorldMap(
 
     AndroidView(
         factory = { mapView },
-        modifier = modifier.semantics { contentDescription = description },
+        modifier = modifier.semantics { contentDescription = description }.pointerInput(mapView) {
+            // Long press drops a pin. Watched in Compose (without consuming touches, so panning and zooming still
+            // reach the map) because it is more reliable than the map library's own gesture timer.
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val held = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                    while (true) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        val c = ev.changes.firstOrNull { it.id == down.id }
+                        if (ev.changes.size > 1 || c == null || !c.pressed) break
+                        if ((c.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                    }
+                    false
+                } == null
+                if (held) {
+                    val gp = mapView.projection.fromPixels(down.position.x.toInt(), down.position.y.toInt())
+                    latestLongPress(LatLng(gp.latitude, gp.longitude))
+                }
+            }
+        },
         update = { view ->
             view.setMapCenterOffset(0, centerOffsetPx)
             overlay.data = data
