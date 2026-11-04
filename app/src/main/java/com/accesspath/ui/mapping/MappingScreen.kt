@@ -49,7 +49,7 @@ import com.google.ar.core.Config
 import com.google.ar.core.Session
 import kotlinx.coroutines.delay
 
-private enum class ArState { CHECKING, NEEDS_PERMISSION, DENIED, INSTALLING, UNSUPPORTED, READY }
+private enum class ArState { CHECKING, NEEDS_PERMISSION, DENIED, NEEDS_INSTALL, INSTALLING, UNSUPPORTED, READY }
 
 private tailrec fun Context.activity(): Activity? = when (this) {
     is Activity -> this
@@ -80,6 +80,7 @@ private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (
     var arState by remember { mutableStateOf(ArState.CHECKING) }
     var installRequested by rememberSaveable { mutableStateOf(false) }
     var asked by rememberSaveable { mutableStateOf(false) }
+    var recheck by remember { mutableIntStateOf(0) }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         asked = true
         arState = if (granted) ArState.CHECKING else ArState.DENIED
@@ -89,6 +90,11 @@ private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (
     fun check() {
         if (!DeviceSensors.hasCameraPermission(context)) { arState = if (asked) ArState.DENIED else ArState.NEEDS_PERMISSION; return }
         val act = activity ?: run { arState = ArState.UNSUPPORTED; return }
+        // Ask Android first; only open the Play Store when the person chooses to install ARCore.
+        val availability = runCatching { ArCoreApk.getInstance().checkAvailability(context) }.getOrNull()
+        if (availability == null || availability == ArCoreApk.Availability.UNSUPPORTED_DEVICE_NOT_CAPABLE) { arState = ArState.UNSUPPORTED; return }
+        if (availability.isTransient) { recheck++; return } // Android is still finding out; ask again shortly
+        if (!installRequested && availability != ArCoreApk.Availability.SUPPORTED_INSTALLED && !availability.isTransient) { arState = ArState.NEEDS_INSTALL; return }
         arState = try {
             when (ArCoreApk.getInstance().requestInstall(act, !installRequested)) {
                 ArCoreApk.InstallStatus.INSTALLED -> ArState.READY
@@ -99,6 +105,7 @@ private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (
             Log.w("MappingScreen", "ARCore unavailable", e); ArState.UNSUPPORTED
         }
     }
+    LaunchedEffect(recheck) { if (recheck > 0) { delay(300); check() } }
     // Runs on open and again after the camera permission answer (which sets CHECKING).
     LaunchedEffect(arState) { if (arState == ArState.CHECKING) check() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -121,6 +128,7 @@ private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (
                     ArState.NEEDS_PERMISSION -> R.string.mapping_camera_needed
                     ArState.DENIED -> R.string.mapping_camera_denied
                     ArState.INSTALLING -> R.string.mapping_installing
+                    ArState.NEEDS_INSTALL -> R.string.mapping_needs_arcore
                     ArState.UNSUPPORTED -> R.string.mapping_unsupported
                     else -> R.string.mapping_checking
                 }
@@ -130,8 +138,18 @@ private fun CameraMapping(onClose: () -> Unit, onUseGps: () -> Unit, onFinish: (
                     Button(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }) { Text(stringResource(R.string.grant_camera)) }
                 }
                 if (arState == ArState.CHECKING || arState == ArState.INSTALLING) CircularProgressIndicator(color = Color.White)
-                if (arState == ArState.UNSUPPORTED || arState == ArState.DENIED) {
-                    Button(onClick = onUseGps) { Text(stringResource(R.string.mapping_use_gps)) }
+                if (arState == ArState.NEEDS_INSTALL) {
+                    Button(onClick = { installRequested = false; arState = ArState.INSTALLING; activity?.let { a ->
+                        arState = try {
+                            if (ArCoreApk.getInstance().requestInstall(a, true) == ArCoreApk.InstallStatus.INSTALLED) ArState.READY
+                            else { installRequested = true; ArState.INSTALLING }
+                        } catch (e: Exception) { ArState.UNSUPPORTED }
+                    } }) { Text(stringResource(R.string.mapping_install_arcore)) }
+                    Spacer(Modifier.height(8.dp))
+                }
+                // Location mapping is always one tap away when the camera can't be used.
+                if (arState == ArState.UNSUPPORTED || arState == ArState.DENIED || arState == ArState.NEEDS_INSTALL || arState == ArState.INSTALLING) {
+                    OutlinedButton(onClick = onUseGps, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text(stringResource(R.string.mapping_use_gps)) }
                 }
                 Spacer(Modifier.height(12.dp))
                 TextButton(onClick = onClose) { Text(stringResource(R.string.close), color = Color.White) }
