@@ -20,6 +20,10 @@ Automated checks run in GitHub Actions on every push (`.github/workflows/android
 | Atomic review + audit, idempotent submit, stale update refused, parallel writes | `RepositoryTest` (device) |
 | Confirm position, close/reopen path, import/reset rules, unreadable data recovery, persistence across reopen | `RepositoryTest` (device) |
 | App opens with no permission prompt; settings dialog; report form; Manage and Settings tabs | `AppSmokeTest` (device, API 29 and 35) |
+| Map position of the sample campus, geo conversion | `RoutingTest` |
+| Mapped vs unmapped area check; camera survey → draft paths with unknown accessibility; wheelchair routes skip drafts | `RoutingTest` |
+| Draft area add / idempotent / delete | `RepositoryTest` (device) |
+| Map opens, search, place card, directions → navigation → exit, Contribute, You → Campus management | `AppSmokeTest` (device) |
 | Lint (incl. missing translations), debug build, R8 release build | CI `build` job |
 
 ## Still to check by hand on a real phone
@@ -29,6 +33,8 @@ Automated checks run in GitHub Actions on every push (`.github/workflows/android
 - Hindi: switch language in Settings; check text fits on small screens.
 - Read aloud with English and Hindi voices installed and without them.
 - Scan a QR code of `accesspath://node/lobby0` with the camera app.
+- Camera mapping on an ARCore phone: walk a corridor, add places, finish, check the draft appears on the map in the right place. CI emulators have no ARCore, so this is not tested automatically.
+- Unmapped-area prompt outdoors away from the campus (and no prompt inside it).
 - Import a surveyed map and walk a route on the real campus.
 
 The sample campus is illustrative. Passing these checks does not certify any real building as accessible.

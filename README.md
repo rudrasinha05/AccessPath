@@ -2,16 +2,19 @@
 
 Offline, step-free campus navigation for Android. AccessPath finds routes that respect a person's mobility needs, explains why when no route exists, and lets people report barriers that close a path until a reviewer checks it.
 
-No account, no internet and no location permission are needed. Everything stays on the phone.
+It looks and works like Google Maps: a real-world map (OpenStreetMap) with the campus drawn on top, a search bar, a bottom panel for places and directions, and turn-by-turn steps. Where the campus isn't mapped yet, it can record a draft map with the phone camera (ARCore).
+
+No account is needed and all data stays on the phone. Internet is only used for the world-map background; routing works offline.
 
 ## What it does
 
 | Tab | What you can do |
 |---|---|
-| **Navigate** | Choose where you are and where you want to go. Pick a mobility setting (walking, avoid stairs, wheelchair with minimum width and maximum ramp slope, optional maximum distance). See the route on a zoomable floor plan and as numbered text directions. Confirm each point as you reach it; the route recalculates from there. Jump to the nearest reachable washroom, working lift or exit. Have directions read aloud. |
-| **Reports** | Report a barrier on any path (blocked, lift not working, damaged ramp, too narrow, step, other). A new report closes that path in both directions for everyone, as a precaution, until a reviewer confirms or rejects it. Confirmed barriers stay closed until marked fixed. |
-| **Manage** | Reviewer mode: confirm, reject or resolve reports, set lift status (working / out of service / unknown) with a reason, temporarily close or reopen paths, and see the activity log. Demo controls for the sample campus: all lifts down, restore, reset. |
-| **Settings** | Language (phone default, English, हिन्दी). Map details, import and export of map JSON, location-link explanation, and the app's limits. |
+| **Explore** | Full-screen map with the campus on top: building outlines, paths, places, floor picker, your confirmed position (blue dot) and destination (red pin). Search places, or tap Washroom / Lift / Exit for the nearest reachable one. A place card shows how far it is with your mobility setting. **Directions** shows the route in blue with walking / avoid-stairs / wheelchair modes; **Start** gives turn-by-turn steps with an "I'm at …" button that confirms each point. Read-aloud is available. |
+| **Contribute** | Report a barrier on any path. A new report closes that path in both directions for everyone, as a precaution, until a reviewer confirms or rejects it. |
+| **You** | Mobility settings, **map a new area with the camera**, the unmapped-area check, language (phone default, English, हिन्दी), map import/export, and **Campus management** (reviewer mode, lift status, temporary closures, camera drafts, demo controls, activity log). |
+
+**Camera mapping:** when the app opens it asks once whether it may check the location. With a good GPS fix (40 m or better) outside every mapped area, it offers to map the area with the camera; inside mapped areas it never asks. Mapping uses ARCore to record the walked path and lets the surveyor name places (room, washroom, lift, entrance, stairs). The result is saved as a **draft** area: width, slope and steps can't be measured from a walk, so wheelchair routes skip draft paths until a reviewer checks them. Reviewers can delete drafts.
 
 **Location links:** every place has a link such as `accesspath://node/lobby0`. Print it as a QR code at that spot; scanning it with the phone camera opens AccessPath and confirms the person's position.
 
@@ -71,7 +74,9 @@ GitHub Actions runs unit tests, lint, debug and release builds on every push, pl
 - The bundled campus is **illustrative**, not a survey of a real campus. Import surveyed data ([map format](docs/MAP_FORMAT.md)) before relying on it.
 - Reports and lift statuses live on one phone. There is no shared server, so two phones do not see each other's reports.
 - Reviewer mode is a local role, not a secure login.
-- Position is what the person confirms (by tapping or scanning a location link). There is no live indoor positioning.
+- Position is what the person confirms (by tapping or scanning a location link). GPS is used only once at app start to decide whether the area is mapped; there is no live indoor positioning.
+- Camera mapping needs an ARCore-supported phone. The draft's real-world placement uses the starting GPS fix and compass, so it can be off by several metres; drafts are not accessibility-verified.
+- The sample campus is placed approximately in Knowledge Park III, Greater Noida, for the demo. Its layout is illustrative.
 - Target SDK is 35. Google Play's yearly target-API requirement may need a newer SDK and toolchain before store publication; see [docs/BACKLOG.md](docs/BACKLOG.md).
 
 See [docs/VERIFICATION.md](docs/VERIFICATION.md) for what is tested automatically and what still needs checking on a real phone.
