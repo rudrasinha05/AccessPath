@@ -27,6 +27,18 @@ No account is needed and all data stays on the phone. Internet is only used for 
 - Cost = length × multiplier (ramp 1.5, stairs 2, otherwise 1) + 20 for each lift ride. The cost picks the route; only real distance is shown to people.
 - When there is no route, the app says why: the places aren't connected in the map, something is closed right now (and what), or the mobility setting excludes every path.
 
+## Campus server (Supabase) and sign-in
+
+Shared data lives in Supabase so every phone sees the same reports, lift status, closures and map.
+
+- **Set up once:** run `supabase/schema.sql` in the Supabase dashboard (SQL Editor). It creates the tables, row level security, the review rules and the activity log. It is safe to re-run.
+- **Sign-in:** Google (Credential Manager) or email/password, from the **You** tab. Navigation works without signing in; sharing a report needs an account.
+- **Roles:** `student` (default), `reviewer`, `admin`, stored in `public.profiles` and enforced by the database. Make the first admin after they sign in once:
+  `update public.profiles set role = 'admin' where email = 'you@example.com';` Admins can then promote reviewers the same way.
+- **Offline first:** reports are saved on the phone and sent when online; the phone syncs on start, after sign-in, every minute and on "Sync now". Reviewer decisions, lift status and closures are written to the server first.
+- **Publishing a map:** an admin taps *Publish to everyone* in Campus management; phones pick up the newer map version on their next sync.
+- **Config:** the Supabase URL, publishable key and Google web client ID are public values set in `app/build.gradle.kts` (override in `local.properties`). Never put the `service_role` key in the app. The MapTiler key goes in `local.properties` as `MAPTILER_KEY=…` and in the GitHub secret `MAPTILER_KEY`; without it the app falls back to OpenStreetMap tiles.
+
 ## Build and run
 
 Requirements: Android Studio Ladybug (2024.2.1) or newer, **JDK 17**, Android SDK Platform 35 and Build Tools 35.0.0. Open the **repository root** (not the `app` folder) and run the `app` configuration on Android 10 (API 29) or newer.
@@ -72,8 +84,7 @@ GitHub Actions runs unit tests, lint, debug and release builds on every push, pl
 ## Honest limits
 
 - The bundled campus is **illustrative**, not a survey of a real campus. Import surveyed data ([map format](docs/MAP_FORMAT.md)) before relying on it.
-- Reports and lift statuses live on one phone. There is no shared server, so two phones do not see each other's reports.
-- Reviewer mode is a local role, not a secure login.
+- Without a configured server the app falls back to a local reviewer switch for demos; that is not a secure login.
 - Position is what the person confirms (by tapping or scanning a location link). GPS is used only once at app start to decide whether the area is mapped; there is no live indoor positioning.
 - Camera mapping needs an ARCore-supported phone. The draft's real-world placement uses the starting GPS fix and compass, so it can be off by several metres; drafts are not accessibility-verified.
 - The sample campus is placed approximately in Knowledge Park III, Greater Noida, for the demo. Its layout is illustrative.
