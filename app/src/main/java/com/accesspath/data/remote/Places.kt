@@ -18,7 +18,7 @@ import java.net.URLEncoder
 enum class PoiCategory(val filter: String, val keywords: List<String> = emptyList()) {
     RESTAURANTS("""["amenity"~"^(restaurant|fast_food|food_court)$"]""", listOf("restaurant", "fast food")),
     COFFEE("""["amenity"="cafe"]""", listOf("cafe")),
-    PETROL("""["amenity"="fuel"]""", listOf("fuel")),
+    PETROL("""["amenity"="fuel"]""", listOf("fuel", "petrol pump")),
     HOTELS("""["tourism"~"^(hotel|guest_house|hostel|motel)$"]""", listOf("hotel", "guest house")),
     ATMS("""["amenity"~"^(atm|bank)$"]""", listOf("atm", "bank")),
     HOSPITALS("""["amenity"~"^(hospital|clinic|doctors|pharmacy)$"]""", listOf("hospital", "clinic", "pharmacy")),
