@@ -119,7 +119,7 @@ class RepositoryTest {
         db.stateDao().insert(StateRow(revision = 1, payload = MapJson.encodeToString(AppSnapshot.serializer(),
             AppSnapshot(old, profile = Profile(Mobility.WHEELCHAIR)))))
         val empty = """{"id":"main-campus","schemaVersion":1,"version":"0","name":"Campus","provenance":"Field survey","buildings":[],"floors":[],"nodes":[],"edges":[],"facilities":[]}"""
-        val r = CampusRepository(db) { empty }
+        val r = CampusRepository(db, seed = { empty })
         r.initialize()
         val s = r.snapshot()
         assertTrue(s.map.nodes.isEmpty())
