@@ -19,7 +19,10 @@ class ScreenshotTest {
     val compose = createAndroidComposeRule<MainActivity>()
 
     private fun s(id: Int) = compose.activity.getString(id)
-    private fun waitForText(text: String) = compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    // A language change restarts the screen; while it restarts there is briefly no Compose content to look at.
+    private fun waitForText(text: String) = compose.waitUntil(20_000) {
+        runCatching { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+    }
 
     /** The first launch asks whether to check for unmapped areas; tests decline it. */
     private fun waitForMap(empty: Boolean = false) {
