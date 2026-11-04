@@ -351,4 +351,25 @@
     <string name="route_credit_ors">रास्ते: openrouteservice.org · © OpenStreetMap contributors</string>
     <string name="location_off">आपकी लोकेशन नहीं मिली। लोकेशन चालू करके फिर कोशिश करें।</string>
     <string name="retry">फिर कोशिश करें</string>
+    <string name="geo_setting_title">आस-पास की सूचनाएँ (जियोफ़ेंसिंग)</string>
+    <string name="geo_setting_switch">कैंपस और रुकावटों के पास पहुँचने पर बताएँ</string>
+    <string name="geo_setting_body">जब आप किसी मैप किए गए कैंपस क्षेत्र में पहुँचें, या किसी बंद रास्ते या ख़राब लिफ़्ट के पास आएँ, तो सूचना मिलेगी (लिफ़्ट की सूचना सिर्फ़ सीढ़ियों से बचें या व्हीलचेयर सेटिंग में), ऐप बंद होने पर भी।</string>
+    <string name="geo_disclosure">ऐप बंद होने पर भी सूचना देने के लिए AccessPath को लोकेशन \"हमेशा अनुमति दें\" चाहिए। Android फ़ोन पर ही कैंपस क्षेत्रों, बंद रास्तों और ख़राब लिफ़्ट पर नज़र रखता है और आपके उनमें पहुँचने पर ही AccessPath को जगाता है। AccessPath आपको ट्रैक नहीं करता, आपकी लोकेशन सेव या कहीं नहीं भेजता। इसे यहाँ कभी भी बंद कर सकते हैं।</string>
+    <string name="geo_turn_on">चालू करें</string>
+    <string name="geo_need_location">आस-पास की सूचनाओं के लिए सटीक लोकेशन की अनुमति दें।</string>
+    <string name="geo_need_background">लोकेशन के लिए \"हमेशा अनुमति दें\" चुनें, ताकि ऐप बंद होने पर भी सूचनाएँ मिलें।</string>
+    <string name="geo_allow_always">हमेशा अनुमति दें</string>
+    <string name="geo_need_notifications">सूचनाएँ दिखाने के लिए नोटिफ़िकेशन की अनुमति दें।</string>
+    <string name="geo_allow_notifications">नोटिफ़िकेशन की अनुमति दें</string>
+    <string name="geo_unavailable">आस-पास की सूचनाओं के लिए Google Play services चाहिए, जो इस फ़ोन में नहीं है।</string>
+    <string name="geo_nothing">अभी देखने के लिए कुछ नहीं। पहले कोई कैंपस क्षेत्र मैप करें।</string>
+    <string name="geo_active">चालू · %1$d जगहों पर नज़र</string>
+    <string name="geo_channel">आस-पास की सुलभता सूचनाएँ</string>
+    <string name="geo_area_title">आप %1$s पर हैं</string>
+    <string name="geo_area_body">यहाँ बिना सीढ़ी वाले रास्ते के लिए AccessPath खोलें।</string>
+    <string name="geo_draft_body">यह क्षेत्र ड्राफ़्ट नक्शा है: इसके रास्तों की सुलभता अभी जाँची नहीं गई।</string>
+    <string name="geo_lift_title">पास में लिफ़्ट ख़राब है</string>
+    <string name="geo_lift_body">%1$s ख़राब है। AccessPath के रास्ते इससे बचते हैं।</string>
+    <string name="geo_closed_title">पास में रास्ता बंद है</string>
+    <string name="geo_closed_body">%1$s अभी बंद है। AccessPath के रास्ते इससे बचते हैं।</string>
 </resources>

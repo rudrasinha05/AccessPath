@@ -2,15 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Internet only for the world map background (OpenStreetMap tiles). Routing, reports and the
-         campus overlay work offline. The app never reads the device location. -->
+    <!-- Internet for the world map, search, outdoor routes and the campus server. Campus routing works offline. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Asked only after the person agrees: location to tell mapped from unmapped areas when the app
-         opens, camera to map an unmapped area. Neither is used in the background. -->
+    <!-- Asked only after the person agrees: location to tell mapped from unmapped areas, show "my location"
+         and follow outdoor navigation; camera to map an unmapped area. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Only for the opt-in "Nearby alerts" (geofencing): Android watches campus areas, closed paths and broken
+         lifts and wakes the app when the phone enters one. The app itself never tracks or uploads location. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
@@ -51,6 +55,14 @@
                 <data android:scheme="accesspath" android:host="node" />
             </intent-filter>
         </activity>
+
+        <receiver android:name=".geofence.GeofenceReceiver" android:exported="false" />
+        <receiver android:name=".geofence.GeofenceBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Camera mapping is optional: the app installs and works without ARCore. -->
         <meta-data android:name="com.google.ar.core" android:value="optional" />

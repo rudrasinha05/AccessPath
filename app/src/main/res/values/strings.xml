@@ -365,4 +365,25 @@
     <string name="route_credit_ors">Routes: openrouteservice.org · © OpenStreetMap contributors</string>
     <string name="location_off">Couldn\'t find your location. Turn on location and try again.</string>
     <string name="retry">Try again</string>
+    <string name="geo_setting_title">Nearby alerts (geofencing)</string>
+    <string name="geo_setting_switch">Alert me near campus areas and problems</string>
+    <string name="geo_setting_body">Get a notification when you arrive at a mapped campus area, or come near a closed path or a lift that is out of service (lift alerts only with the avoid-stairs or wheelchair setting), even when the app is closed.</string>
+    <string name="geo_disclosure">To alert you while the app is closed, AccessPath needs location set to \"Allow all the time\". Android watches the campus areas, closed paths and broken lifts on the phone and wakes AccessPath only when you enter one. AccessPath does not track you, store your location or send it anywhere. You can turn this off at any time here.</string>
+    <string name="geo_turn_on">Turn on</string>
+    <string name="geo_need_location">Allow precise location for nearby alerts.</string>
+    <string name="geo_need_background">Choose \"Allow all the time\" for location so alerts work when the app is closed.</string>
+    <string name="geo_allow_always">Allow all the time</string>
+    <string name="geo_need_notifications">Allow notifications so AccessPath can show the alerts.</string>
+    <string name="geo_allow_notifications">Allow notifications</string>
+    <string name="geo_unavailable">Nearby alerts need Google Play services, which this phone doesn\'t have.</string>
+    <string name="geo_nothing">Nothing to watch yet. Map a campus area first.</string>
+    <string name="geo_active">On · watching %1$d places</string>
+    <string name="geo_channel">Nearby accessibility alerts</string>
+    <string name="geo_area_title">You\'re at %1$s</string>
+    <string name="geo_area_body">Open AccessPath for step-free directions here.</string>
+    <string name="geo_draft_body">This area is a draft map: its paths aren\'t checked for accessibility yet.</string>
+    <string name="geo_lift_title">Lift out of service nearby</string>
+    <string name="geo_lift_body">%1$s is out of service. AccessPath routes avoid it.</string>
+    <string name="geo_closed_title">Path closed nearby</string>
+    <string name="geo_closed_body">%1$s is closed right now. AccessPath routes avoid it.</string>
 </resources>

@@ -68,13 +68,13 @@ class ScreenshotTest {
     fun capturePinAndTravelModes() {
         waitForMap()
         compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.5f, 0.35f)) }
-        waitForText(s(R.string.pin_title))
         save("9-pin", 3000)
+        waitForText(s(R.string.pin_title))
         compose.onNodeWithText(s(R.string.directions)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("mode_bus").performClick()
-        waitForText(s(R.string.open_google_maps))
         save("10-travel-modes", 2000)
+        waitForText(s(R.string.open_google_maps))
     }
 
     @Test

@@ -76,6 +76,8 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, o
 
         AreaCheckSetting()
 
+        NearbyAlertsSetting()
+
         Surface(onClick = onManage, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.AdminPanelSettings, contentDescription = null, tint = Color(0xFF1A73E8))
@@ -226,5 +228,91 @@ private fun EmailDialog(onDismiss: () -> Unit, onSubmit: (String, String, Boolea
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
+}
+
+/**
+ * Opt-in nearby alerts (geofencing). Shows a plain disclosure first, then asks for each permission in turn:
+ * location, "Allow all the time" (Android needs it for alerts while the app is closed) and notifications.
+ */
+@Composable
+private fun NearbyAlertsSetting() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableIntStateOf(0) }
+    var disclosure by rememberSaveable { mutableStateOf(false) }
+    val status = remember(tick) { com.accesspath.geofence.Geofencing.status(context) }
+    val count = remember(tick) { com.accesspath.geofence.Geofencing.activeCount(context) }
+    fun refresh() = scope.launch {
+        if (com.accesspath.geofence.Geofencing.isEnabled(context)) com.accesspath.geofence.Geofencing.setEnabled(context, true)
+        tick++
+    }
+    // Permissions can change in system settings; check again whenever the screen comes back.
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val o = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refresh() }
+        lifecycle.addObserver(o); onDispose { lifecycle.removeObserver(o) }
+    }
+    val foreground = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh() }
+    val background = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (!ok) runCatching {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.fromParts("package", context.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        refresh()
+    }
+    fun askForeground() {
+        val perms = buildList {
+            add(android.Manifest.permission.ACCESS_FINE_LOCATION); add(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+            // Android 10 asks for "all the time" together with location; newer versions need a separate step.
+            if (android.os.Build.VERSION.SDK_INT == 29) add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            if (android.os.Build.VERSION.SDK_INT >= 33) add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+        foreground.launch(perms.toTypedArray())
+    }
+
+    SectionCard(stringResource(R.string.geo_setting_title)) {
+        val on = status != com.accesspath.geofence.Geofencing.Status.OFF
+        Row(
+            Modifier.fillMaxWidth().testTag("nearbyAlerts").toggleable(on, role = Role.Switch) { v ->
+                if (v) disclosure = true else scope.launch { com.accesspath.geofence.Geofencing.setEnabled(context, false); tick++ }
+            }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(R.string.geo_setting_switch), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Switch(on, onCheckedChange = null)
+        }
+        InfoText(stringResource(R.string.geo_setting_body))
+        when (status) {
+            com.accesspath.geofence.Geofencing.Status.OFF -> Unit
+            com.accesspath.geofence.Geofencing.Status.UNAVAILABLE -> Banner(stringResource(R.string.geo_unavailable), warning = true)
+            com.accesspath.geofence.Geofencing.Status.NEEDS_LOCATION -> {
+                Banner(stringResource(R.string.geo_need_location), warning = true)
+                Button(onClick = ::askForeground) { Text(stringResource(R.string.allow_location)) }
+            }
+            com.accesspath.geofence.Geofencing.Status.NEEDS_BACKGROUND -> {
+                Banner(stringResource(R.string.geo_need_background), warning = true)
+                Button(onClick = { background.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) }) { Text(stringResource(R.string.geo_allow_always)) }
+            }
+            com.accesspath.geofence.Geofencing.Status.NEEDS_NOTIFICATIONS -> {
+                Banner(stringResource(R.string.geo_need_notifications), warning = true)
+                Button(onClick = ::askForeground) { Text(stringResource(R.string.geo_allow_notifications)) }
+            }
+            com.accesspath.geofence.Geofencing.Status.NOTHING_TO_WATCH -> InfoText(stringResource(R.string.geo_nothing))
+            com.accesspath.geofence.Geofencing.Status.ON -> StatusPill(stringResource(R.string.geo_active, count), emphasis = false)
+        }
+    }
+
+    if (disclosure) AlertDialog(
+        onDismissRequest = { disclosure = false },
+        title = { Text(stringResource(R.string.geo_setting_title)) },
+        text = { Text(stringResource(R.string.geo_disclosure)) },
+        confirmButton = {
+            Button(onClick = {
+                disclosure = false
+                scope.launch { com.accesspath.geofence.Geofencing.setEnabled(context, true); tick++; askForeground() }
+            }) { Text(stringResource(R.string.geo_turn_on)) }
+        },
+        dismissButton = { TextButton(onClick = { disclosure = false }) { Text(stringResource(R.string.not_now)) } }
     )
 }

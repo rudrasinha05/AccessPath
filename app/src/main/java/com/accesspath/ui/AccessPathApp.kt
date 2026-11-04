@@ -61,6 +61,13 @@ fun AccessPathApp(vm: AccessViewModel) {
                 snackbar.showSnackbar(it.text(context), withDismissAction = true)
             }
         }
+        // Keep the watched places (nearby alerts) in step with the campus data. Cheap when nothing changed.
+        LaunchedEffect(ui.snapshot) {
+            val snap = ui.snapshot ?: return@LaunchedEffect
+            kotlinx.coroutines.delay(1_000)
+            val fences = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.accesspath.domain.FencePlanner.plan(snap) }
+            runCatching { com.accesspath.geofence.Geofencing.update(context, fences) }
+        }
         LaunchedEffect(mappingAt) { if (mappingAt != null) heading = DeviceSensors.heading(context) ?: 0.0 }
 
         mappingAt?.let { at ->
