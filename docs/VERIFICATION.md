@@ -19,7 +19,6 @@ Automated checks run in GitHub Actions on every push (`.github/workflows/android
 | 1,000 places / 5,000 paths warm routing p95 < 500 ms | `RoutingTest` |
 | Atomic review + audit, idempotent submit, stale update refused, parallel writes | `RepositoryTest` (device) |
 | Confirm position, close/reopen path, import/reset rules, unreadable data recovery, persistence across reopen | `RepositoryTest` (device) |
-| App opens with no permission prompt; settings dialog; report form; Manage and Settings tabs | `AppSmokeTest` (device, API 29 and 35) |
 | Map position of the sample campus, geo conversion | `RoutingTest` |
 | Mapped vs unmapped area check; camera survey → draft paths with unknown accessibility; wheelchair routes skip drafts | `RoutingTest` |
 | Draft area add / idempotent / delete | `RepositoryTest` (device) |
