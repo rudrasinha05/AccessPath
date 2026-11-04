@@ -47,7 +47,7 @@ class ScreenshotTest {
     fun captureMainScreens() {
         waitForMap()
         save("1-explore", 6000)
-        compose.onNodeWithText(s(R.string.search_here)).performClick()
+        compose.onNodeWithTag("searchBar", useUnmergedTree = true).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))
@@ -70,7 +70,7 @@ class ScreenshotTest {
     @Test
     fun capturePinAndTravelModes() {
         waitForMap()
-        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.5f, 0.35f)) }
+        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.4f, 0.52f)) }
         save("9-pin", 3000)
         waitForText(s(R.string.pin_title))
         compose.onNodeWithText(s(R.string.directions)).performClick()

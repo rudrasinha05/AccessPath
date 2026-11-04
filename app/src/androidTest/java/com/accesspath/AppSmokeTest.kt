@@ -40,14 +40,13 @@ class AppSmokeTest {
         compose.onNodeWithText(s(R.string.no_campus_title)).assertExists()
         compose.onNodeWithText(s(R.string.map_this_area)).assertExists()
         compose.onNodeWithTag("compass").assertExists()
-        compose.onNodeWithContentDescription(s(R.string.zoom_in)).assertExists()
-        compose.onNodeWithContentDescription(s(R.string.zoom_out)).performClick()
+        compose.onNodeWithTag("layers").assertExists()
     }
 
     @Test
     fun longPressDropsPinWithOptionsAndTravelModes() {
         waitForMap()
-        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.5f, 0.35f)) }
+        compose.onNodeWithTag("worldMap").performTouchInput { longClick(percentOffset(0.4f, 0.52f)) }
         waitForText(s(R.string.pin_title))
         compose.onNodeWithText(s(R.string.view_campus)).assertExists()
         compose.onNodeWithText(s(R.string.map_this_area)).assertExists()
@@ -73,7 +72,7 @@ class AppSmokeTest {
     @Test
     fun searchFindsAPlaceAndOpensItsCard() {
         waitForMap()
-        compose.onNodeWithText(s(R.string.search_here)).performClick()
+        compose.onNodeWithTag("searchBar", useUnmergedTree = true).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))

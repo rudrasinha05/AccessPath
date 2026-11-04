@@ -5,6 +5,7 @@ import com.accesspath.domain.AppError
 import com.accesspath.domain.ErrorCode
 import com.accesspath.domain.LatLng
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
@@ -53,16 +54,24 @@ data class Weather(val temperatureC: Double, val code: Int, val isDay: Boolean, 
 object Places {
     private const val UA = "AccessPath/${BuildConfig.VERSION_NAME} (com.accesspath)"
     private val json = Json { ignoreUnknownKeys = true }
-    private val overpass = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter")
+    private val overpass = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
 
-    suspend fun nearby(category: PoiCategory, center: LatLng, radiusM: Int = 1500, limit: Int = 60): List<Poi> {
-        val q = "[out:json][timeout:15];nwr(around:$radiusM,${center.lat},${center.lng})${category.filter};out center tags $limit;"
-        var last: Exception? = null
-        for (endpoint in overpass) {
-            try {
-                val body = http(endpoint, "data=" + URLEncoder.encode(q, "UTF-8"), "application/x-www-form-urlencoded")
-                return parse(body, category).sortedBy { distance(center, it.at) }
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { last = e }
+    /**
+     * Asks several public Overpass servers at once and uses the first good answer, because a single free server is
+     * often busy. The others are cancelled as soon as one answers.
+     */
+    suspend fun nearby(category: PoiCategory, center: LatLng, radiusM: Int = 1500, limit: Int = 60): List<Poi> = kotlinx.coroutines.coroutineScope {
+        val q = "[out:json][timeout:12];nwr(around:$radiusM,${center.lat},${center.lng})${category.filter};out center tags $limit;"
+        val url = "?data=" + URLEncoder.encode(q, "UTF-8")
+        val results = kotlinx.coroutines.channels.Channel<Result<List<Poi>>>(overpass.size)
+        val jobs = overpass.map { endpoint ->
+            launch { results.send(runCatching { parse(http(endpoint + url), category).sortedBy { distance(center, it.at) } }) }
+        }
+        var last: Throwable? = null
+        repeat(overpass.size) {
+            val r = results.receive()
+            r.onSuccess { list -> jobs.forEach { it.cancel() }; return@coroutineScope list }
+            last = r.exceptionOrNull()
         }
         throw (last as? AppError) ?: AppError(ErrorCode.NETWORK, last?.message ?: "")
     }
@@ -105,7 +114,7 @@ object Places {
     private suspend fun http(url: String, post: String? = null, contentType: String? = null): String = withContext(Dispatchers.IO) {
         val c = try { URL(url).openConnection() as HttpURLConnection } catch (e: IOException) { throw AppError(ErrorCode.NETWORK, e.message ?: "") }
         try {
-            c.connectTimeout = 8_000; c.readTimeout = 20_000
+            c.connectTimeout = 8_000; c.readTimeout = 15_000
             c.setRequestProperty("User-Agent", UA)
             if (post != null) {
                 c.requestMethod = "POST"; c.doOutput = true

@@ -24,6 +24,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses || true
+      - name: Time the free data services (for diagnosis)
+        continue-on-error: true
+        env:
+          MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
+        run: |
+          t() { echo "== $1"; curl -s -o /tmp/out -w "http=%{http_code} time=%{time_total}s\n" -m 40 "${@:2}" || echo "failed"; head -c 200 /tmp/out; echo; }
+          Q='[out:json][timeout:15];nwr(around:1500,28.4744,77.4865)["amenity"="toilets"];out center tags 60;'
+          t overpass-de -G --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter
+          t kumi -G --data-urlencode "data=$Q" https://overpass.kumi.systems/api/interpreter
+          t private-coffee -G --data-urlencode "data=$Q" https://overpass.private.coffee/api/interpreter
+          t maptiler-poi "https://api.maptiler.com/geocoding/hospital.json?key=$MAPTILER_KEY&proximity=77.4865,28.4744&types=poi&limit=10"
+          t open-meteo "https://api.open-meteo.com/v1/forecast?latitude=28.47&longitude=77.49&current=temperature_2m"
+          t osrm-car "https://routing.openstreetmap.de/routed-car/route/v1/driving/77.4865,28.4744;77.2433,28.5677?overview=false&alternatives=3&exclude=toll"
       - run: chmod +x gradlew
       - name: Unit tests, lint, debug and release builds
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease --stacktrace

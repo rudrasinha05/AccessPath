@@ -324,7 +324,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     }
 
     val peek: Dp = when (mode) {
-        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 96.dp; Mode.EXPLORE -> if (category != null) 320.dp else 240.dp
+        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 96.dp; Mode.EXPLORE -> if (category != null) 260.dp else 240.dp
         Mode.PIN -> 200.dp; Mode.OUT_DIRECTIONS -> 280.dp; Mode.POI -> 290.dp; else -> 236.dp
     }
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -508,7 +508,9 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             // Bottom right, above the sheet: zoom, share, my location and directions.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (hasGeo && mode == Mode.OUT_NAVIGATE) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
-                if (browsing) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
+                // Share only where there is room; small screens keep the map clear (the place card has Share too).
+                val tall = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 720
+                if (browsing && tall) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
                     (gps ?: mapCenter)?.let { share(context.getString(R.string.share_my_location, mapLink(it))) }
                 }
                 MapRoundButton(Icons.Filled.MyLocation, stringResource(R.string.recenter), tint = BrandBlue, onClick = ::showMe)

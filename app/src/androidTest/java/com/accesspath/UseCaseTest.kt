@@ -33,7 +33,7 @@ class UseCaseTest {
         waitForText(s(R.string.explore_title))
     }
     private fun directionsToLibrary() {
-        compose.onNodeWithText(s(R.string.search_here)).performClick()
+        compose.onNodeWithTag("searchBar", useUnmergedTree = true).performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
         compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
         waitForText(s(R.string.directions))
