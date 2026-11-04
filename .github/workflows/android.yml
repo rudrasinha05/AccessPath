@@ -62,7 +62,11 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest --stacktrace
+          script: ./gradlew connectedDebugAndroidTest --stacktrace || (adb logcat -d -v brief AndroidRuntime:E ActivityTaskManager:I ActivityManager:I '*:S' | tail -200; exit 1)
+      - name: Print test failure details
+        if: failure()
+        run: |
+          find app/build/outputs/androidTest-results -name '*.xml' -print0 | xargs -0 grep -h -A25 '<failure' | head -400 || true
       - name: Print screenshots to the log (for review tools that cannot download artifacts)
         if: always() && matrix.api-level == 35
         run: |

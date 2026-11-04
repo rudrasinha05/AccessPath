@@ -56,7 +56,7 @@ object Places {
     private val overpass = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter")
 
     suspend fun nearby(category: PoiCategory, center: LatLng, radiusM: Int = 1500, limit: Int = 60): List<Poi> {
-        val q = "[out:json][timeout:25];nwr(around:$radiusM,${center.lat},${center.lng})${category.filter};out center tags $limit;"
+        val q = "[out:json][timeout:15];nwr(around:$radiusM,${center.lat},${center.lng})${category.filter};out center tags $limit;"
         var last: Exception? = null
         for (endpoint in overpass) {
             try {
@@ -91,8 +91,13 @@ object Places {
     /** The neighbourhood or locality name at a point, for the sheet header. */
     suspend fun areaName(at: LatLng): String? {
         if (BuildConfig.MAPTILER_KEY.isBlank()) return null
-        val body = http("https://api.maptiler.com/geocoding/${at.lng},${at.lat}.json?key=${BuildConfig.MAPTILER_KEY}&limit=1&types=neighbourhood,locality,place,municipality")
-        return json.parseToJsonElement(body).jsonObject["features"]?.jsonArray?.firstOrNull()?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
+        val body = http("https://api.maptiler.com/geocoding/${at.lng},${at.lat}.json?key=${BuildConfig.MAPTILER_KEY}")
+        // Prefer the most local named area; fall back to whatever comes first.
+        val features = json.parseToJsonElement(body).jsonObject["features"]?.jsonArray.orEmpty().map { it.jsonObject }
+        val preferred = listOf("neighbourhood", "locality", "place", "municipality", "county")
+        fun types(o: JsonObject) = o["place_type"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        val pick = preferred.firstNotNullOfOrNull { t -> features.firstOrNull { t in types(it) } } ?: features.firstOrNull()
+        return pick?.get("text")?.jsonPrimitive?.contentOrNull
     }
 
     fun distance(a: LatLng, b: LatLng) = a.metresTo(b)
@@ -100,7 +105,7 @@ object Places {
     private suspend fun http(url: String, post: String? = null, contentType: String? = null): String = withContext(Dispatchers.IO) {
         val c = try { URL(url).openConnection() as HttpURLConnection } catch (e: IOException) { throw AppError(ErrorCode.NETWORK, e.message ?: "") }
         try {
-            c.connectTimeout = 10_000; c.readTimeout = 30_000
+            c.connectTimeout = 8_000; c.readTimeout = 20_000
             c.setRequestProperty("User-Agent", UA)
             if (post != null) {
                 c.requestMethod = "POST"; c.doOutput = true

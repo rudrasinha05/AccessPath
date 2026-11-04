@@ -85,7 +85,7 @@ class ScreenshotTest {
     fun captureHomeCategoriesAndLayers() {
         waitForMap()
         save("12-home", 4000)
-        compose.onNodeWithTag("chip_hospitals").performClick()
+        compose.onNodeWithTag("chip_hospitals").performScrollTo().performClick()
         // Real data from OpenStreetMap: wait for the list, a "none found" note or an error, whichever comes.
         runCatching {
             compose.waitUntil(30_000) {

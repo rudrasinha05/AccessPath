@@ -501,11 +501,13 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             if (hasGeo && browsing) Column(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MapRoundButton(Icons.Filled.Layers, stringResource(R.string.map_type), tint = BrandTeal, container = BrandTealSoft, modifier = Modifier.testTag("layers")) { layers = true }
                 CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                // Zoom buttons only where there is room for them; pinch and the pin menu always zoom too.
+                if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 720)
+                    ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
             }
             // Bottom right, above the sheet: zoom, share, my location and directions.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (hasGeo && mode == Mode.OUT_NAVIGATE) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
-                if (hasGeo && browsing) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
                 if (browsing) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
                     (gps ?: mapCenter)?.let { share(context.getString(R.string.share_my_location, mapLink(it))) }
                 }
