@@ -213,4 +213,27 @@ class RoutingTest {
             ""","mapStyle":"SATELLITE","activeCampusId":"iitd","geofences":[],"assistanceRequests":[]}"""
         assertEquals(s, MapJson.decodeFromString<AppSnapshot>(legacy))
     }
+
+    // ---- World map position -------------------------------------------------------------------
+
+    @Test fun sampleCampusHasWorldPositionAndBuildingsDoNotOverlap() {
+        assertTrue(Geo.hasGeo(demo))
+        val gate = Geo.position(demo, demo.nodes.first { it.id == "gate" })!!
+        val garden = Geo.position(demo, demo.nodes.first { it.id == "garden" })!!
+        assertTrue(garden.lng > gate.lng)
+    }
+
+    @Test fun geoConversionMovesEastAndSouthInMetres() {
+        val a = GeoAnchor(28.0, 77.0)
+        val east = Geo.toLatLng(a, 100.0, 0.0)
+        val south = Geo.toLatLng(a, 0.0, 100.0)
+        assertEquals(28.0, east.lat, 1e-9); assertTrue(east.lng > 77.0)
+        assertEquals(77.0, south.lng, 1e-9); assertEquals(28.0 - 100.0 / 111_320.0, south.lat, 1e-9)
+        val turned = Geo.toLatLng(a.copy(rotationDeg = 90.0), 100.0, 0.0)
+        assertTrue(turned.lat < 28.0)
+    }
+
+    @Test fun invalidGeoIsRejected() {
+        assertThrows(AppError::class.java) { MapValidator.validate(demo.copy(geo = GeoAnchor(120.0, 77.0))) }
+    }
 }

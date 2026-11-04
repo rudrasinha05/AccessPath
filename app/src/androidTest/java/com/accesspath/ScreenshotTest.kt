@@ -12,46 +12,53 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Saves screenshots of each tab for review. CI uploads them with the device test reports. */
+/** Saves screenshots of the main screens for review. CI prints them to the log and uploads them. */
 @RunWith(AndroidJUnit4::class)
 class ScreenshotTest {
     @get:Rule
     val compose = createAndroidComposeRule<MainActivity>()
 
     private fun s(id: Int) = compose.activity.getString(id)
+    private fun waitForText(text: String) = compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
 
-    /** Captures the window that contains [marker] (the main screen or an open dialog). */
-    private fun save(name: String, marker: String) {
+    private fun save(name: String, settleMs: Long = 0) {
+        if (settleMs > 0) Thread.sleep(settleMs) // let map tiles and camera animations finish
         compose.waitForIdle()
-        val bitmap = compose.onAllNodes(isRoot()).filter(hasAnyDescendant(hasText(marker))).onFirst().captureToImage().asAndroidBitmap()
+        val bitmap = compose.onAllNodes(isRoot()).onFirst().captureToImage().asAndroidBitmap()
         TestStorage().openOutputFile("screenshots/$name.png").use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private fun waitForText(text: String) = compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-
     @Test
-    fun captureEveryTab() {
-        waitForText(s(R.string.where_to))
-        save("1-navigate", s(R.string.where_to))
-        compose.onNodeWithTag("navigate").performScrollToNode(hasText(s(R.string.map_hint)))
-        save("2-floor-plan", s(R.string.map_hint))
-        compose.onNodeWithTag("navigate").performScrollToNode(hasText(s(R.string.steps_title)))
-        save("3-directions", s(R.string.steps_title))
-        compose.onNodeWithText(s(R.string.tab_reports)).performClick()
-        save("4-reports", s(R.string.reports_title))
-        compose.onNodeWithText(s(R.string.tab_manage)).performClick()
-        save("6-manage", s(R.string.manage_title))
-        compose.onNodeWithText(s(R.string.tab_settings)).performClick()
-        save("7-settings", s(R.string.settings_title))
+    fun captureMainScreens() {
+        waitForText(s(R.string.search_campus))
+        save("1-explore", 6000)
+        compose.onNodeWithText(s(R.string.search_campus)).performClick()
+        compose.onAllNodes(hasSetTextAction())[0].performTextInput("Libr")
+        compose.onAllNodes(hasText("Library") and hasAnyAncestor(isDialog()))[0].performClick()
+        waitForText(s(R.string.directions))
+        save("2-place", 4000)
+        compose.onNodeWithText(s(R.string.directions)).performClick()
+        waitForText(s(R.string.start))
+        save("3-directions", 4000)
+        compose.onNodeWithText(s(R.string.start)).performClick()
+        waitForText(s(R.string.exit_navigation))
+        save("4-navigate", 4000)
+        compose.onNodeWithText(s(R.string.exit_navigation)).performClick()
+        compose.onNodeWithText(s(R.string.tab_contribute)).performClick()
+        save("5-contribute")
+        compose.onNodeWithText(s(R.string.tab_you)).performClick()
+        save("6-you")
+        compose.onNodeWithText(s(R.string.campus_management)).performClick()
+        save("7-manage")
     }
 
     @Test
     fun captureHindi() {
-        waitForText(s(R.string.where_to))
+        waitForText(s(R.string.search_campus))
         try {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("hi")) }
-            waitForText("कहाँ जाना है?")
-            save("8-navigate-hindi", "कहाँ जाना है?")
+            waitForText("कैंपस में जगह खोजें")
+            save("8-explore-hindi", 4000)
         } finally {
             compose.runOnUiThread { AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList()) }
         }

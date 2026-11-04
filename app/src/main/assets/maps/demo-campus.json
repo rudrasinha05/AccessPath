@@ -3,6 +3,11 @@
   "version": "demo-1.0",
   "name": "AccessPath Demonstration Campus",
   "provenance": "Illustrative demo",
+  "geo": {
+    "lat": 28.473,
+    "lng": 77.4882,
+    "rotationDeg": 0.0
+  },
   "buildings": [
     {
       "id": "a",
@@ -10,7 +15,12 @@
     },
     {
       "id": "b",
-      "name": "Garden block"
+      "name": "Garden block",
+      "geo": {
+        "lat": 28.473,
+        "lng": 77.48963,
+        "rotationDeg": 0.0
+      }
     }
   ],
   "floors": [

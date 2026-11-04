@@ -4,10 +4,6 @@
     <string name="loading">Preparing the campus map…</string>
 
     <!-- Tabs -->
-    <string name="tab_navigate">Navigate</string>
-    <string name="tab_reports">Reports</string>
-    <string name="tab_manage">Manage</string>
-    <string name="tab_settings">Settings</string>
 
     <!-- Common -->
     <string name="save">Save</string>
@@ -30,13 +26,8 @@
     <string name="profile_min_width">Minimum passage width (m)</string>
     <string name="profile_max_slope" formatted="false">Maximum ramp slope (%)</string>
     <string name="profile_max_distance">Preferred maximum distance (m, optional)</string>
-    <string name="profile_summary_wheelchair">Width ≥ %1$s m · ramp ≤ %2$s%%</string>
-    <string name="profile_summary_limit">Max. %1$s m</string>
 
     <!-- Navigate -->
-    <string name="where_to">Where to?</string>
-    <string name="from_label">You are at</string>
-    <string name="to_label">Going to</string>
     <string name="swap">Swap start and destination</string>
     <string name="pick_from_title">Where are you now?</string>
     <string name="pick_to_title">Where do you want to go?</string>
@@ -51,20 +42,10 @@
     <string name="nearest_none">None reachable from here with your settings.</string>
     <string name="position_set">Position confirmed: %1$s</string>
     <string name="destination_set">Destination: %1$s</string>
-
-    <string name="map_title">Floor plan</string>
-    <string name="map_hint">Pinch to zoom, drag to move. Tap a place for options.</string>
     <string name="map_a11y">Floor plan of %1$s. The directions list gives the same route as text.</string>
-    <string name="legend_route">Your route</string>
-    <string name="legend_closed">Closed now</string>
-    <string name="legend_unsuitable">Not suitable for you</string>
-    <string name="legend_you">You</string>
-    <string name="legend_destination">Destination</string>
-    <string name="go_here">Go here</string>
     <string name="im_here">I\'m here</string>
 
     <string name="routing">Finding a route…</string>
-    <string name="route_summary">%1$s · %2$d steps</string>
     <string name="route_step_free">Step-free route</string>
     <string name="route_no_stairs">No stairs on this route</string>
     <string name="route_uses_lift">Uses a lift</string>
@@ -82,7 +63,6 @@
     <string name="step_stairs">Take the stairs to %1$s</string>
     <string name="step_lift">Take %1$s to %2$s</string>
     <string name="the_lift">the lift</string>
-    <string name="step_next_label">Next</string>
     <string name="confirm_reached">I\'m at %1$s</string>
     <string name="read_aloud">Read aloud</string>
     <string name="stop_reading">Stop reading</string>
@@ -179,7 +159,6 @@
     <string name="audit_entry">%1$s · %2$s → %3$s</string>
 
     <!-- Settings -->
-    <string name="settings_title">Settings</string>
     <string name="language_title">Language</string>
     <string name="language_system">Phone default</string>
     <string name="language_en" translatable="false">English</string>
@@ -224,4 +203,32 @@
     <string name="error_file">Couldn\'t open that file.</string>
     <string name="error_link">This location link isn\'t on the current map.</string>
     <string name="error_generic">Something went wrong. Please try again.</string>
+
+    <!-- Explore (Google Maps style) -->
+    <string name="tab_explore">Explore</string>
+    <string name="tab_contribute">Contribute</string>
+    <string name="tab_you">You</string>
+    <string name="search_campus">Search campus places</string>
+    <string name="explore_title">Explore the campus</string>
+    <string name="you_are_at_place">You are at %1$s</string>
+    <string name="places_title">Places</string>
+    <string name="sample_campus_note">Sample campus: illustrative layout and approximate position, not a survey.</string>
+    <string name="directions">Directions</string>
+    <string name="start">Start</string>
+    <string name="exit_navigation">Exit</string>
+    <string name="remaining">%1$s left · %2$d steps</string>
+    <string name="then_step">Then: %1$s</string>
+    <string name="reach_here">You are here</string>
+    <string name="reach_ok">%1$s from you with your settings</string>
+    <string name="reach_none">No route with your settings right now</string>
+    <string name="your_location">Your location: %1$s</string>
+    <string name="choose_destination">Choose destination</string>
+    <string name="back">Back</string>
+    <string name="recenter">Show my position</string>
+    <string name="done">Done</string>
+    <string name="steps_count">%1$d steps</string>
+    <string name="campus_management">Campus management</string>
+    <string name="campus_management_desc">Review reports, lift status and path closures</string>
+    <string name="world_map_a11y">Map of the campus, %1$s. Directions are also listed as text in the panel below.</string>
+    <string name="map_attribution" translatable="false">© OpenStreetMap contributors</string>
 </resources>

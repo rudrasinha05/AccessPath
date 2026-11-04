@@ -2,11 +2,6 @@
 <resources>
     <string name="loading">कैंपस का नक्शा तैयार हो रहा है…</string>
 
-    <string name="tab_navigate">रास्ता</string>
-    <string name="tab_reports">रिपोर्ट</string>
-    <string name="tab_manage">प्रबंधन</string>
-    <string name="tab_settings">सेटिंग्स</string>
-
     <string name="save">सेव करें</string>
     <string name="cancel">रद्द करें</string>
     <string name="close">बंद करें</string>
@@ -26,12 +21,6 @@
     <string name="profile_min_width">रास्ते की कम से कम चौड़ाई (मी)</string>
     <string name="profile_max_slope" formatted="false">रैंप की ज़्यादा से ज़्यादा ढलान (%)</string>
     <string name="profile_max_distance">पसंदीदा अधिकतम दूरी (मी, वैकल्पिक)</string>
-    <string name="profile_summary_wheelchair">चौड़ाई ≥ %1$s मी · रैंप ≤ %2$s%%</string>
-    <string name="profile_summary_limit">अधिकतम %1$s मी</string>
-
-    <string name="where_to">कहाँ जाना है?</string>
-    <string name="from_label">आप यहाँ हैं</string>
-    <string name="to_label">यहाँ जाना है</string>
     <string name="swap">शुरुआत और मंज़िल आपस में बदलें</string>
     <string name="pick_from_title">आप अभी कहाँ हैं?</string>
     <string name="pick_to_title">आप कहाँ जाना चाहते हैं?</string>
@@ -46,20 +35,10 @@
     <string name="nearest_none">आपकी सेटिंग के साथ यहाँ से ऐसी कोई जगह नहीं पहुँची जा सकती।</string>
     <string name="position_set">आपकी जगह पक्की हुई: %1$s</string>
     <string name="destination_set">मंज़िल: %1$s</string>
-
-    <string name="map_title">फ़्लोर प्लान</string>
-    <string name="map_hint">ज़ूम के लिए दो उँगलियों से फैलाएँ, खिसकाने के लिए खींचें। विकल्पों के लिए किसी जगह पर टैप करें।</string>
     <string name="map_a11y">%1$s का फ़्लोर प्लान। यही रास्ता नीचे दिशा-निर्देशों में लिखा है।</string>
-    <string name="legend_route">आपका रास्ता</string>
-    <string name="legend_closed">अभी बंद</string>
-    <string name="legend_unsuitable">आपके लिए ठीक नहीं</string>
-    <string name="legend_you">आप</string>
-    <string name="legend_destination">मंज़िल</string>
-    <string name="go_here">यहाँ जाएँ</string>
     <string name="im_here">मैं यहाँ हूँ</string>
 
     <string name="routing">रास्ता खोजा जा रहा है…</string>
-    <string name="route_summary">%1$s · %2$d चरण</string>
     <string name="route_step_free">बिना सीढ़ी वाला रास्ता</string>
     <string name="route_no_stairs">इस रास्ते में सीढ़ियाँ नहीं हैं</string>
     <string name="route_uses_lift">लिफ्ट का इस्तेमाल</string>
@@ -77,7 +56,6 @@
     <string name="step_stairs">सीढ़ियों से %1$s तक जाएँ</string>
     <string name="step_lift">%1$s से %2$s पर जाएँ</string>
     <string name="the_lift">लिफ्ट</string>
-    <string name="step_next_label">अगला</string>
     <string name="confirm_reached">मैं %1$s पर हूँ</string>
     <string name="read_aloud">बोलकर सुनाएँ</string>
     <string name="stop_reading">सुनाना बंद करें</string>
@@ -170,8 +148,6 @@
     <string name="audit_title">गतिविधि लॉग</string>
     <string name="audit_empty">अभी तक समीक्षक की कोई गतिविधि नहीं।</string>
     <string name="audit_entry">%1$s · %2$s → %3$s</string>
-
-    <string name="settings_title">सेटिंग्स</string>
     <string name="language_title">भाषा</string>
     <string name="language_system">फ़ोन की भाषा</string>
     <string name="map_data_title">नक्शे का डेटा</string>
@@ -213,4 +189,31 @@
     <string name="error_file">यह फ़ाइल नहीं खुल सकी।</string>
     <string name="error_link">यह जगह का लिंक मौजूदा नक्शे में नहीं है।</string>
     <string name="error_generic">कुछ गड़बड़ हो गई। कृपया फिर कोशिश करें।</string>
+
+    <!-- Explore (Google Maps style) -->
+    <string name="tab_explore">खोजें</string>
+    <string name="tab_contribute">योगदान</string>
+    <string name="tab_you">आप</string>
+    <string name="search_campus">कैंपस में जगह खोजें</string>
+    <string name="explore_title">कैंपस देखें</string>
+    <string name="you_are_at_place">आप %1$s पर हैं</string>
+    <string name="places_title">जगहें</string>
+    <string name="sample_campus_note">सैंपल कैंपस: उदाहरण वाला नक्शा और अनुमानित जगह, सर्वे नहीं।</string>
+    <string name="directions">रास्ता</string>
+    <string name="start">शुरू करें</string>
+    <string name="exit_navigation">बंद करें</string>
+    <string name="remaining">%1$s बाकी · %2$d चरण</string>
+    <string name="then_step">फिर: %1$s</string>
+    <string name="reach_here">आप यहीं हैं</string>
+    <string name="reach_ok">आपकी सेटिंग के साथ आपसे %1$s</string>
+    <string name="reach_none">अभी आपकी सेटिंग के साथ कोई रास्ता नहीं</string>
+    <string name="your_location">आपकी जगह: %1$s</string>
+    <string name="choose_destination">मंज़िल चुनें</string>
+    <string name="back">वापस</string>
+    <string name="recenter">मेरी जगह दिखाएँ</string>
+    <string name="done">हो गया</string>
+    <string name="steps_count">%1$d चरण</string>
+    <string name="campus_management">कैंपस प्रबंधन</string>
+    <string name="campus_management_desc">रिपोर्ट, लिफ्ट की स्थिति और बंद रास्ते देखें</string>
+    <string name="world_map_a11y">कैंपस का नक्शा, %1$s। यही रास्ता नीचे पैनल में लिखा भी है।</string>
 </resources>

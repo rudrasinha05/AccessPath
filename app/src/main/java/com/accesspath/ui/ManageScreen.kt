@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,7 +23,7 @@ import com.accesspath.R
 import com.accesspath.domain.*
 
 @Composable
-fun ManageScreen(ui: ScreenState, vm: AccessViewModel) {
+fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
     val canEdit = ui.reviewer && !ui.busy
@@ -40,7 +42,12 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize().testTag("manage")
     ) {
-        item { ScreenTitle(stringResource(R.string.manage_title)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back)) }
+                ScreenTitle(stringResource(R.string.manage_title))
+            }
+        }
         item {
             SectionCard {
                 Row(

@@ -45,6 +45,9 @@ class CampusRepository(
                 db.stateDao().insert(StateRow(revision = 0, payload = MapJson.encodeToString(fresh())))
             } else {
                 val readable = runCatching { MapJson.decodeFromString<AppSnapshot>(row.payload) }
+                readable.getOrNull()?.let { saved -> withSampleGeo(saved)?.let { upgraded ->
+                    db.stateDao().compareAndSet(MapJson.encodeToString(upgraded), saved.revision + 1, saved.revision)
+                } }
                 if (readable.isFailure) {
                     Log.w(TAG, "Saved state unreadable; restoring bundled map", readable.exceptionOrNull())
                     val recovered = fresh().let {
@@ -54,6 +57,18 @@ class CampusRepository(
                 }
             }
         }
+    }
+
+    /** Saved sample maps from before world-map support get the sample's real-world position. Returns null if nothing changes. */
+    private fun withSampleGeo(saved: AppSnapshot): AppSnapshot? {
+        if (!saved.map.isDemo || Geo.hasGeo(saved.map)) return null
+        val seedMap = runCatching { MapJson.decodeFromString<CampusMap>(seed()) }.getOrNull() ?: return null
+        if (seedMap.geo == null) return null
+        val buildingGeo = seedMap.buildings.associate { it.id to it.geo }
+        return saved.copy(
+            revision = saved.revision + 1,
+            map = saved.map.copy(geo = seedMap.geo, buildings = saved.map.buildings.map { it.copy(geo = buildingGeo[it.id] ?: it.geo) })
+        )
     }
 
     suspend fun snapshot(): AppSnapshot = withContext(Dispatchers.IO) {

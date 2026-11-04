@@ -37,7 +37,13 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
     }
 }
 
-@Serializable data class Building(val id: String, val name: String)
+/**
+ * Places a floor-local coordinate frame on the real world: (0,0) in metres sits at [lat]/[lng],
+ * x grows east and y grows south, both turned clockwise by [rotationDeg].
+ */
+@Serializable data class GeoAnchor(val lat: Double, val lng: Double, val rotationDeg: Double = 0.0)
+
+@Serializable data class Building(val id: String, val name: String, val geo: GeoAnchor? = null)
 @Serializable data class Floor(val id: String, val buildingId: String, val label: String, val ordinal: Int)
 @Serializable data class Node(
     val id: String, val floorId: String, val name: String, val x: Double, val y: Double,
@@ -55,7 +61,7 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
 )
 @Serializable data class CampusMap(
     val schemaVersion: Int = 1, val version: String, val name: String,
-    val provenance: String, val verifiedAt: Long? = null, val buildings: List<Building>,
+    val provenance: String, val verifiedAt: Long? = null, val geo: GeoAnchor? = null, val buildings: List<Building>,
     val floors: List<Floor>, val nodes: List<Node>, val edges: List<Edge>, val facilities: List<Facility>
 ) {
     /** The bundled sample map may be reset; imported maps never are. */
@@ -128,6 +134,9 @@ object MapValidator {
         val floors = map.floors.associateBy { it.id }
         val nodes = map.nodes.associateBy { it.id }
         val facilities = map.facilities.map { it.id }.toSet()
+        (listOfNotNull(map.geo) + map.buildings.mapNotNull { it.geo }).forEach { g ->
+            check(g.lat.isFinite() && g.lng.isFinite() && g.lat in -85.0..85.0 && g.lng in -180.0..180.0 && g.rotationDeg.isFinite()) { "Invalid geo position." }
+        }
         map.floors.forEach { check(it.buildingId in buildings && it.label.isNotBlank()) { "Invalid floor ${it.id}." } }
         map.nodes.forEach {
             check(it.floorId in floors && it.name.isNotBlank() && it.x.isFinite() && it.y.isFinite() &&
