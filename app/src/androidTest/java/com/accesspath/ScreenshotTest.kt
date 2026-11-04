@@ -23,7 +23,7 @@ class ScreenshotTest {
 
     /** The first launch asks whether to check for unmapped areas; tests decline it. */
     private fun waitForMap() {
-        waitForMap()
+        waitForText(s(R.string.search_campus))
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithText(s(R.string.area_check_title)).assertExists()
