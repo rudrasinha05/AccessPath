@@ -15,16 +15,16 @@ import java.net.URL
 import java.net.URLEncoder
 
 /** Place categories shown as chips on the map. Each maps to OpenStreetMap tags (real places, no sample data). */
-enum class PoiCategory(val filter: String) {
-    RESTAURANTS("""["amenity"~"^(restaurant|fast_food|food_court)$"]"""),
-    COFFEE("""["amenity"="cafe"]"""),
-    PETROL("""["amenity"="fuel"]"""),
-    HOTELS("""["tourism"~"^(hotel|guest_house|hostel|motel)$"]"""),
-    ATMS("""["amenity"~"^(atm|bank)$"]"""),
-    HOSPITALS("""["amenity"~"^(hospital|clinic|doctors|pharmacy)$"]"""),
-    SHOPPING("""["shop"~"^(supermarket|mall|department_store|convenience|clothes|general)$"]"""),
-    TOILETS("""["amenity"="toilets"]"""),
-    ACCESSIBLE("""["wheelchair"~"^(yes|designated)$"]["name"]""")
+enum class PoiCategory(val filter: String, val keywords: List<String> = emptyList()) {
+    RESTAURANTS("""["amenity"~"^(restaurant|fast_food|food_court)$"]""", listOf("restaurant", "fast food")),
+    COFFEE("""["amenity"="cafe"]""", listOf("cafe")),
+    PETROL("""["amenity"="fuel"]""", listOf("fuel")),
+    HOTELS("""["tourism"~"^(hotel|guest_house|hostel|motel)$"]""", listOf("hotel", "guest house")),
+    ATMS("""["amenity"~"^(atm|bank)$"]""", listOf("atm", "bank")),
+    HOSPITALS("""["amenity"~"^(hospital|clinic|doctors|pharmacy)$"]""", listOf("hospital", "clinic", "pharmacy")),
+    SHOPPING("""["shop"~"^(supermarket|mall|department_store|convenience|clothes|general)$"]""", listOf("supermarket", "mall")),
+    TOILETS("""["amenity"="toilets"]""", listOf("toilets")),
+    ACCESSIBLE("""["wheelchair"~"^(yes|designated)$"]["name"]""", listOf("toilets", "hospital", "restaurant", "bank"))
 }
 
 /** A real place from OpenStreetMap. [tags] keeps the raw OSM tags for details (hours, phone, wheelchair access). */
@@ -52,29 +52,50 @@ data class Weather(val temperatureC: Double, val code: Int, val isDay: Boolean, 
  * - the area's name: MapTiler reverse geocoding.
  */
 object Places {
-    private const val UA = "AccessPath/${BuildConfig.VERSION_NAME} (com.accesspath)"
+    private const val UA = "AccessPath/${BuildConfig.VERSION_NAME} (+https://github.com/rudrasinha05/AccessPath)"
     private val json = Json { ignoreUnknownKeys = true }
     private val overpass = listOf("https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter")
 
     /**
-     * Asks several public Overpass servers at once and uses the first good answer, because a single free server is
-     * often busy. The others are cancelled as soon as one answers.
+     * Real places of a category near [center], nearest first. Uses OpenStreetMap's Nominatim search inside a box
+     * around the point (fast and reliable); one request per keyword, spaced as its usage policy asks.
+     * "Accessible places" keeps only places whose wheelchair access is recorded as yes, designated or limited.
      */
-    suspend fun nearby(category: PoiCategory, center: LatLng, radiusM: Int = 1500, limit: Int = 60): List<Poi> = kotlinx.coroutines.coroutineScope {
-        val q = "[out:json][timeout:12];nwr(around:$radiusM,${center.lat},${center.lng})${category.filter};out center tags $limit;"
-        val url = "?data=" + URLEncoder.encode(q, "UTF-8")
-        val results = kotlinx.coroutines.channels.Channel<Result<List<Poi>>>(overpass.size)
-        val jobs = overpass.map { endpoint ->
-            launch { results.send(runCatching { parse(http(endpoint + url), category).sortedBy { distance(center, it.at) } }) }
+    suspend fun nearby(category: PoiCategory, center: LatLng, radiusM: Int = 1500, limit: Int = 60): List<Poi> {
+        val dLat = radiusM / 111_320.0
+        val dLng = radiusM / (111_320.0 * Math.cos(Math.toRadians(center.lat)))
+        val box = "${center.lng - dLng},${center.lat + dLat},${center.lng + dLng},${center.lat - dLat}"
+        val all = mutableListOf<Poi>()
+        var failure: Exception? = null
+        category.keywords.forEachIndexed { i, kw ->
+            if (i > 0) kotlinx.coroutines.delay(1_100)
+            try {
+                val body = http("https://nominatim.openstreetmap.org/search?q=${URLEncoder.encode(kw, "UTF-8")}&format=jsonv2&limit=40" +
+                    "&viewbox=$box&bounded=1&extratags=1&addressdetails=1&accept-language=en")
+                all += parseNominatim(body, category)
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { failure = e }
         }
-        var last: Throwable? = null
-        repeat(overpass.size) {
-            val r = results.receive()
-            r.onSuccess { list -> jobs.forEach { it.cancel() }; return@coroutineScope list }
-            last = r.exceptionOrNull()
+        if (all.isEmpty() && failure != null) throw (failure as? AppError) ?: AppError(ErrorCode.NETWORK, failure?.message ?: "")
+        val list = all.distinctBy { it.id }.let { l ->
+            if (category == PoiCategory.ACCESSIBLE) l.filter { it.wheelchair in setOf("yes", "designated", "limited") } else l
         }
-        throw (last as? AppError) ?: AppError(ErrorCode.NETWORK, last?.message ?: "")
+        return list.sortedBy { distance(center, it.at) }.take(limit)
     }
+
+    private fun parseNominatim(body: String, category: PoiCategory): List<Poi> =
+        json.parseToJsonElement(body).jsonArray.mapNotNull { el ->
+            val o = el.jsonObject
+            val extra = o["extratags"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content }.orEmpty()
+            val addr = o["address"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content }.orEmpty()
+            val name = o["name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: o["display_name"]?.jsonPrimitive?.contentOrNull?.substringBefore(",") ?: return@mapNotNull null
+            val tags = extra + listOfNotNull(
+                addr["house_number"]?.let { "addr:housenumber" to it }, addr["road"]?.let { "addr:street" to it },
+                (addr["suburb"] ?: addr["neighbourhood"])?.let { "addr:suburb" to it }, (addr["city"] ?: addr["town"] ?: addr["village"])?.let { "addr:city" to it }
+            ) + listOfNotNull(o["type"]?.jsonPrimitive?.contentOrNull?.let { "type" to it })
+            Poi("${o["osm_type"]?.jsonPrimitive?.content}/${o["osm_id"]?.jsonPrimitive?.content}", name,
+                o["lat"]!!.jsonPrimitive.content.toDouble(), o["lon"]!!.jsonPrimitive.content.toDouble(), category.name, tags)
+        }
 
     private fun parse(body: String, category: PoiCategory): List<Poi> =
         json.parseToJsonElement(body).jsonObject["elements"]?.jsonArray.orEmpty().mapNotNull { el ->
