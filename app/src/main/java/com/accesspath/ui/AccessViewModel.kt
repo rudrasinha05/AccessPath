@@ -165,6 +165,16 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
         if (warnings.isEmpty()) UiMessage.Text(R.string.import_ok) else UiMessage.Text(R.string.import_ok_warn, listOf(warnings.joinToString(" ")))
     }
 
+    /** Writes printable QR placards (one per place) to the chosen PDF file. */
+    fun exportQrPlacards(uri: Uri) = perform {
+        val s = repository.snapshot()
+        val app = getApplication<Application>()
+        val count = withContext(Dispatchers.IO) {
+            app.contentResolver.openOutputStream(uri, "wt")?.use { QrPlacards.write(app, s, it) }
+        } ?: return@perform UiMessage.Text(R.string.error_file)
+        UiMessage.Text(R.string.qr_saved, listOf(count))
+    }
+
     fun exportMap(uri: Uri) = perform {
         val json = repository.exportMapJson()
         val ok = withContext(Dispatchers.IO) {
@@ -178,6 +188,6 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
         private const val KEY_REVIEWER = "reviewer"
 
         fun parseNodeLink(uri: Uri): String? =
-            if (uri.scheme == "accesspath" && uri.host == "node") uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } else null
+            if (uri.scheme == LocationLinks.SCHEME && uri.host == LocationLinks.HOST) uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() } else null
     }
 }

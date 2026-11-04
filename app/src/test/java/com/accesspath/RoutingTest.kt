@@ -274,4 +274,11 @@ class RoutingTest {
     @Test fun surveyNeedsAWalk() {
         assertNull(SurveyBuilder.build("s", "D", listOf(TrailPoint(0.0, 0.0)), emptyList(), LatLng(0.0, 0.0), 0.0))
     }
+
+    @Test fun qrLinksOpenTheRightPlace() {
+        assertEquals("accesspath://node/lobby0", LocationLinks.forNode("lobby0"))
+        val placards = LocationLinks.placesForPlacards(demo)
+        assertTrue(placards.any { it.id == "washroom" })
+        assertTrue(placards.none { it.type == "LANDMARK" })
+    }
 }

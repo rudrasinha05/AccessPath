@@ -70,6 +70,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("com.google.ar:core:1.44.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

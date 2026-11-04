@@ -120,15 +120,15 @@ private fun ReportCard(state: AppSnapshot, report: BarrierReport, canReview: Boo
 }
 
 @Composable
-private fun ReportDialog(
-    state: AppSnapshot, routeEdges: List<Edge>, onDismiss: () -> Unit,
+fun ReportDialog(
+    state: AppSnapshot, routeEdges: List<Edge>, onDismiss: () -> Unit, preselect: String? = null,
     onSubmit: (id: String, edgeId: String, category: BarrierCategory, description: String) -> Unit
 ) {
     val context = LocalContext.current
     // Generated once per dialog so a double tap on Submit cannot create two reports.
     val id = rememberSaveable { UUID.randomUUID().toString() }
     var category by rememberSaveable { mutableStateOf(BarrierCategory.BLOCKED_PATH) }
-    var edgeId by rememberSaveable { mutableStateOf(routeEdges.firstOrNull()?.id) }
+    var edgeId by rememberSaveable { mutableStateOf(preselect ?: routeEdges.firstOrNull()?.id) }
     var text by rememberSaveable { mutableStateOf("") }
     var pickSegment by rememberSaveable { mutableStateOf(false) }
     var categoryOpen by remember { mutableStateOf(false) }

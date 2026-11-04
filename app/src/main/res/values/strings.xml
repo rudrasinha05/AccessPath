@@ -278,4 +278,12 @@
     <string name="map_new_area">Map a new area with the camera</string>
     <string name="map_new_area_desc">Record paths and places where the campus isn\'t mapped yet</string>
     <string name="area_check_setting">Check for unmapped areas when the app opens</string>
+    <string name="report_short">Report</string>
+    <string name="route_updated">Route updated because a path or lift changed.</string>
+    <string name="route_lost">Your route is no longer available. See the panel for why.</string>
+    <string name="qr_title">Location QR codes</string>
+    <string name="qr_intro">Print a QR code for every place and stick each one up at that spot. Scanning it with the phone camera opens AccessPath and confirms the person\'s position.</string>
+    <string name="qr_button">Create printable PDF</string>
+    <string name="qr_saved">QR placards saved for %1$d places.</string>
+    <string name="qr_hint">Scan to confirm you are here in AccessPath</string>
 </resources>

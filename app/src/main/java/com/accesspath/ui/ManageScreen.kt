@@ -8,6 +8,9 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,6 +36,7 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     var reopenEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmReset by rememberSaveable { mutableStateOf(false) }
     var deleteDraft by rememberSaveable { mutableStateOf<String?>(null) }
+    val qrExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri -> uri?.let(vm::exportQrPlacards) }
     // One entry per physical segment (both directions are closed together).
     val closedSegments = remember(state.blockedEdges, state.map) {
         state.map.edges.filter { it.id in state.blockedEdges }.distinctBy { listOf(it.from, it.to).sorted() }
@@ -93,6 +97,15 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
 
+        item {
+            SectionCard(stringResource(R.string.qr_title)) {
+                InfoText(stringResource(R.string.qr_intro))
+                OutlinedButton(onClick = { qrExporter.launch("accesspath-qr-placards.pdf") }, enabled = !ui.busy) {
+                    Icon(Icons.Filled.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.qr_button))
+                }
+            }
+        }
         item {
             val drafts = state.map.buildings.filter { it.draft }
             SectionCard(stringResource(R.string.drafts_title)) {

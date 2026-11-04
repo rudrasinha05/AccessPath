@@ -263,4 +263,12 @@
     <string name="map_new_area">कैमरे से नई जगह का नक्शा बनाएँ</string>
     <string name="map_new_area_desc">जहाँ कैंपस का नक्शा नहीं बना, वहाँ रास्ते और जगहें रिकॉर्ड करें</string>
     <string name="area_check_setting">ऐप खुलने पर बिना नक्शे वाली जगह जाँचें</string>
+    <string name="report_short">रिपोर्ट</string>
+    <string name="route_updated">कोई रास्ता या लिफ्ट बदलने से आपका रास्ता बदल गया।</string>
+    <string name="route_lost">आपका रास्ता अब उपलब्ध नहीं है। कारण नीचे पैनल में देखें।</string>
+    <string name="qr_title">जगह के QR कोड</string>
+    <string name="qr_intro">हर जगह का QR कोड प्रिंट करके उसी जगह लगाएँ। फ़ोन कैमरे से स्कैन करने पर AccessPath खुलेगा और व्यक्ति की जगह पक्की हो जाएगी।</string>
+    <string name="qr_button">प्रिंट करने लायक PDF बनाएँ</string>
+    <string name="qr_saved">%1$d जगहों के QR कोड सेव हो गए।</string>
+    <string name="qr_hint">AccessPath में अपनी जगह पक्की करने के लिए स्कैन करें</string>
 </resources>

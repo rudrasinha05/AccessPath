@@ -92,6 +92,10 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
     var searching by rememberSaveable { mutableStateOf(false) }
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var editProfile by rememberSaveable { mutableStateOf(false) }
+    // Report a barrier from the map: the path to preselect, and the paths to list first.
+    var reportEdge by rememberSaveable { mutableStateOf<String?>(null) }
+    var reporting by rememberSaveable { mutableStateOf(false) }
+    var lastRoute by remember { mutableStateOf<Pair<String, List<String>>?>(null) }
     var nonce by remember { mutableIntStateOf(0) }
     var camera by remember { mutableStateOf(CameraRequest(0, center = state.node(state.current)?.let { Geo.position(state.map, it) }, zoom = 18.8)) }
 
@@ -124,6 +128,18 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
             if (pts.size >= 2) camera = CameraRequest(++nonce, bounds = pts) else moveTo(current)
         }
     }
+    // While navigating, tell the person when the route changes for a reason other than their own progress.
+    LaunchedEffect(found?.edges, mode) {
+        val now = found?.let { state.current to it.edges.map(Edge::id) }
+        val before = lastRoute
+        lastRoute = now
+        if (mode == Mode.NAVIGATE && before != null && now != null && before.first == now.first && before.second != now.second) {
+            vm.message(UiMessage.Text(R.string.route_updated))
+        }
+        if (mode == Mode.NAVIGATE && found == null && ui.route is RouteResult.Unavailable && before != null) {
+            vm.message(UiMessage.Text(R.string.route_lost))
+        }
+    }
     // While navigating, follow the confirmed position.
     LaunchedEffect(state.current, mode) { if (mode == Mode.NAVIGATE) moveTo(current, 20.3) }
 
@@ -153,13 +169,16 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
                     Mode.EXPLORE -> ExploreSheet(state, onChangePosition = { picking = "from" }, onNearest = { kind -> placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }, onPlace = ::select)
                     Mode.PLACE -> if (place != null) {
                         PlaceSheet(state, place, onClose = { placeId = null; mode = Mode.EXPLORE },
+                            onReport = { reportEdge = state.map.edges.firstOrNull { it.from == place.id || it.to == place.id }?.id; reporting = true },
                             onDirections = { startDirections(place.id) }, onImHere = { vm.setCurrent(place.id); placeId = null; mode = Mode.EXPLORE })
                     } else LaunchedEffect(Unit) { mode = Mode.EXPLORE }
                     Mode.DIRECTIONS -> DirectionsSheet(ui, state, found, steps, speaker,
                         onStart = { mode = Mode.NAVIGATE; moveTo(current, 20.3) },
                         onRead = { read(context, speaker, steps, vm) },
                         onSettings = { editProfile = true })
-                    Mode.NAVIGATE -> NavigateSheet(state, found, steps, speaker,
+                    Mode.NAVIGATE -> NavigateSheet(state, found, ui.route as? RouteResult.Unavailable, steps, speaker,
+                        onSettings = { editProfile = true },
+                        onReport = { reportEdge = found?.edges?.firstOrNull()?.id; reporting = true },
                         onConfirm = { steps.firstOrNull()?.let { vm.setCurrent(it.to.id) } },
                         onRead = { read(context, speaker, steps.take(1), vm) },
                         onExit = { speaker.stop(); mode = Mode.EXPLORE; placeId = null })
@@ -232,6 +251,12 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
     when (picking) {
         "from" -> PlacePickerDialog(state, stringResource(R.string.pick_from_title), { picking = null }) { picking = null; vm.setCurrent(it.id); moveTo(it) }
         "to" -> PlacePickerDialog(state, stringResource(R.string.pick_to_title), { picking = null }) { picking = null; startDirections(it.id) }
+    }
+    if (reporting) {
+        ReportDialog(state, found?.edges.orEmpty(), onDismiss = { reporting = false }, preselect = reportEdge) { id, edge, category, text ->
+            reporting = false
+            vm.submitReport(id, edge, category, text)
+        }
     }
     if (editProfile) ProfileDialog(state.profile, { editProfile = false }) { editProfile = false; vm.setProfile(it) }
 }
@@ -438,7 +463,7 @@ fun PlaceBadge(type: String, size: Dp = 40.dp) {
 }
 
 @Composable
-private fun PlaceSheet(state: AppSnapshot, node: Node, onClose: () -> Unit, onDirections: () -> Unit, onImHere: () -> Unit) {
+private fun PlaceSheet(state: AppSnapshot, node: Node, onClose: () -> Unit, onReport: () -> Unit, onDirections: () -> Unit, onImHere: () -> Unit) {
     val context = LocalContext.current
     val reach by produceState<RouteResult?>(null, state, node.id) {
         value = withContext(Dispatchers.Default) { Routing.calculate(state, state.current, node.id) }
@@ -461,12 +486,20 @@ private fun PlaceSheet(state: AppSnapshot, node: Node, onClose: () -> Unit, onDi
             }
             Text(line, style = MaterialTheme.typography.bodyMedium, color = if (reach is RouteResult.Unavailable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
         }
+        val closures = remember(state, node.id) {
+            val ex = Routing.exclusions(state)
+            state.map.edges.filter { it.from == node.id || it.to == node.id }.mapNotNull { ex[it.id] }.filter { it.isClosure }.mapNotNull { it.closureLabel() }.distinct()
+        }
+        closures.forEach { Banner(stringResource(it), warning = true) }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
             Button(onClick = onDirections, colors = ButtonDefaults.buttonColors(containerColor = GoogleBlue, contentColor = Color.White)) {
                 Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.directions))
             }
             OutlinedButton(onClick = onImHere) {
                 Icon(Icons.Filled.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.im_here))
+            }
+            OutlinedButton(onClick = onReport) {
+                Icon(Icons.Filled.Flag, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.report_short))
             }
         }
     }
@@ -566,9 +599,15 @@ fun RouteProblem(r: RouteResult.Unavailable, onSettings: () -> Unit) {
 }
 
 @Composable
-private fun NavigateSheet(state: AppSnapshot, found: RouteResult.Found?, steps: List<RouteStep>, speaker: Speaker, onConfirm: () -> Unit, onRead: () -> Unit, onExit: () -> Unit) {
+private fun NavigateSheet(state: AppSnapshot, found: RouteResult.Found?, problem: RouteResult.Unavailable?, steps: List<RouteStep>, speaker: Speaker, onSettings: () -> Unit, onReport: () -> Unit, onConfirm: () -> Unit, onRead: () -> Unit, onExit: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (found == null || steps.isEmpty()) {
+        if (problem != null) {
+            RouteProblem(problem, onSettings)
+            OutlinedButton(onClick = onExit, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.exit_navigation)) }
+            return@Column
+        }
+        if (found == null) { LinearProgressIndicator(Modifier.fillMaxWidth()); return@Column }
+        if (steps.isEmpty()) {
             Text(stringResource(R.string.arrived_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             InfoText(stringResource(R.string.arrived_body, state.node(state.current)?.name ?: ""))
             Button(onClick = onExit, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(stringResource(R.string.done)) }
@@ -576,6 +615,7 @@ private fun NavigateSheet(state: AppSnapshot, found: RouteResult.Found?, steps: 
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.remaining, metres(found.distance), steps.size), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            IconButton(onClick = onReport) { Icon(Icons.Filled.Flag, contentDescription = stringResource(R.string.report_title)) }
             IconButton(onClick = if (speaker.speaking) speaker::stop else onRead) {
                 Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = stringResource(if (speaker.speaking) R.string.stop_reading else R.string.read_aloud))
             }
