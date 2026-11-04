@@ -231,4 +231,5 @@
     <string name="campus_management_desc">Review reports, lift status and path closures</string>
     <string name="world_map_a11y">Map of the campus, %1$s. Directions are also listed as text in the panel below.</string>
     <string name="map_attribution" translatable="false">© OpenStreetMap contributors</string>
+    <string name="contribute_title">Help keep paths open</string>
 </resources>

@@ -202,6 +202,7 @@ fun WorldMap(
     exclusions: Map<String, ExclusionReason>,
     selectedPlaceId: String?,
     camera: CameraRequest,
+    centerOffsetPx: Int,
     description: String,
     modifier: Modifier = Modifier,
     onPlaceTap: (Node) -> Unit,
@@ -304,6 +305,7 @@ fun WorldMap(
         factory = { mapView },
         modifier = modifier.semantics { contentDescription = description },
         update = { view ->
+            view.setMapCenterOffset(0, centerOffsetPx)
             overlay.data = data
             view.invalidate()
         }

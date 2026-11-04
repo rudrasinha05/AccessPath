@@ -41,7 +41,8 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit) {
     ) {
         ScreenTitle(stringResource(R.string.tab_you))
 
-        SectionCard {
+        Surface(onClick = { editProfile = true }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
+          Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(52.dp).background(Color(0xFF1A73E8), CircleShape), contentAlignment = Alignment.Center) {
                     Icon(mobilityIcon(state.profile.mobility), contentDescription = null, tint = Color.White, modifier = Modifier.size(30.dp))
@@ -51,9 +52,10 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit) {
                     Text(stringResource(R.string.profile_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(stringResource(state.profile.mobility.label()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                FilledTonalButton(onClick = { editProfile = true }) { Text(stringResource(R.string.change)) }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.change))
             }
             InfoText(stringResource(state.profile.mobility.description()))
+          }
         }
 
         Surface(onClick = onManage, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {

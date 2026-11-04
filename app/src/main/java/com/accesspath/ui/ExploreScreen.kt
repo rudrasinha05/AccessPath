@@ -30,6 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -130,7 +131,14 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
         if (mode == Mode.EXPLORE) placeId = null
     }
 
-    val peek: Dp = when (mode) { Mode.NAVIGATE -> 176.dp; Mode.EXPLORE -> 236.dp; else -> 260.dp }
+    val peek: Dp = when (mode) { Mode.NAVIGATE -> 176.dp; Mode.EXPLORE -> 220.dp; else -> 236.dp }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var headerPx by remember { mutableIntStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+    // Keep the camera target in the visible part of the map, between the top overlay and the sheet.
+    val centerOffsetPx = with(density) { ((headerPx - peek.roundToPx()) / 2f).toInt() }
+    // First camera move once the layout (and so the visible map area) is known.
+    LaunchedEffect(headerPx > 0) { if (headerPx > 0 && mode == Mode.EXPLORE) moveTo(placeId?.let(state::node) ?: current, 19.0) }
     val sheetState = rememberBottomSheetScaffoldState()
 
     BottomSheetScaffold(
@@ -163,6 +171,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
             if (hasGeo) {
                 WorldMap(
                     state = state, route = found, exclusions = exclusions, selectedPlaceId = placeId, camera = camera,
+                    centerOffsetPx = centerOffsetPx,
                     description = stringResource(R.string.world_map_a11y, floorLabel),
                     modifier = Modifier.fillMaxSize().testTag("worldMap"),
                     onPlaceTap = { if (mode != Mode.NAVIGATE) select(it) },
@@ -177,7 +186,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
             }
 
             // Top overlay
-            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(12.dp)) {
+            Column(Modifier.fillMaxWidth().onSizeChanged { headerPx = it.height }.statusBarsPadding().padding(12.dp)) {
                 when (mode) {
                     Mode.NAVIGATE -> NavBanner(steps)
                     Mode.DIRECTIONS -> DirectionsHeader(state,
@@ -197,12 +206,11 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker) {
                 }
             }
 
-            // Right-side controls: floor picker and "show my position".
-            Column(
-                Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp),
-                horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            // Right-side controls: floor picker under the top overlay, "show my position" above the sheet.
+            Box(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp)) {
                 FloorPicker(state) { vm.selectFloor(it) }
+            }
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp)) {
                 SmallFloatingActionButton(
                     onClick = { current?.let { if (it.floorId != state.selectedFloor) vm.selectFloor(it.floorId); moveTo(it) } },
                     containerColor = MaterialTheme.colorScheme.surface, contentColor = GoogleBlue

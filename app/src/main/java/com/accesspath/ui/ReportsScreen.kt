@@ -4,7 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Accessible
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,17 +35,31 @@ fun ReportsScreen(ui: ScreenState, vm: AccessViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize().testTag("reports")
     ) {
-        item { ScreenTitle(stringResource(R.string.reports_title)) }
-        item { InfoText(stringResource(R.string.reports_intro)) }
+        item { ScreenTitle(stringResource(R.string.tab_contribute)) }
         item {
-            Button(onClick = { reporting = true }, modifier = Modifier.fillMaxWidth()) {
+            Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(56.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Accessible, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column {
+                        Text(stringResource(R.string.contribute_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.reports_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                }
+            }
+        }
+        item {
+            Button(onClick = { reporting = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Icon(Icons.Filled.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.report_button))
             }
         }
         if (!ui.reviewer && active.isNotEmpty()) item { InfoText(stringResource(R.string.reviewer_hint)) }
-        if (state.reports.isEmpty()) item { Banner(stringResource(R.string.reports_empty)) }
+        item { SectionTitle(stringResource(R.string.reports_title)) }
+        if (state.reports.isEmpty()) item { InfoText(stringResource(R.string.reports_empty)) }
         if (active.isNotEmpty()) {
             item { SectionTitle(stringResource(R.string.reports_active, active.size)) }
             items(active, key = { it.id }) { r -> ReportCard(state, r, ui.reviewer && !ui.busy) { status -> decision = r.id to status } }

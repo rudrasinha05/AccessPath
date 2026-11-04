@@ -24,10 +24,10 @@ data class MapColors(
 )
 
 private val LightScheme = lightColorScheme(
-    primary = Color(0xFF00677F), onPrimary = Color.White,
-    primaryContainer = Color(0xFFB8EAFF), onPrimaryContainer = Color(0xFF001F28),
+    primary = Color(0xFF1A73E8), onPrimary = Color.White,
+    primaryContainer = Color(0xFFD3E3FD), onPrimaryContainer = Color(0xFF041E49),
     secondary = Color(0xFF4C626B), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCFE6F1), onSecondaryContainer = Color(0xFF071E26),
+    secondaryContainer = Color(0xFFD3E3FD), onSecondaryContainer = Color(0xFF041E49),
     tertiary = Color(0xFF8B4A00), onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFDCC2), onTertiaryContainer = Color(0xFF2D1600),
     error = Color(0xFFBA1A1A), errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410002),
@@ -36,14 +36,14 @@ private val LightScheme = lightColorScheme(
     outline = Color(0xFF70787C), outlineVariant = Color(0xFFBFC8CC),
     surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF0F4F7),
     surfaceContainer = Color(0xFFEAEEF1), surfaceContainerHigh = Color(0xFFE4E9EC),
-    surfaceContainerHighest = Color(0xFFDFE3E6), surfaceTint = Color(0xFF00677F)
+    surfaceContainerHighest = Color(0xFFDFE3E6), surfaceTint = Color(0xFF1A73E8)
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = Color(0xFF5FD4FA), onPrimary = Color(0xFF003543),
-    primaryContainer = Color(0xFF004E60), onPrimaryContainer = Color(0xFFB8EAFF),
+    primary = Color(0xFF8AB4F8), onPrimary = Color(0xFF062E6F),
+    primaryContainer = Color(0xFF0842A0), onPrimaryContainer = Color(0xFFD3E3FD),
     secondary = Color(0xFFB3CAD5), onSecondary = Color(0xFF1E333C),
-    secondaryContainer = Color(0xFF354A53), onSecondaryContainer = Color(0xFFCFE6F1),
+    secondaryContainer = Color(0xFF0842A0), onSecondaryContainer = Color(0xFFD3E3FD),
     tertiary = Color(0xFFFFB77C), onTertiary = Color(0xFF4A2800),
     tertiaryContainer = Color(0xFF6A3800), onTertiaryContainer = Color(0xFFFFDCC2),
     error = Color(0xFFFFB4AB), errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
@@ -52,7 +52,7 @@ private val DarkScheme = darkColorScheme(
     outline = Color(0xFF8A9296), outlineVariant = Color(0xFF40484C),
     surfaceContainerLowest = Color(0xFF0A0F11), surfaceContainerLow = Color(0xFF171C1F),
     surfaceContainer = Color(0xFF1B2023), surfaceContainerHigh = Color(0xFF252B2D),
-    surfaceContainerHighest = Color(0xFF303638), surfaceTint = Color(0xFF5FD4FA)
+    surfaceContainerHighest = Color(0xFF303638), surfaceTint = Color(0xFF8AB4F8)
 )
 
 private val LightMap = MapColors(
