@@ -57,7 +57,7 @@ object DeviceSensors {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         if (lm == null || !hasLocationPermission(context)) { close(); return@callbackFlow }
         val listener = androidx.core.location.LocationListenerCompat { trySend(it) }
-        val request = androidx.core.location.LocationRequestCompat.Builder(1_000L).setMinUpdateDistanceMeters(2f)
+        val request = androidx.core.location.LocationRequestCompat.Builder(1_000L).setMinUpdateDistanceMeters(0f) // callers filter steps themselves
             .setQuality(androidx.core.location.LocationRequestCompat.QUALITY_HIGH_ACCURACY).build()
         listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
             .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }

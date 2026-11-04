@@ -44,24 +44,29 @@ class LocationMappingTest {
     @Before
     fun fakeGps() {
         inst.uiAutomation.executeShellCommand("appops set ${inst.targetContext.packageName} android:mock_location allow").close()
-        runCatching { lm.removeTestProvider(LocationManager.GPS_PROVIDER) }
-        lm.addTestProvider(LocationManager.GPS_PROVIDER, false, false, false, false, true, true, true, 1, 1)
-        lm.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
+        providers.forEach { p ->
+            runCatching { lm.removeTestProvider(p) }
+            lm.addTestProvider(p, false, false, false, false, true, true, true, 1, 1)
+            lm.setTestProviderEnabled(p, true)
+        }
         walkTo(0.0, 0.0)
     }
 
     @After
-    fun stopFakeGps() { runCatching { lm.removeTestProvider(LocationManager.GPS_PROVIDER) } }
+    fun stopFakeGps() { providers.forEach { runCatching { lm.removeTestProvider(it) } } }
+
+    // Both providers are faked so no real (emulator default) position mixes into the walk.
+    private val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
 
     /** Puts the fake GPS [north] m north and [east] m east of the start. */
-    private fun walkTo(north: Double, east: Double) {
-        val loc = Location(LocationManager.GPS_PROVIDER).apply {
+    private fun walkTo(north: Double, east: Double) = providers.forEach { provider ->
+        val loc = Location(provider).apply {
             latitude = start.first + north / 111_320.0
             longitude = start.second + east / (111_320.0 * Math.cos(Math.toRadians(start.first)))
             accuracy = 5f; altitude = 200.0
             time = System.currentTimeMillis(); elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
         }
-        lm.setTestProviderLocation(LocationManager.GPS_PROVIDER, loc)
+        lm.setTestProviderLocation(provider, loc)
     }
 
     private fun save(name: String) {
