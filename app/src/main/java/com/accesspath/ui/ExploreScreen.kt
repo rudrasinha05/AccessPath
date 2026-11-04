@@ -264,6 +264,12 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             val l = LatLng(it.latitude, it.longitude); gps = l; camera = CameraRequest(++nonce, center = l, zoom = 17.0)
         }
     }
+    // When the first campus data arrives (a camera survey, an import or a published map), show it.
+    var hadCampus by remember { mutableStateOf(hasCampus) }
+    LaunchedEffect(hasCampus) {
+        if (hasCampus && !hadCampus && headerPx > 0 && mode == Mode.EXPLORE) moveTo(current, 19.0)
+        hadCampus = hasCampus
+    }
     val sheetState = rememberBottomSheetScaffoldState()
 
     BottomSheetScaffold(
@@ -376,7 +382,8 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             }
 
             // Right-side controls: floor picker under the top overlay, "show my position" above the sheet.
-            if (!outdoorMode) Box(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp)) {
+            // Floor picker on the left so it never collides with the right-hand controls on short screens.
+            if (!outdoorMode) Box(Modifier.align(Alignment.TopStart).padding(top = headerDp + 4.dp, start = 12.dp)) {
                 FloorPicker(state) { vm.selectFloor(it) }
             }
             // One column above the sheet, like Google Maps. Zoom buttons are left out while the tall directions
