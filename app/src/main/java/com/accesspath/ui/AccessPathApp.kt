@@ -1,6 +1,8 @@
 package com.accesspath.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -45,13 +47,27 @@ fun AccessPathApp(vm: AccessViewModel) {
         val scope = rememberCoroutineScope()
 
         fun startMapping(at: LatLng) { mappingAt = "${at.lat},${at.lng}" }
-        fun startMappingHere() = scope.launch {
+        // Where the map is centred; used to place a new area when the phone has no location fix.
+        var mapCenter by remember { mutableStateOf<LatLng?>(null) }
+        fun continueMapping() = scope.launch {
             val fix = DeviceSensors.currentLocation(context, 8_000)?.takeIf { it.hasAccuracy() && it.accuracy <= 60f }
             val s = ui.snapshot
-            val at = fix?.let { LatLng(it.latitude, it.longitude) }
+            val gpsOrCampus = fix?.let { LatLng(it.latitude, it.longitude) }
                 ?: s?.let { st -> st.node(st.current)?.let { Geo.position(st.map, it) } }
-                ?: s?.map?.geo?.let { LatLng(it.lat, it.lng) }
-            if (at != null) startMapping(at) else vm.message(UiMessage.Text(R.string.mapping_no_position))
+            val at = gpsOrCampus ?: mapCenter ?: s?.map?.geo?.let { LatLng(it.lat, it.lng) }
+            when {
+                at == null -> vm.message(UiMessage.Text(R.string.mapping_no_position))
+                else -> {
+                    if (gpsOrCampus == null) vm.message(UiMessage.Text(R.string.mapping_at_center))
+                    startMapping(at)
+                }
+            }
+        }
+        // Never stop silently: ask for location first, then map from the fix, else from the map centre.
+        val mappingPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { continueMapping() }
+        fun startMappingHere() {
+            if (DeviceSensors.hasLocationPermission(context)) continueMapping()
+            else mappingPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
         }
         val speaker = rememberSpeaker()
 
@@ -113,7 +129,7 @@ fun AccessPathApp(vm: AccessViewModel) {
                         Text(stringResource(R.string.loading))
                     }
                     else -> when (tab) {
-                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
+                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapCenter = { mapCenter = it }, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
                         Tab.CONTRIBUTE -> ReportsScreen(ui, vm)
                         Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false })
                             else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() })

@@ -381,4 +381,5 @@
     <string name="gps_status_waiting">लोकेशन का इंतज़ार…</string>
     <string name="gps_status_accuracy">रिकॉर्ड हो रहा है · लोकेशन ±%1$s मीटर तक सही</string>
     <string name="gps_status_poor">यहाँ लोकेशन कमज़ोर है (±%1$s मीटर)। सुधरने तक बिंदु छोड़े जा रहे हैं; खिड़की या दरवाज़े के पास कोशिश करें।</string>
+    <string name="mapping_at_center">आपकी लोकेशन नहीं मिली, इसलिए नई जगह वहीं से शुरू होगी जहाँ नक्शे का बीच है। बेहतर नतीजे के लिए पहले नक्शे को सही जगह पर ले जाएँ।</string>
 </resources>

@@ -97,7 +97,7 @@ fun stepIcon(type: Segment): ImageVector = when (type) {
 }
 
 @Composable
-fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit) {
+fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit, onMapCenter: (LatLng) -> Unit = {}) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
     var mode by rememberSaveable { mutableStateOf(Mode.EXPLORE) }
@@ -328,6 +328,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     outdoorRoute = if (outdoorMode) (outdoor as? OutdoorState.Ready)?.route?.line.orEmpty() else emptyList(),
                     onLongPress = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) dropPin(it) },
                     onOrientation = { orientation = it },
+                    onCenter = onMapCenter,
                     myLocation = gps.takeIf { outdoorMode || !hasCampus },
                     description = stringResource(R.string.world_map_a11y, floorLabel),
                     modifier = Modifier.fillMaxSize().testTag("worldMap"),

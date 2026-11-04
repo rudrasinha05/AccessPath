@@ -243,6 +243,7 @@ fun WorldMap(
     outdoorRoute: List<LatLng> = emptyList(),
     onLongPress: (LatLng) -> Unit = {},
     onOrientation: (Float) -> Unit = {},
+    onCenter: (LatLng) -> Unit = {},
     /** Live GPS position while following an outdoor route; replaces the confirmed campus position dot. */
     myLocation: LatLng? = null,
     description: String,
@@ -342,9 +343,12 @@ fun WorldMap(
     // Report the map rotation so the compass needle can follow it.
     LaunchedEffect(mapView) {
         var last = Float.NaN
+        var lastCenter: LatLng? = null
         while (true) {
             val o = mapView.mapOrientation
             if (o != last) { last = o; onOrientation(o) }
+            val c = mapView.mapCenter.let { LatLng(it.latitude, it.longitude) }
+            if (c != lastCenter) { lastCenter = c; onCenter(c) }
             kotlinx.coroutines.delay(150)
         }
     }

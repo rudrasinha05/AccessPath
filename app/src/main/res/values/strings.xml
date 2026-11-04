@@ -395,4 +395,5 @@
     <string name="gps_status_waiting">Waiting for location…</string>
     <string name="gps_status_accuracy">Recording · location accurate to ±%1$s m</string>
     <string name="gps_status_poor">Location is weak here (±%1$s m). Points are skipped until it improves; try near a window or door.</string>
+    <string name="mapping_at_center">Your location isn\'t available, so the new area starts where the map is centred. Move the map to the right spot first for best results.</string>
 </resources>
