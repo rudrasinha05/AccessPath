@@ -80,9 +80,10 @@ class AppSmokeTest {
     @Test
     fun nearestWashroomShowsDirectionsAndNavigationStarts() {
         waitForMap()
-        compose.onNodeWithTag("sheet").performTouchInput { swipeUp() }
-        compose.waitForIdle()
-        compose.onAllNodesWithText(s(R.string.nearby_washroom))[0].performClick()
+        // The search screen offers "nearest washroom / lift / exit" on every screen size.
+        compose.onNodeWithTag("searchBar", useUnmergedTree = true).performClick()
+        compose.waitUntil(10_000) { compose.onAllNodes(hasText(s(R.string.nearby_washroom)) and hasAnyAncestor(isDialog())).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasText(s(R.string.nearby_washroom)) and hasAnyAncestor(isDialog()))[0].performScrollTo().performClick()
         waitForText(s(R.string.start))
         compose.onNodeWithText(s(R.string.start)).performClick()
         waitForText(s(R.string.exit_navigation))

@@ -1158,11 +1158,12 @@ private fun SearchDialog(
                         }
                         item {
                             Row(Modifier.horizontalScroll(rememberScrollState()).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(PoiCategory.ACCESSIBLE, PoiCategory.TOILETS, PoiCategory.HOSPITALS, PoiCategory.RESTAURANTS, PoiCategory.ATMS, PoiCategory.PETROL).forEach { c ->
-                                    AssistChip(onClick = { onCategory(c) }, label = { Text(stringResource(c.label())) }, leadingIcon = { Icon(c.icon(), null, Modifier.size(18.dp)) })
-                                }
+                                // Inside a mapped campus the nearest washroom, lift and exit come first.
                                 if (state.map.nodes.isNotEmpty()) NearbyKind.entries.forEach { kind ->
                                     AssistChip(onClick = { onNearest(kind) }, label = { Text(stringResource(kind.label())) })
+                                }
+                                listOf(PoiCategory.ACCESSIBLE, PoiCategory.TOILETS, PoiCategory.HOSPITALS, PoiCategory.RESTAURANTS, PoiCategory.ATMS, PoiCategory.PETROL).forEach { c ->
+                                    AssistChip(onClick = { onCategory(c) }, label = { Text(stringResource(c.label())) }, leadingIcon = { Icon(c.icon(), null, Modifier.size(18.dp)) })
                                 }
                             }
                         }
