@@ -415,8 +415,11 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
         if (mode == Mode.EXPLORE) { placeId = null; pinText = null; selectedPoi = null }
     }
 
+    // Small phones (about 640 dp tall): a lower sheet and fewer buttons so nothing covers the map controls.
+    val short = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 700
     val peek: Dp = when (mode) {
-        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 104.dp; Mode.EXPLORE -> if (category != null) 260.dp else 240.dp
+        Mode.NAVIGATE -> 176.dp; Mode.OUT_NAVIGATE -> 104.dp
+        Mode.EXPLORE -> if (short) (if (category != null) 220.dp else 200.dp) else if (category != null) 260.dp else 240.dp
         Mode.PIN -> 200.dp; Mode.OUT_DIRECTIONS -> 280.dp; Mode.POI -> 290.dp; else -> 236.dp
     }
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -615,8 +618,9 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                         Spacer(Modifier.height(10.dp))
                         CategoryChips(state.profile.mobility, category, onMobility = { editProfile = true },
                             onCategory = { category = it; if (mode == Mode.POI || mode == Mode.PIN) { selectedPoi = null; pinText = null; mode = Mode.EXPLORE } })
-                        if (hasCampus) Spacer(Modifier.height(8.dp))
-                        if (hasCampus) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // On small screens the sheet's "Nearest accessible" buttons do the same job.
+                        if (hasCampus && !short) Spacer(Modifier.height(8.dp))
+                        if (hasCampus && !short) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             NearbyKind.entries.forEach { kind ->
                                 val icon = when (kind) { NearbyKind.WASHROOM -> Icons.Filled.Wc; NearbyKind.LIFT -> Icons.Filled.Elevator; NearbyKind.EXIT -> Icons.Filled.MeetingRoom }
                                 MapChip(stringResource(kind.label()), icon) { placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }
@@ -637,13 +641,14 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             val browsing = mode == Mode.EXPLORE || mode == Mode.POI || mode == Mode.PIN || mode == Mode.PLACE
             if (hasGeo && browsing) Column(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 MapRoundButton(Icons.Filled.Layers, stringResource(R.string.map_type), tint = BrandTeal, container = BrandTealSoft, modifier = Modifier.testTag("layers")) { layers = true }
-                CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                // Compass only while the map is turned, like other map apps.
+                if (Math.abs(orientation % 360f) > 1f) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
                 // Zoom buttons only where there is room for them; pinch and the pin menu always zoom too.
                 if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp >= 720)
                     ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
             }
             // Bottom right, above the sheet: zoom, share, my location and directions.
-            Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + if (short) 8.dp else 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(if (short) 8.dp else 10.dp)) {
                 if (hasGeo && mode == Mode.OUT_NAVIGATE) {
                     CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
                     MapRoundButton(if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,

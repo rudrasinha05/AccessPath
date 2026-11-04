@@ -40,7 +40,7 @@ class AppSmokeTest {
         waitForMap(empty = true)
         compose.onNodeWithText(s(R.string.no_campus_title)).assertExists()
         compose.onNodeWithText(s(R.string.map_this_area)).assertExists()
-        compose.onNodeWithTag("compass").assertExists()
+        compose.onNodeWithTag("directionsFab").assertExists()
         compose.onNodeWithTag("layers").assertExists()
     }
 
