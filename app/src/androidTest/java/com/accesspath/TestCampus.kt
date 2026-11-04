@@ -13,7 +13,13 @@ object TestCampus {
     fun load(empty: Boolean = false) = runBlocking {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as AccessPathApplication
         app.repository.initialize()
+        // Start each test clean: no reports or closures left over from an earlier test.
+        app.repository.applyRemote { it.copy(reports = emptyList(), blockedEdges = emptySet()) }
         app.repository.importMap(if (empty) EMPTY else fixture())
     }
 }
 
+
+fun campusSnapshot() = runBlocking {
+    (InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as AccessPathApplication).repository.snapshot()
+}
