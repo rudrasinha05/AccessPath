@@ -32,7 +32,7 @@ import com.accesspath.BuildConfig
 import com.accesspath.R
 
 @Composable
-fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, onMapNewArea: () -> Unit) {
+fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, onMapNewArea: () -> Unit, onOpenPlace: (com.accesspath.data.SavedPlace) -> Unit = {}) {
     val state = ui.snapshot ?: return
     var editProfile by rememberSaveable { mutableStateOf(false) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importMap) }
@@ -44,6 +44,7 @@ fun SettingsScreen(ui: ScreenState, vm: AccessViewModel, onManage: () -> Unit, o
     ) {
         ScreenTitle(stringResource(R.string.tab_you))
         if (ui.server) AccountCard(ui, vm)
+        YourPlacesCard(onOpenPlace)
 
         Surface(onClick = { editProfile = true }, shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
           Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

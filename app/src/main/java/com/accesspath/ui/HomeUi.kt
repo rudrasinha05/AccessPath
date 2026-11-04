@@ -183,7 +183,7 @@ private fun PoiRow(p: Poi, from: LatLng?, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(p.name, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
-            val parts = listOfNotNull(from?.let { metres(it.metresToSafe(p.at)) }, p.address.takeIf { it.isNotBlank() })
+            val parts = listOfNotNull(from?.let { dist(it.metresToSafe(p.at)) }, p.address.takeIf { it.isNotBlank() })
             Column {
                 if (parts.isNotEmpty()) Text(parts.joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 wheelchairLabel(p.wheelchair)?.let { Text(stringResource(it), color = if (p.wheelchair == "no") Color(0xFFD93025) else Color(0xFF188038), style = MaterialTheme.typography.labelMedium) }
@@ -211,7 +211,7 @@ fun PoiSheet(
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(p.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-                Text(listOfNotNull(stringResource(cat.label()), from?.let { metres(it.metresToSafe(p.at)) }).joinToString(" · "),
+                Text(listOfNotNull(stringResource(cat.label()), from?.let { dist(it.metresToSafe(p.at)) }).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (p.address.isNotBlank()) Text(p.address, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

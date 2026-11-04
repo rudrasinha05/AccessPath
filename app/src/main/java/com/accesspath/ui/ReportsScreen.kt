@@ -1,5 +1,8 @@
 package com.accesspath.ui
 
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,9 +26,20 @@ import com.accesspath.domain.*
 import java.util.UUID
 
 @Composable
-fun ReportsScreen(ui: ScreenState, vm: AccessViewModel) {
+fun ReportsScreen(ui: ScreenState, vm: AccessViewModel, onMapArea: () -> Unit = {}) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
+    val app = context.applicationContext as com.accesspath.AccessPathApplication
+    val scope = rememberCoroutineScope()
+    var outdoorAt by remember { mutableStateOf<com.accesspath.domain.LatLng?>(null) }
+    var outdoorTick by remember { mutableIntStateOf(0) }
+    fun locateForReport() = scope.launch {
+        val fix = com.accesspath.ui.mapping.DeviceSensors.currentLocation(context, 10_000)
+        if (fix == null) vm.message(UiMessage.Text(R.string.location_off)) else outdoorAt = com.accesspath.domain.LatLng(fix.latitude, fix.longitude)
+    }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        if (com.accesspath.ui.mapping.DeviceSensors.hasLocationPermission(context)) locateForReport()
+    }
     var reporting by rememberSaveable { mutableStateOf(false) }
     var decision by rememberSaveable { mutableStateOf<Pair<String, ReportStatus>?>(null) }
     val (active, closed) = remember(state.reports) { state.reports.sortedByDescending { it.createdAt }.partition { it.isActive } }
@@ -36,6 +50,15 @@ fun ReportsScreen(ui: ScreenState, vm: AccessViewModel) {
         modifier = Modifier.fillMaxSize().testTag("reports")
     ) {
         item { ScreenTitle(stringResource(R.string.tab_contribute)) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ContributionsCard(onReportOutdoor = {
+                    if (com.accesspath.ui.mapping.DeviceSensors.hasLocationPermission(context)) locateForReport()
+                    else locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                }, onMapArea = onMapArea)
+                key(outdoorTick) { MyOutdoorReports(outdoorTick) { outdoorTick++ } }
+            }
+        }
         item {
             Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -70,6 +93,16 @@ fun ReportsScreen(ui: ScreenState, vm: AccessViewModel) {
         }
     }
 
+    outdoorAt?.let { at ->
+        ReportBarrierDialog(signedIn = app.supabase.session != null, onDismiss = { outdoorAt = null }) { kind, note ->
+            outdoorAt = null
+            scope.launch {
+                val shared = app.barriers.report(at, kind, note)
+                vm.message(UiMessage.Text(if (shared) R.string.barrier_reported else R.string.barrier_reported_local))
+                outdoorTick++
+            }
+        }
+    }
     if (reporting) {
         ReportDialog(state, (ui.route as? RouteResult.Found)?.edges.orEmpty(), onDismiss = { reporting = false }) { id, edge, category, text ->
             reporting = false

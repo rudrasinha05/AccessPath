@@ -499,4 +499,39 @@
     <string name="nav_channel_desc">Turn-by-turn directions while you travel</string>
     <string name="nav_eta">%1$s left · arrive %2$s</string>
     <string name="in_distance">In %1$s, %2$s</string>
+
+    <!-- You and Contribute -->
+    <string name="your_places">Your places</string>
+    <string name="set_to_here">Set to where you are now</string>
+    <string name="remove">Remove</string>
+    <plurals name="saved_count">
+        <item quantity="one">Saved (%1$d)</item>
+        <item quantity="other">Saved (%1$d)</item>
+    </plurals>
+    <string name="saved_empty">Places you save from the map show here.</string>
+    <string name="level_n">Level %1$d</string>
+    <string name="points_n">%1$d points</string>
+    <string name="points_to_next">%1$d more points to level %2$d</string>
+    <string name="stat_reports">reports</string>
+    <string name="stat_mapped">areas mapped</string>
+    <string name="report_outdoor">Report a blockage here</string>
+    <string name="my_outdoor_reports">Your blockage reports</string>
+    <string name="only_on_phone">only on this phone</string>
+    <string name="shared">shared</string>
+
+    <!-- SOS -->
+    <string name="sos_title">Emergency help</string>
+    <string name="sos_call">Call 112</string>
+    <string name="sos_send_location">Send my location</string>
+    <string name="sos_no_contacts">No emergency contacts yet: choose an app to send it</string>
+    <string name="sos_message">I need help. This is my location: %1$s</string>
+    <string name="sos_location_unknown">(location not available, please call me)</string>
+    <string name="sos_hospital">Nearest hospital</string>
+    <string name="sos_hospital_desc">Directions to the closest hospital on the map</string>
+    <string name="sos_exit">Nearest exit</string>
+    <string name="sos_exit_desc">Step-free route out of this building when you need one</string>
+    <string name="sos_contacts">Emergency contacts (on this phone only)</string>
+    <string name="sos_add_contact">Add contact</string>
+    <string name="sos_contact_name">Name</string>
+    <string name="sos_contact_phone">Phone number</string>
 </resources>

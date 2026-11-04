@@ -43,7 +43,7 @@ fun List<OutdoorBarrier>.onLine(line: List<LatLng>, withinM: Double = 25.0): Lis
  * when the person is signed in. Reports older than [MAX_AGE_DAYS] days are hidden, because most blockages
  * outdoors (digging, water, a parked truck) are temporary.
  */
-class OutdoorBarriers(context: Context, private val supabase: SupabaseClient) {
+class OutdoorBarriers(context: Context, private val supabase: SupabaseClient, private val contributions: Contributions? = null) {
     private val prefs = context.getSharedPreferences("accesspath_barriers", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
     private val list = ListSerializer(OutdoorBarrier.serializer())
@@ -58,6 +58,7 @@ class OutdoorBarriers(context: Context, private val supabase: SupabaseClient) {
     suspend fun report(at: LatLng, kind: BarrierKind, note: String): Boolean {
         val b = OutdoorBarrier(UUID.randomUUID().toString(), at.lat, at.lng, kind, note.trim().take(300), localOnly = true)
         saveLocal(listOf(b) + local())
+        contributions?.add(Contributions.Kind.OUTDOOR_BARRIER)
         return upload(b)
     }
 

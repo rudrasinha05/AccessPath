@@ -484,4 +484,37 @@
     <string name="nav_channel_desc">यात्रा के दौरान मोड़-दर-मोड़ निर्देश</string>
     <string name="nav_eta">%1$s बाकी · %2$s तक पहुँचें</string>
     <string name="in_distance">%1$s बाद, %2$s</string>
+
+    <string name="your_places">आपकी जगहें</string>
+    <string name="set_to_here">अभी की जगह पर सेट करें</string>
+    <string name="remove">हटाएँ</string>
+    <plurals name="saved_count">
+        <item quantity="one">सेव की गई (%1$d)</item>
+        <item quantity="other">सेव की गईं (%1$d)</item>
+    </plurals>
+    <string name="saved_empty">मैप से सेव की गई जगहें यहाँ दिखेंगी।</string>
+    <string name="level_n">लेवल %1$d</string>
+    <string name="points_n">%1$d पॉइंट</string>
+    <string name="points_to_next">लेवल %2$d के लिए %1$d पॉइंट और</string>
+    <string name="stat_reports">रिपोर्ट</string>
+    <string name="stat_mapped">मैप किए क्षेत्र</string>
+    <string name="report_outdoor">यहाँ रुकावट बताएँ</string>
+    <string name="my_outdoor_reports">आपकी रुकावट रिपोर्ट</string>
+    <string name="only_on_phone">केवल इस फ़ोन पर</string>
+    <string name="shared">शेयर की गई</string>
+
+    <string name="sos_title">आपातकालीन मदद</string>
+    <string name="sos_call">112 पर कॉल करें</string>
+    <string name="sos_send_location">मेरी लोकेशन भेजें</string>
+    <string name="sos_no_contacts">अभी कोई आपातकालीन संपर्क नहीं: भेजने के लिए ऐप चुनें</string>
+    <string name="sos_message">मुझे मदद चाहिए। मेरी लोकेशन: %1$s</string>
+    <string name="sos_location_unknown">(लोकेशन नहीं मिली, कृपया मुझे कॉल करें)</string>
+    <string name="sos_hospital">नज़दीकी अस्पताल</string>
+    <string name="sos_hospital_desc">मैप पर सबसे पास के अस्पताल तक का रास्ता</string>
+    <string name="sos_exit">नज़दीकी निकास</string>
+    <string name="sos_exit_desc">ज़रूरत हो तो इस इमारत से बाहर का बिना सीढ़ी वाला रास्ता</string>
+    <string name="sos_contacts">आपातकालीन संपर्क (केवल इस फ़ोन पर)</string>
+    <string name="sos_add_contact">संपर्क जोड़ें</string>
+    <string name="sos_contact_name">नाम</string>
+    <string name="sos_contact_phone">फ़ोन नंबर</string>
 </resources>

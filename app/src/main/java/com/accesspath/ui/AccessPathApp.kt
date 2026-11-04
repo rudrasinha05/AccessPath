@@ -41,6 +41,8 @@ fun AccessPathApp(vm: AccessViewModel) {
         val snackbar = remember { SnackbarHostState() }
         var tab by rememberSaveable { mutableStateOf(Tab.EXPLORE) }
         var managing by rememberSaveable { mutableStateOf(false) }
+        // A place picked on the You tab, to open on the map.
+        var openPlace by remember { mutableStateOf<com.accesspath.data.SavedPlace?>(null) }
         // "lat,lng" of where camera mapping started; null when not mapping.
         var mappingAt by rememberSaveable { mutableStateOf<String?>(null) }
         var heading by remember { mutableDoubleStateOf(0.0) }
@@ -129,10 +131,10 @@ fun AccessPathApp(vm: AccessViewModel) {
                         Text(stringResource(R.string.loading))
                     }
                     else -> when (tab) {
-                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, onMapCenter = { mapCenter = it }, onOpenYou = { tab = Tab.YOU }, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
-                        Tab.CONTRIBUTE -> ReportsScreen(ui, vm)
+                        Tab.EXPLORE -> ExploreScreen(ui, vm, speaker, pendingPlace = openPlace, onPendingDone = { openPlace = null }, onMapCenter = { mapCenter = it }, onOpenYou = { tab = Tab.YOU }, onMapArea = { at -> if (at != null) startMapping(at) else startMappingHere() })
+                        Tab.CONTRIBUTE -> ReportsScreen(ui, vm, onMapArea = { startMappingHere() })
                         Tab.YOU -> if (managing) ManageScreen(ui, vm, onBack = { managing = false })
-                            else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() })
+                            else SettingsScreen(ui, vm, onManage = { managing = true }, onMapNewArea = { startMappingHere() }, onOpenPlace = { openPlace = it; tab = Tab.EXPLORE })
                     }
                 }
             }

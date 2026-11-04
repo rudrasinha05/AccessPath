@@ -213,6 +213,7 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
     fun submitReport(id: String, edgeId: String, category: BarrierCategory, description: String) =
         perform(UiMessage.Text(R.string.report_submitted)) {
             repository.submitReport(id, edgeId, category, description)
+            (getApplication<AccessPathApplication>()).contributions.add(com.accesspath.data.Contributions.Kind.CAMPUS_REPORT)
             if (!ui_.value.server) return@perform null
             if (!sync.signedIn) return@perform UiMessage.Text(R.string.report_saved_sign_in)
             try { sync.pushPendingReports(); null } catch (e: AppError) { UiMessage.Text(R.string.report_saved_offline) }
@@ -246,6 +247,7 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
     fun saveSurvey(trail: List<TrailPoint>, places: List<SurveyPlace>, start: LatLng, headingDeg: Double) =
         perform(UiMessage.Text(R.string.survey_saved)) {
             val stamp = System.currentTimeMillis()
+            (getApplication<AccessPathApplication>()).contributions.add(com.accesspath.data.Contributions.Kind.MAPPED_AREA)
             val name = "Draft area " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(stamp))
             val survey = withContext(Dispatchers.Default) { SurveyBuilder.build("survey_$stamp", name, trail, places, start, headingDeg) }
                 ?: return@perform UiMessage.Text(R.string.mapping_too_short)

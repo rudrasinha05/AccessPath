@@ -103,7 +103,7 @@ fun stepIcon(type: Segment): ImageVector = when (type) {
 }
 
 @Composable
-fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit, onMapCenter: (LatLng) -> Unit = {}, onOpenYou: () -> Unit = {}) {
+fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapArea: (LatLng?) -> Unit, pendingPlace: com.accesspath.data.SavedPlace? = null, onPendingDone: () -> Unit = {}, onMapCenter: (LatLng) -> Unit = {}, onOpenYou: () -> Unit = {}) {
     val state = ui.snapshot ?: return
     val context = LocalContext.current
     var mode by rememberSaveable { mutableStateOf(Mode.EXPLORE) }
@@ -165,6 +165,14 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     var speedKmh by remember { mutableStateOf<Int?>(null) }
     var along by remember { mutableStateOf<List<Poi>?>(null) }
     var alongLoading by remember { mutableStateOf(false) }
+    var sos by rememberSaveable { mutableStateOf(false) }
+    fun openSos() {
+        sos = true
+        // Get a fresh position for the message when location is allowed.
+        if (DeviceSensors.hasLocationPermission(context)) scope.launch {
+            DeviceSensors.currentLocation(context, 8_000)?.let { gps = LatLng(it.latitude, it.longitude) }
+        }
+    }
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun say(text: String) { if (!muted) speaker.speak(listOf(text), context.resources.configuration.locales[0]) }
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -200,6 +208,8 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             camera = CameraRequest(++nonce, center = LatLng(sp.lat, sp.lng), zoom = 17.0)
         }
     }
+
+    LaunchedEffect(pendingPlace) { pendingPlace?.let { openSaved(it); onPendingDone() } }
 
     val found = ui.route as? RouteResult.Found
     val steps = remember(found, state.map) { found?.let { RouteSteps.build(it, state.map) }.orEmpty() }
@@ -644,6 +654,7 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     searchQuery = ""; searchForDirections = true; searching = true
                 }
             }
+            if (mode != Mode.OUT_NAVIGATE && mode != Mode.NAVIGATE) Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = peek + 30.dp)) { SosButton(::openSos) }
             if (mode == Mode.OUT_NAVIGATE) speedKmh?.let { k ->
                 Box(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = peek + 28.dp)) { SpeedBubble(k) }
             }
@@ -682,6 +693,17 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             onGeo = { r -> go(com.accesspath.data.SavedPlace(r.name, r.detail, r.at.lat, r.at.lng)) },
             onDismiss = { searching = false }, onNearest = { kind -> searching = false; placeId = null; vm.goToNearest(kind); mode = Mode.DIRECTIONS }) { node -> searching = false; select(node) }
     }
+    if (sos) SosSheet(gps?.let(::mapLink), hasCampus, onDismiss = { sos = false },
+        onNearestHospital = {
+            val at = gps ?: mapCenter
+            sos = false
+            if (at == null) vm.message(UiMessage.Text(R.string.location_off)) else scope.launch {
+                val all = runCatching { Places.nearby(PoiCategory.HOSPITALS, at, 5_000) }.getOrDefault(emptyList())
+                val h = all.firstOrNull { it.tags["type"] == "hospital" || it.tags["amenity"] == "hospital" } ?: all.firstOrNull()
+                if (h == null) vm.message(UiMessage.Text(R.string.places_failed)) else { selectedPoi = h; mode = Mode.POI; directionsTo(h.at, h.name) }
+            }
+        },
+        onNearestExit = { sos = false; placeId = null; vm.goToNearest(NearbyKind.EXIT); mode = Mode.DIRECTIONS })
     reportAt?.let { at ->
         ReportBarrierDialog(signedIn = app.supabase.session != null, atPin = reportAtPin, onDismiss = { reportAt = null }) { kind, note ->
             reportAt = null

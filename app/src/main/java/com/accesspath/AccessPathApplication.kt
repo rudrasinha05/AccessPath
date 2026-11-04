@@ -9,7 +9,8 @@ class AccessPathApplication : Application() {
     val supabase by lazy { com.accesspath.data.remote.SupabaseClient(this, BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY) }
 
     val localPlaces by lazy { com.accesspath.data.LocalPlaces(this) }
-    val barriers by lazy { com.accesspath.data.OutdoorBarriers(this, supabase) }
+    val contributions by lazy { com.accesspath.data.Contributions(this) }
+    val barriers by lazy { com.accesspath.data.OutdoorBarriers(this, supabase, contributions) }
 
     val repository by lazy {
         val db = Room.databaseBuilder(this, AccessDatabase::class.java, "accesspath.db").build()
