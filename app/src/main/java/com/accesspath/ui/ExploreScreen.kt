@@ -376,12 +376,14 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             }
 
             // Right-side controls: floor picker under the top overlay, "show my position" above the sheet.
-            Column(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (hasGeo) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
-                if (!outdoorMode) FloorPicker(state) { vm.selectFloor(it) }
+            if (!outdoorMode) Box(Modifier.align(Alignment.TopEnd).padding(top = headerDp + 4.dp, end = 12.dp)) {
+                FloorPicker(state) { vm.selectFloor(it) }
             }
+            // One column above the sheet, like Google Maps. Zoom buttons are left out while the tall directions
+            // header is shown (pinch zoom still works) so the controls never cover it on short screens.
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = peek + 16.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (hasGeo) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
+                if (hasGeo) CompassButton(orientation) { camera = CameraRequest(++nonce, northUp = true) }
+                if (hasGeo && !outdoorMode && mode != Mode.DIRECTIONS && mode != Mode.NAVIGATE) ZoomButtons(onIn = { camera = CameraRequest(++nonce, zoomStep = 1) }, onOut = { camera = CameraRequest(++nonce, zoomStep = -1) })
                 SmallFloatingActionButton(
                     onClick = ::showMe,
                     containerColor = MaterialTheme.colorScheme.surface, contentColor = GoogleBlue

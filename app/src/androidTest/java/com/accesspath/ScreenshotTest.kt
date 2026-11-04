@@ -72,7 +72,7 @@ class ScreenshotTest {
         waitForText(s(R.string.pin_title))
         compose.onNodeWithText(s(R.string.directions)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("mode_bus").performClick()
+        compose.onNodeWithTag("mode_bus").performScrollTo().performClick()
         save("10-travel-modes", 2000)
         waitForText(s(R.string.open_google_maps))
     }

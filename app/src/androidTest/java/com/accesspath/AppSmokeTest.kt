@@ -53,7 +53,7 @@ class AppSmokeTest {
         compose.onNodeWithText(s(R.string.map_this_area)).assertExists()
         compose.onNodeWithText(s(R.string.directions)).performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("mode_bus").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("mode_bus").performClick()
+        compose.onNodeWithTag("mode_bus").performScrollTo().performClick()
         waitForText(s(R.string.open_google_maps))
         compose.onNodeWithTag("mode_car").assertExists()
         compose.onNodeWithTag("mode_wheelchair").assertExists()

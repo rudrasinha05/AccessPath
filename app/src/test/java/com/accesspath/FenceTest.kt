@@ -34,7 +34,7 @@ class FenceTest {
     @Test
     fun brokenLiftsAlertOnlyPeopleWhoNeedLifts() {
         val broken = campus.copy(facilities = campus.facilities.map { if (it.id == "liftA") it.copy(availability = Availability.UNAVAILABLE) else it })
-        assertTrue(FencePlanner.plan(AppSnapshot(broken)).none { it.kind == FenceKind.LIFT_DOWN })
+        assertTrue(FencePlanner.plan(AppSnapshot(broken, profile = Profile(Mobility.STANDARD))).none { it.kind == FenceKind.LIFT_DOWN })
         val wheelchair = FencePlanner.plan(AppSnapshot(broken, profile = Profile(Mobility.WHEELCHAIR)))
         assertEquals(listOf("lift:liftA"), wheelchair.filter { it.kind == FenceKind.LIFT_DOWN }.map { it.id })
     }
