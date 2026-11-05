@@ -534,4 +534,37 @@
     <string name="sos_add_contact">Add contact</string>
     <string name="sos_contact_name">Name</string>
     <string name="sos_contact_phone">Phone number</string>
+    <string name="finding_location">Finding your location…</string>
+
+    <!-- AI mapping and review -->
+    <string name="mapping_method_ai">Walk with AI camera</string>
+    <string name="mapping_method_ai_desc">Walk with the blue dot while the camera reads signs (Toilet, Lift, Exit, Room 204) and suggests places. Works offline.</string>
+    <string name="recommended">Recommended</string>
+    <string name="mapping_review_note">Everything you map is checked by an admin before anyone else sees it.</string>
+    <string name="ai_reading_signs">AI is reading signs</string>
+    <string name="ai_found">AI found a sign</string>
+    <string name="add">Add</string>
+    <string name="type_exit">Exit</string>
+    <string name="type_ramp">Ramp</string>
+    <string name="name_area_title">Name this area</string>
+    <string name="name_area_label">e.g. Block A, ground floor</string>
+    <string name="name_area_review">It will be sent to an admin. It appears on the map for everyone only after they verify it.</string>
+    <string name="send_for_review">Send for review</string>
+    <string name="survey_sent_review">Sent for review. It will appear on the map after an admin verifies it.</string>
+    <string name="survey_saved_sign_in_review">Saved on this phone. Sign in to send it to an admin for review.</string>
+    <string name="survey_saved_local_review">Saved for review. An admin can approve it in Campus management.</string>
+    <string name="survey_approved">Approved. The area is now on the map for everyone.</string>
+    <string name="survey_rejected">Rejected. The area will not be shown.</string>
+    <string name="review_title">Waiting for review</string>
+    <string name="review_intro">Areas people mapped. Check the path and places, then approve to show them on the map, or reject with a reason.</string>
+    <string name="review_none">Nothing to review.</string>
+    <string name="approve">Approve</string>
+    <string name="reject">Reject</string>
+    <string name="reject_title">Reject this area</string>
+    <string name="mapped_areas_title">Approved mapped areas</string>
+    <string name="my_areas">Your mapped areas</string>
+    <string name="status_waiting_review">Waiting for admin review</string>
+    <string name="status_not_sent">Not sent yet (sign in)</string>
+    <string name="status_on_map">Approved, on the map</string>
+    <string name="status_rejected">Rejected</string>
 </resources>

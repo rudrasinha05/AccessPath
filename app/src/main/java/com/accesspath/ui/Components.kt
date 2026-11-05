@@ -78,7 +78,7 @@ fun PlacePickerDialog(state: AppSnapshot, title: String, onDismiss: () -> Unit, 
     val floors = state.map.floors.associateBy { it.id }
     val places = remember(state.map, query) {
         state.map.nodes
-            .filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+            .filter { it.isPlace && (query.isBlank() || it.name.contains(query.trim(), ignoreCase = true)) }
             .sortedWith(compareBy({ floors[it.floorId]?.buildingId }, { floors[it.floorId]?.ordinal }, { it.name }))
     }
     AlertDialog(

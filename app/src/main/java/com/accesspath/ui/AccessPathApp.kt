@@ -90,10 +90,11 @@ fun AccessPathApp(vm: AccessViewModel) {
 
         mappingAt?.let { at ->
             val (lat, lng) = at.split(",").map { it.toDouble() }
-            MappingScreen(onClose = { mappingAt = null }) { trail, places, start, walkHeading ->
+            MappingScreen(onClose = { mappingAt = null }) { trail, places, start, walkHeading, name ->
                 mappingAt = null
                 // Location mapping brings its own start and north-up trail; camera mapping uses where it began and the compass.
-                vm.saveSurvey(trail, places, start ?: LatLng(lat, lng), walkHeading ?: heading)
+                // The area goes to the review queue; it shows on the map only after an admin approves it.
+                vm.saveSurvey(trail, places, start ?: LatLng(lat, lng), walkHeading ?: heading, name)
             }
             return@AccessPathTheme
         }

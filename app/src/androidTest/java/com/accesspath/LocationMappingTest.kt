@@ -90,7 +90,6 @@ class LocationMappingTest {
         TestCampus.load()
         compose.waitForIdle()
         if (compose.onAllNodesWithText(s(R.string.not_now)).fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText(s(R.string.not_now)).performClick()
-        val draftsBefore = campusSnapshot().map.buildings.count { it.draft }
 
         compose.onNodeWithText(s(R.string.tab_you)).performClick()
         compose.onNodeWithText(s(R.string.map_new_area)).performScrollTo().performClick()
@@ -110,11 +109,32 @@ class LocationMappingTest {
         save("uc7-walk-recorded")
         compose.onNodeWithText(s(R.string.finish)).performClick()
 
-        compose.waitUntil(15_000) { campusSnapshot().map.buildings.count { it.draft } > draftsBefore }
-        val snap = campusSnapshot()
-        val room = snap.map.nodes.firstOrNull { it.name == "Room 101" }
+        // Name the area and send it for review.
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("areaName").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("areaName").performTextInput("Test block")
+        save("uc8-name-area")
+        compose.onNodeWithTag("sendForReview").performClick()
+
+        // It waits for an admin: NOT on the map yet.
+        val app = compose.activity.application as AccessPathApplication
+        compose.waitUntil(15_000) { app.pendingSurveys.all().any { it.name == "Test block" } }
+        val pending = app.pendingSurveys.all().first { it.name == "Test block" }
+        assertTrue("not on the map before review", campusSnapshot().map.buildings.none { it.id == pending.id })
+        val room = pending.survey.nodes.firstOrNull { it.name == "Room 101" }
         assertNotNull("named place saved", room)
-        val pos = com.accesspath.domain.Geo.position(snap.map, room!!)!!
+        // The walk is a clean line: start, the corner, the end, and the named room, not one point per GPS fix.
+        assertTrue("clean path", pending.survey.nodes.size <= 5)
+
+        // It is in the admin's review queue.
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[com.accesspath.ui.AccessViewModel::class.java]
+        vm.loadReviewQueue()
+        compose.waitUntil(10_000) { vm.reviewQueue.value.any { it.id == pending.id } }
+        // What approval does (the server step needs a signed-in admin): the area joins the map, where it was walked.
+        kotlinx.coroutines.runBlocking { app.repository.addSurvey(pending.survey.approved()) }
+        compose.waitUntil(15_000) { campusSnapshot().map.buildings.any { it.id == pending.id } }
+        val snap = campusSnapshot()
+        val placed = snap.map.nodes.first { it.name == "Room 101" }
+        val pos = com.accesspath.domain.Geo.position(snap.map, placed)!!
         val expected = com.accesspath.domain.LatLng(start.first + 30.0 / 111_320.0, start.second)
         assertTrue("room saved where it was named", com.accesspath.domain.Coverage.distanceMetres(pos, expected) < 5.0)
         Thread.sleep(2_000)

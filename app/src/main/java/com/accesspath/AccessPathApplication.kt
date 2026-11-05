@@ -9,6 +9,7 @@ class AccessPathApplication : Application() {
     val supabase by lazy { com.accesspath.data.remote.SupabaseClient(this, BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY) }
 
     val localPlaces by lazy { com.accesspath.data.LocalPlaces(this) }
+    val pendingSurveys by lazy { com.accesspath.data.PendingSurveys(this) }
     val contributions by lazy { com.accesspath.data.Contributions(this) }
     val barriers by lazy { com.accesspath.data.OutdoorBarriers(this, supabase, contributions) }
 

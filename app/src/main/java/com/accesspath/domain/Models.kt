@@ -50,6 +50,13 @@ object BarrierCategorySerializer : KSerializer<BarrierCategory> {
     val id: String, val floorId: String, val name: String, val x: Double, val y: Double,
     val type: String = "LANDMARK"
 )
+
+/**
+ * True for a real place people look for (entrance, room, washroom, lift, ramp...). Plain points that only
+ * shape a path (corridor bends and junctions, recorded walk points) are false and are never drawn as dots.
+ */
+val Node.isPlace: Boolean
+    get() = !type.equals("LANDMARK", true) && !type.equals("PATH", true) && !name.startsWith("Survey point")
 @Serializable data class Edge(
     val id: String, val from: String, val to: String, val type: Segment, val length: Double,
     val width: Double? = null, val slope: Double? = null, val stepFree: Boolean? = null,

@@ -52,6 +52,39 @@ object DeviceSensors {
 
     fun Location.toLatLng() = LatLng(latitude, longitude)
 
+    /** The freshest position any provider already has (instant; may be a few minutes old), or null. */
+    @SuppressLint("MissingPermission")
+    fun lastKnown(context: Context): Location? {
+        if (!hasLocationPermission(context)) return null
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+        return runCatching { lm.getProviders(true) }.getOrDefault(emptyList())
+            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+    }
+
+    /** True when location is turned on in the phone's settings. */
+    fun locationEnabled(context: Context): Boolean {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
+        return LocationManagerCompat.isLocationEnabled(lm)
+    }
+
+    /** Live compass direction the top of the phone points to (degrees clockwise from north), for compass mode. */
+    fun headingUpdates(context: Context): kotlinx.coroutines.flow.Flow<Float> = kotlinx.coroutines.flow.callbackFlow {
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val sensor = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        if (sm == null || sensor == null) { close(); return@callbackFlow }
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                val r = FloatArray(9); val o = FloatArray(3)
+                SensorManager.getRotationMatrixFromVector(r, event.values)
+                SensorManager.getOrientation(r, o)
+                trySend(((Math.toDegrees(o[0].toDouble()) + 360.0) % 360.0).toFloat())
+            }
+            override fun onAccuracyChanged(s: Sensor?, a: Int) = Unit
+        }
+        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+        awaitClose { sm.unregisterListener(listener) }
+    }
+
     /**
      * Live positions while collected (outdoor navigation and walk mapping); stops when collection stops.
      * Listens to every enabled provider (GPS, network, fused) and also checks the latest known fix every 1.5 s,

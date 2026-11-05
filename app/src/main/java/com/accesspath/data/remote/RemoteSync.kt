@@ -47,31 +47,63 @@ class RemoteSync(private val api: SupabaseClient, private val repo: CampusReposi
         runCatching { repo.importMap(payload.toString()) }
     }
 
-    /** Camera surveys: uploads local drafts (safe to repeat) and adds drafts other phones recorded. */
+    /**
+     * Mapped areas. Only areas an admin APPROVED are downloaded and added to the map; pending and rejected
+     * ones never reach other phones (the server's row level security also hides them).
+     */
     suspend fun syncSurveys() {
         val s = repo.snapshot()
-        if (api.signedIn()) s.map.buildings.filter { it.draft }.forEach { b ->
-            val survey = Survey.of(s.map, b.id) ?: return@forEach
-            val body = buildJsonObject {
-                put("id", b.id); put("map_id", s.map.id); put("name", b.name)
-                put("payload", json.parseToJsonElement(MapJson.encodeToString(Survey.serializer(), survey)))
-            }
-            api.insertIgnoringDuplicates("surveys", body.toString())
-        }
         val known = s.map.buildings.map { it.id }.toSet()
-        val rows = json.parseToJsonElement(api.get("surveys?map_id=eq.${enc(s.map.id)}&select=id,payload&order=created_at.asc&limit=500")) as kotlinx.serialization.json.JsonArray
+        val rows = json.parseToJsonElement(api.get("surveys?map_id=eq.${enc(s.map.id)}&status=eq.APPROVED&select=id,payload&order=created_at.asc&limit=500")) as kotlinx.serialization.json.JsonArray
         rows.forEach { row ->
             val o = row as? kotlinx.serialization.json.JsonObject ?: return@forEach
             val id = (o["id"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return@forEach
             if (id in known) return@forEach
             val survey = runCatching { MapJson.decodeFromString(Survey.serializer(), o["payload"].toString()) }.getOrNull() ?: return@forEach
-            runCatching { repo.addSurvey(survey) }
+            runCatching { repo.addSurvey(survey.approved()) }
         }
     }
 
-    /** Removes a draft survey from the server too, so other phones drop it. Only reviewers may. */
+    /** Sends an area for review (safe to repeat). */
+    suspend fun submitSurvey(survey: Survey) {
+        val body = buildJsonObject {
+            put("id", survey.building.id); put("map_id", repo.snapshot().map.id); put("name", survey.building.name)
+            put("payload", json.parseToJsonElement(MapJson.encodeToString(Survey.serializer(), survey)))
+        }
+        api.insertIgnoringDuplicates("surveys", body.toString())
+    }
+
+    @kotlinx.serialization.Serializable
+    data class SurveyStatus(val id: String, val status: String = "PENDING", val reason: String = "")
+
+    /** Review status of areas this phone sent. */
+    suspend fun surveyStatuses(ids: List<String>): List<SurveyStatus> {
+        if (ids.isEmpty()) return emptyList()
+        val list = ids.joinToString(",") { "\"" + it.replace("\"", "") + "\"" }
+        return json.decodeFromString(ListSerializer(SurveyStatus.serializer()), api.get("surveys?id=in.(${enc(list)})&select=id,status,reason"))
+    }
+
+    /** Areas waiting for review (reviewers only; the server returns nothing to others). */
+    suspend fun surveysToReview(): List<Pair<Survey, Long>> {
+        val rows = json.parseToJsonElement(api.get("surveys?map_id=eq.${enc(repo.snapshot().map.id)}&status=eq.PENDING&select=id,payload,created_at&order=created_at.asc&limit=200")) as kotlinx.serialization.json.JsonArray
+        return rows.mapNotNull { row ->
+            val o = row as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val survey = runCatching { MapJson.decodeFromString(Survey.serializer(), o["payload"].toString()) }.getOrNull() ?: return@mapNotNull null
+            val at = (o["created_at"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+            survey to (at ?: 0L)
+        }
+    }
+
+    /** An admin's decision; the server checks the role and records who decided and when. */
+    suspend fun reviewSurvey(id: String, approve: Boolean, reason: String) {
+        api.rpc("review_survey", buildJsonObject {
+            put("survey_id", id); put("decision", if (approve) "APPROVED" else "REJECTED"); put("why", reason)
+        }.toString())
+    }
+
+    /** Removes an area from the server too, so other phones drop it. Only reviewers may. */
     suspend fun deleteSurvey(id: String) {
-        // An empty result is fine: the draft may never have been uploaded. The caller has checked the role.
+        // An empty result is fine: the area may never have been uploaded. The caller has checked the role.
         api.delete("surveys", "id=eq.${enc(id)}")
     }
 

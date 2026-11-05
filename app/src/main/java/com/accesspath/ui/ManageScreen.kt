@@ -35,6 +35,9 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     var closeEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var reopenEdge by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteDraft by rememberSaveable { mutableStateOf<String?>(null) }
+    var rejectSurvey by rememberSaveable { mutableStateOf<String?>(null) }
+    val queue by vm.reviewQueue.collectAsState()
+    LaunchedEffect(ui.reviewer, ui.account) { vm.loadReviewQueue() }
     val qrExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri -> uri?.let(vm::exportQrPlacards) }
     // One entry per physical segment (both directions are closed together).
     val closedSegments = remember(state.blockedEdges, state.map) {
@@ -121,9 +124,12 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
             }
         }
         item {
-            val drafts = state.map.buildings.filter { it.draft }
-            SectionCard(stringResource(R.string.drafts_title)) {
-                InfoText(stringResource(R.string.drafts_intro))
+            ReviewQueueCard(queue, canEdit, onApprove = vm::approveSurvey, onReject = { rejectSurvey = it })
+        }
+        item {
+            // Areas already approved and on the map; an admin can still remove one.
+            val drafts = state.map.buildings.filter { it.draft || it.id.startsWith("survey_") }
+            SectionCard(stringResource(R.string.mapped_areas_title)) {
                 if (drafts.isEmpty()) InfoText(stringResource(R.string.drafts_none))
                 drafts.forEach { b ->
                     val floorIds = state.map.floors.filter { it.buildingId == b.id }.map { it.id }.toSet()
@@ -179,6 +185,10 @@ fun ManageScreen(ui: ScreenState, vm: AccessViewModel, onBack: () -> Unit) {
     reopenEdge?.let { id ->
         ReasonDialog(stringResource(R.string.reopen_title), stringResource(R.string.reopen), onDismiss = { reopenEdge = null },
             extra = { InfoText(state.segmentLabel(context, id)) }) { reason -> reopenEdge = null; vm.setPathClosed(id, false, reason) }
+    }
+    rejectSurvey?.let { id ->
+        ReasonDialog(stringResource(R.string.reject_title), stringResource(R.string.reject), onDismiss = { rejectSurvey = null },
+            extra = { InfoText(queue.firstOrNull { it.id == id }?.name.orEmpty()) }) { reason -> rejectSurvey = null; vm.rejectSurvey(id, reason) }
     }
     deleteDraft?.let { id ->
         ReasonDialog(stringResource(R.string.delete_draft_title), stringResource(R.string.delete), onDismiss = { deleteDraft = null },

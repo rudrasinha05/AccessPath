@@ -87,6 +87,11 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("com.google.ar:core:1.44.0")
+    // AI mapping: camera preview and on-device text recognition (reads signs such as "Toilet", "Lift", "Room 204"; works offline).
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.credentials:credentials:1.3.0")

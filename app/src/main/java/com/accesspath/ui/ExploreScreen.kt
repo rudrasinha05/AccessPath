@@ -68,6 +68,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** The location button, like Google Maps: off, following the blue dot, or following with the map turned to the compass. */
+private enum class LocMode { OFF, FOLLOW, COMPASS }
+
 private enum class Mode { EXPLORE, PLACE, DIRECTIONS, NAVIGATE, PIN, OUT_DIRECTIONS, OUT_NAVIGATE, POI }
 
 /** Shown when nothing is mapped and there is no GPS fix yet: all of India. */
@@ -134,7 +137,13 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
     val scope = rememberCoroutineScope()
     val hasCampus = state.map.nodes.isNotEmpty()
     val outdoorMode = mode == Mode.OUT_DIRECTIONS || mode == Mode.OUT_NAVIGATE
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { routeRequest++ }
+    // Blue dot: live position, its accuracy and the compass direction; and whether the map follows it.
+    var locMode by remember { mutableStateOf(LocMode.OFF) }
+    var gpsAccuracy by remember { mutableStateOf<Float?>(null) }
+    var heading by remember { mutableStateOf<Float?>(null) }
+    var locationTick by remember { mutableIntStateOf(0) }
+    var showMeAfterGrant by remember { mutableStateOf(false) }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { routeRequest++; locationTick++ }
     // Home screen: real places by category, map type, weather and the area's name.
     val local = (context.applicationContext as com.accesspath.AccessPathApplication).localPlaces
     var category by rememberSaveable { mutableStateOf<PoiCategory?>(null) }
@@ -238,18 +247,63 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
             else -> vm.message(UiMessage.Text(R.string.no_campus_title))
         }
     }
+    /**
+     * The location button, like Google Maps: first tap goes to your live position and follows it; a second tap
+     * turns the map with the compass; a third goes back to north up. Dragging the map stops following.
+     */
     fun showMe() {
-        val node = current
-        if (node != null && Geo.position(state.map, node) != null && !outdoorMode) {
-            if (node.floorId != state.selectedFloor) vm.selectFloor(node.floorId); moveTo(node); return
-        }
         if (!DeviceSensors.hasLocationPermission(context)) {
+            showMeAfterGrant = true
             locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)); return
         }
-        scope.launch {
-            val fix = DeviceSensors.currentLocation(context, 10_000)
-            if (fix == null) vm.message(UiMessage.Text(R.string.location_off))
-            else { val l = LatLng(fix.latitude, fix.longitude); gps = l; camera = CameraRequest(++nonce, center = l, zoom = 17.5) }
+        if (!DeviceSensors.locationEnabled(context)) {
+            vm.message(UiMessage.Text(R.string.location_off))
+            runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
+            return
+        }
+        val here = gps ?: DeviceSensors.lastKnown(context)?.let { LatLng(it.latitude, it.longitude) }
+        when {
+            locMode == LocMode.FOLLOW && here != null && heading != null -> {
+                locMode = LocMode.COMPASS
+                camera = CameraRequest(++nonce, center = here, zoom = null, bearing = heading, animateMs = 400L)
+            }
+            locMode == LocMode.COMPASS -> {
+                locMode = LocMode.FOLLOW
+                camera = CameraRequest(++nonce, northUp = true)
+            }
+            else -> {
+                locMode = LocMode.FOLLOW
+                if (here != null) { gps = here; camera = CameraRequest(++nonce, center = here, zoom = 18.0) }
+                else vm.message(UiMessage.Text(R.string.finding_location))
+            }
+        }
+    }
+    // Live blue dot while the map is open (outdoor navigation follows GPS itself).
+    LaunchedEffect(locationTick, mode == Mode.OUT_NAVIGATE) {
+        if (mode == Mode.OUT_NAVIGATE || !DeviceSensors.hasLocationPermission(context)) return@LaunchedEffect
+        if (showMeAfterGrant) { showMeAfterGrant = false; showMe() }
+        DeviceSensors.lastKnown(context)?.let { if (gps == null) { gps = LatLng(it.latitude, it.longitude); gpsAccuracy = it.accuracy } }
+        var firstFix = locMode == LocMode.FOLLOW
+        DeviceSensors.locationUpdates(context).collect { loc ->
+            val here = LatLng(loc.latitude, loc.longitude)
+            gps = here; gpsAccuracy = if (loc.hasAccuracy()) loc.accuracy else null
+            if (locMode != LocMode.OFF && mode != Mode.NAVIGATE) {
+                camera = if (firstFix) CameraRequest(++nonce, center = here, zoom = 18.0)
+                    else CameraRequest(++nonce, center = here, zoom = null, bearing = heading.takeIf { locMode == LocMode.COMPASS }, animateMs = 500L)
+                firstFix = false
+            }
+        }
+    }
+    // Compass: the beam on the blue dot, and the map turning in compass mode.
+    LaunchedEffect(locationTick) {
+        if (!DeviceSensors.hasLocationPermission(context)) return@LaunchedEffect
+        var last = -999f; var lastTime = 0L
+        DeviceSensors.headingUpdates(context).collect { h ->
+            val now = System.currentTimeMillis()
+            val diff = Math.abs(((h - last + 540f) % 360f) - 180f)
+            if (diff < 3f || now - lastTime < 250) return@collect
+            last = h; lastTime = now; heading = h
+            if (locMode == LocMode.COMPASS) camera = CameraRequest(++nonce, center = gps, zoom = null, bearing = h, animateMs = 250L)
         }
     }
     // Nearest mapped place to the pin, within 60 m.
@@ -567,7 +621,10 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                     onLongPress = { if (mode != Mode.NAVIGATE && mode != Mode.OUT_NAVIGATE) dropPin(it) },
                     onOrientation = { orientation = it },
                     onCenter = { mapCenter = it; onMapCenter(it) },
-                    myLocation = gps.takeIf { outdoorMode || !hasCampus },
+                    myLocation = gps,
+                    myAccuracyM = gpsAccuracy,
+                    myHeading = heading,
+                    onUserMove = { if (locMode != LocMode.OFF) locMode = LocMode.OFF },
                     mapStyle = mapStyle,
                     pois = when (mode) { Mode.EXPLORE, Mode.POI -> (pois + listOfNotNull(selectedPoi)).distinctBy { it.id }; Mode.OUT_NAVIGATE -> along.orEmpty(); else -> emptyList() },
                     selectedPoi = selectedPoi?.id.takeIf { mode == Mode.POI },
@@ -662,7 +719,10 @@ fun ExploreScreen(ui: ScreenState, vm: AccessViewModel, speaker: Speaker, onMapA
                 if (browsing && tall) MapRoundButton(Icons.Filled.Share, stringResource(R.string.share)) {
                     (gps ?: mapCenter)?.let { share(context.getString(R.string.share_my_location, mapLink(it))) }
                 }
-                MapRoundButton(Icons.Filled.MyLocation, stringResource(R.string.recenter), tint = BrandBlue, onClick = ::showMe)
+                MapRoundButton(
+                    when (locMode) { LocMode.OFF -> Icons.Filled.LocationSearching; LocMode.FOLLOW -> Icons.Filled.MyLocation; LocMode.COMPASS -> Icons.Filled.Explore },
+                    stringResource(R.string.recenter), tint = if (locMode == LocMode.OFF) MaterialTheme.colorScheme.onSurfaceVariant else BrandBlue,
+                    modifier = Modifier.testTag("myLocation"), onClick = ::showMe)
                 if (mode == Mode.EXPLORE) MapRoundButton(Icons.Filled.Directions, stringResource(R.string.directions), tint = Color.White, container = BrandTeal, modifier = Modifier.testTag("directionsFab")) {
                     searchQuery = ""; searchForDirections = true; searching = true
                 }
@@ -878,7 +938,7 @@ private fun ExploreSheet(state: AppSnapshot, onChangePosition: () -> Unit, onNea
     val current = state.node(state.current)
     val places = remember(state.map) {
         val floors = state.map.floors.associateBy { it.id }
-        state.map.nodes.filter { !it.type.equals("LANDMARK", true) }
+        state.map.nodes.filter { it.isPlace }
             .sortedWith(compareBy({ floors[it.floorId]?.buildingId }, { floors[it.floorId]?.ordinal }, { it.name }))
     }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1126,7 +1186,7 @@ private fun SearchDialog(
     val results = remember(state.map, query) {
         val floors = state.map.floors.associateBy { it.id }
         state.map.nodes
-            .filter { if (query.isBlank()) !it.type.equals("LANDMARK", true) else it.name.contains(query.trim(), ignoreCase = true) }
+            .filter { it.isPlace && (query.isBlank() || it.name.contains(query.trim(), ignoreCase = true)) }
             .sortedWith(compareBy({ floors[it.floorId]?.buildingId }, { floors[it.floorId]?.ordinal }, { it.name }))
     }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }

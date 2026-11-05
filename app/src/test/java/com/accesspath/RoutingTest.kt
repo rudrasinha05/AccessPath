@@ -252,7 +252,9 @@ class RoutingTest {
         val start = LatLng(28.48, 77.49)
         val s = SurveyBuilder.build("survey_1", "Draft", trail, listOf(SurveyPlace(trail.lastIndex, "Lab 3", "ROOM")), start, 0.0)!!
         assertTrue(s.building.draft)
-        assertTrue(s.nodes.size >= 5)
+        // The walk is straightened: start, the corner, and Lab 3. Plain path points never show as places.
+        assertEquals(3, s.nodes.size)
+        assertEquals(listOf(false, false, true), s.nodes.map { it.isPlace })
         assertEquals("Lab 3", s.nodes.last().name)
         assertTrue(s.edges.all { it.width == null && it.stepFree == null && it.slope == null })
         assertEquals(2 * (s.nodes.size - 1), s.edges.size)

@@ -144,7 +144,7 @@ fun FloorPlan(
                     drawCircle(colors.destination, 9.dp.toPx(), c)
                     drawCircle(colors.background, 9.dp.toPx(), c, style = Stroke(2.dp.toPx()))
                 }
-                else -> {
+                else -> if (n.isPlace) {
                     val r = if (n.id in routeNodes) 5.dp.toPx() else 4.dp.toPx()
                     drawCircle(if (n.id in routeNodes) colors.route else colors.place, r, c)
                 }
@@ -153,8 +153,8 @@ fun FloorPlan(
 
         // Labels: always for important places; for plain corridor points only when zoomed in.
         nodes.forEach { n ->
-            val important = n.id == state.current || n.id == state.destination || !n.type.equals("LANDMARK", true)
-            if (!important && scale < 1.8f) return@forEach
+            val important = n.id == state.current || n.id == state.destination || n.isPlace
+            if (!important) return@forEach
             val c = p.point(n)
             drawLabel(
                 measurer.measure(n.name, if (n.id == state.current || n.id == state.destination) strongLabel else labelStyle,

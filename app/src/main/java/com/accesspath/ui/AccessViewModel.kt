@@ -51,6 +51,14 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
         else ScreenState(reviewer = saved[KEY_REVIEWER] ?: false)
     )
     val ui: StateFlow<ScreenState> = ui_.asStateFlow()
+    private val pending = (application as AccessPathApplication).pendingSurveys
+    /** Areas this phone mapped, with their review status (for the Contribute tab). */
+    private val mySurveys_ = MutableStateFlow(pending.all().filter { it.mine })
+    val mySurveys: StateFlow<List<com.accesspath.data.PendingSurvey>> = mySurveys_.asStateFlow()
+    /** Areas waiting for an admin (Manage screen): this phone's own plus, for reviewers, everyone's from the server. */
+    private val reviewQueue_ = MutableStateFlow<List<com.accesspath.data.PendingSurvey>>(emptyList())
+    val reviewQueue: StateFlow<List<com.accesspath.data.PendingSurvey>> = reviewQueue_.asStateFlow()
+    private fun refreshMine() { mySurveys_.value = pending.all().filter { it.mine } }
 
     private val ready = viewModelScope.async(Dispatchers.IO) {
         runCatching { repository.initialize() }.onFailure {
@@ -77,10 +85,28 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
     }
 
     init {
+        // Areas recorded before reviews existed were shown straight away; move them to the review queue.
+        viewModelScope.launch {
+            ready.await()
+            runCatching { moveUnverifiedToReview() }.onFailure { Log.w(TAG, "Could not move drafts to review", it) }
+        }
+    }
+
+    private suspend fun moveUnverifiedToReview() {
+        val s = repository.snapshot()
+        s.map.buildings.filter { it.draft }.forEach { b ->
+            val survey = Survey.of(s.map, b.id) ?: return@forEach
+            if (pending.all().none { it.id == b.id }) pending.add(com.accesspath.data.PendingSurvey(survey))
+            runCatching { repository.deleteSurvey(b.id, "Moved to the review queue") }
+        }
+        refreshMine()
+    }
+
+    init {
         if (sync.configured) viewModelScope.launch {
             ready.await()
             while (true) {
-                runCatching { refreshAccount(); syncQuietly() }
+                runCatching { refreshAccount(); syncQuietly(); syncMySurveys() }
                 kotlinx.coroutines.delay(60_000)
             }
         }
@@ -243,20 +269,79 @@ class AccessViewModel(application: Application, private val saved: SavedStateHan
             null
         }
 
-    /** Saves a camera-recorded walk as a draft area. */
-    fun saveSurvey(trail: List<TrailPoint>, places: List<SurveyPlace>, start: LatLng, headingDeg: Double) =
-        perform(UiMessage.Text(R.string.survey_saved)) {
+    /**
+     * Sends a mapped walk for review. It is NOT added to the map: it appears for everyone only after an admin
+     * approves it in Campus management.
+     */
+    fun saveSurvey(trail: List<TrailPoint>, places: List<SurveyPlace>, start: LatLng, headingDeg: Double, name: String? = null) =
+        perform {
             val stamp = System.currentTimeMillis()
-            (getApplication<AccessPathApplication>()).contributions.add(com.accesspath.data.Contributions.Kind.MAPPED_AREA)
-            val name = "Draft area " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(stamp))
-            val survey = withContext(Dispatchers.Default) { SurveyBuilder.build("survey_$stamp", name, trail, places, start, headingDeg) }
+            val title = name?.trim()?.takeIf { it.isNotEmpty() }
+                ?: ("Area " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(stamp)))
+            val survey = withContext(Dispatchers.Default) { SurveyBuilder.build("survey_$stamp", title.take(60), trail, places, start, headingDeg) }
                 ?: return@perform UiMessage.Text(R.string.mapping_too_short)
-            repository.addSurvey(survey)
-            // Share it right away when signed in; otherwise the next sync sends it.
-            if (ui_.value.server && ui_.value.account != null) runCatching { sync.syncSurveys() }
-            null
+            (getApplication<AccessPathApplication>()).contributions.add(com.accesspath.data.Contributions.Kind.MAPPED_AREA)
+            pending.add(com.accesspath.data.PendingSurvey(survey))
+            refreshMine()
+            val sent = ui_.value.server && sync.signedIn && runCatching { sync.submitSurvey(survey) }.isSuccess
+            if (sent) pending.update(survey.building.id) { it.copy(uploaded = true) }
+            refreshMine()
+            UiMessage.Text(when { sent -> R.string.survey_sent_review; ui_.value.server -> R.string.survey_saved_sign_in_review; else -> R.string.survey_saved_local_review })
         }
 
+    /** Sends areas mapped while offline or signed out, and picks up the admin's decisions. */
+    private suspend fun syncMySurveys() {
+        if (!sync.signedIn) return
+        pending.all().filter { it.mine && !it.uploaded }.forEach { p ->
+            if (runCatching { sync.submitSurvey(p.survey) }.isSuccess) pending.update(p.id) { it.copy(uploaded = true) }
+        }
+        val mine = pending.all().filter { it.mine && it.uploaded && it.status == com.accesspath.data.ReviewStatus.PENDING }
+        runCatching { sync.surveyStatuses(mine.map { it.id }) }.getOrNull()?.forEach { st ->
+            val status = runCatching { com.accesspath.data.ReviewStatus.valueOf(st.status) }.getOrNull() ?: return@forEach
+            pending.update(st.id) { it.copy(status = status, reason = st.reason) }
+        }
+        refreshMine()
+    }
+
+    /** Loads what an admin has to check: areas from this phone and, for signed-in reviewers, from everyone. */
+    fun loadReviewQueue() = viewModelScope.launch {
+        val local = pending.all().filter { it.status == com.accesspath.data.ReviewStatus.PENDING }
+        val remote = if (ui_.value.server && ui_.value.reviewer) runCatching { sync.surveysToReview() }.getOrDefault(emptyList())
+            .map { (survey, at) -> com.accesspath.data.PendingSurvey(survey, uploaded = true, createdAt = at, mine = false) } else emptyList()
+        reviewQueue_.value = (local + remote).distinctBy { it.id }.sortedBy { it.createdAt }
+    }
+
+    /** An admin approves an area: it is added to the map for everyone. */
+    fun approveSurvey(id: String) = perform(UiMessage.Text(R.string.survey_approved)) {
+        requireReviewer()
+        val item = reviewQueue_.value.firstOrNull { it.id == id } ?: pending.all().firstOrNull { it.id == id } ?: return@perform null
+        if (ui_.value.server) {
+            if (!item.uploaded) sync.submitSurvey(item.survey)
+            sync.reviewSurvey(id, approve = true, reason = "")
+        }
+        repository.addSurvey(item.survey.approved())
+        pending.update(id) { it.copy(status = com.accesspath.data.ReviewStatus.APPROVED) }
+        reviewQueue_.value = reviewQueue_.value.filterNot { it.id == id }
+        refreshMine()
+        null
+    }
+
+    /** An admin rejects an area with a reason; it never appears on the map. */
+    fun rejectSurvey(id: String, reason: String) = perform(UiMessage.Text(R.string.survey_rejected)) {
+        requireReviewer()
+        if (reason.trim().length !in ReportRules.MIN_TEXT..ReportRules.MAX_TEXT) throw AppError(ErrorCode.REASON_LENGTH)
+        val item = reviewQueue_.value.firstOrNull { it.id == id } ?: pending.all().firstOrNull { it.id == id } ?: return@perform null
+        if (ui_.value.server) {
+            if (!item.uploaded) sync.submitSurvey(item.survey)
+            sync.reviewSurvey(id, approve = false, reason = reason.trim())
+        }
+        pending.update(id) { it.copy(status = com.accesspath.data.ReviewStatus.REJECTED, reason = reason.trim()) }
+        reviewQueue_.value = reviewQueue_.value.filterNot { it.id == id }
+        refreshMine()
+        null
+    }
+
+    /** Removes an approved area from the map (and the server). */
     fun deleteSurvey(buildingId: String, reason: String) =
         perform(UiMessage.Text(R.string.draft_deleted)) {
             if (ui_.value.server) { requireReviewer(); sync.deleteSurvey(buildingId) }

@@ -16,6 +16,7 @@ import com.accesspath.R
 import com.accesspath.domain.AppSnapshot
 import com.accesspath.domain.Coverage
 import com.accesspath.domain.LatLng
+import com.accesspath.domain.CampusMap
 import com.accesspath.ui.mapping.DeviceSensors.toLatLng
 
 /** Remembers whether the person wants the "unmapped area" check when the app opens. */
@@ -79,6 +80,12 @@ fun UnmappedAreaCheck(state: AppSnapshot?, alreadyChecked: Boolean, onChecked: (
         // The person agreed to this in the permission popup (and can turn it off in You > Settings),
         // so mapping starts straight away; the camera screen asks for camera permission and has a close button.
         if (Coverage.isMapped(state.map, here)) return@LaunchedEffect
+        // Already mapped and waiting for an admin: don't ask to map it again.
+        val waiting = (context.applicationContext as com.accesspath.AccessPathApplication).pendingSurveys.all()
+            .filter { it.status != com.accesspath.data.ReviewStatus.REJECTED }
+            .any { p -> Coverage.isMapped(CampusMap(name = p.name, provenance = "Survey", version = "0", buildings = listOf(p.survey.building),
+                floors = listOf(p.survey.floor), nodes = p.survey.nodes, edges = p.survey.edges, facilities = emptyList()), here) }
+        if (waiting) return@LaunchedEffect
         // Offer once per area: not again near the spot where it was already offered (the Map this area button stays).
         val last = AreaCheckPrefs.lastOffered(context)
         if (last != null && com.accesspath.data.remote.Places.distance(last, here) < 500) return@LaunchedEffect

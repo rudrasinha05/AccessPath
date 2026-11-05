@@ -517,4 +517,36 @@
     <string name="sos_add_contact">संपर्क जोड़ें</string>
     <string name="sos_contact_name">नाम</string>
     <string name="sos_contact_phone">फ़ोन नंबर</string>
+    <string name="finding_location">आपकी लोकेशन ढूँढ रहे हैं…</string>
+
+    <string name="mapping_method_ai">AI कैमरा के साथ चलें</string>
+    <string name="mapping_method_ai_desc">नीले बिंदु के साथ चलें, कैमरा बोर्ड पढ़कर (टॉयलेट, लिफ्ट, निकास, रूम 204) जगहें सुझाएगा। बिना इंटरनेट के चलता है।</string>
+    <string name="recommended">सुझाया गया</string>
+    <string name="mapping_review_note">आप जो भी मैप करेंगे, किसी और को दिखने से पहले एडमिन उसे जाँचेगा।</string>
+    <string name="ai_reading_signs">AI बोर्ड पढ़ रहा है</string>
+    <string name="ai_found">AI को बोर्ड मिला</string>
+    <string name="add">जोड़ें</string>
+    <string name="type_exit">निकास</string>
+    <string name="type_ramp">रैम्प</string>
+    <string name="name_area_title">इस क्षेत्र का नाम</string>
+    <string name="name_area_label">जैसे ब्लॉक A, ग्राउंड फ्लोर</string>
+    <string name="name_area_review">यह एडमिन को भेजा जाएगा। उनके जाँचने के बाद ही यह सबको मैप पर दिखेगा।</string>
+    <string name="send_for_review">जाँच के लिए भेजें</string>
+    <string name="survey_sent_review">जाँच के लिए भेजा गया। एडमिन के जाँचने के बाद यह मैप पर दिखेगा।</string>
+    <string name="survey_saved_sign_in_review">इस फ़ोन पर सेव हुआ। एडमिन को भेजने के लिए साइन इन करें।</string>
+    <string name="survey_saved_local_review">जाँच के लिए सेव हुआ। एडमिन कैंपस मैनेजमेंट में इसे मंज़ूर कर सकता है।</string>
+    <string name="survey_approved">मंज़ूर। यह क्षेत्र अब सबके लिए मैप पर है।</string>
+    <string name="survey_rejected">अस्वीकार। यह क्षेत्र नहीं दिखेगा।</string>
+    <string name="review_title">जाँच बाकी है</string>
+    <string name="review_intro">लोगों के मैप किए क्षेत्र। रास्ता और जगहें देखें, फिर मंज़ूर करें या कारण के साथ अस्वीकार करें।</string>
+    <string name="review_none">जाँचने के लिए कुछ नहीं।</string>
+    <string name="approve">मंज़ूर करें</string>
+    <string name="reject">अस्वीकार करें</string>
+    <string name="reject_title">यह क्षेत्र अस्वीकार करें</string>
+    <string name="mapped_areas_title">मंज़ूर किए मैप क्षेत्र</string>
+    <string name="my_areas">आपके मैप किए क्षेत्र</string>
+    <string name="status_waiting_review">एडमिन की जाँच बाकी</string>
+    <string name="status_not_sent">अभी नहीं भेजा (साइन इन करें)</string>
+    <string name="status_on_map">मंज़ूर, मैप पर है</string>
+    <string name="status_rejected">अस्वीकार</string>
 </resources>

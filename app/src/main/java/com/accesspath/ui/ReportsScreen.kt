@@ -57,6 +57,8 @@ fun ReportsScreen(ui: ScreenState, vm: AccessViewModel, onMapArea: () -> Unit = 
                     else locationPermission.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
                 }, onMapArea = onMapArea)
                 key(outdoorTick) { MyOutdoorReports(outdoorTick) { outdoorTick++ } }
+                val areas by vm.mySurveys.collectAsState()
+                MyMappedAreas(areas)
             }
         }
         item {

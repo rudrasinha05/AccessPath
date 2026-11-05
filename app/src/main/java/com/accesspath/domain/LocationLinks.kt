@@ -10,7 +10,7 @@ object LocationLinks {
     /** Places worth a printed QR code: everything except plain corridor points. */
     fun placesForPlacards(map: CampusMap): List<Node> {
         val floors = map.floors.associateBy { it.id }
-        return map.nodes.filter { !it.type.equals("LANDMARK", true) }
+        return map.nodes.filter { it.isPlace }
             .sortedWith(compareBy({ floors[it.floorId]?.buildingId }, { floors[it.floorId]?.ordinal }, { it.name }))
     }
 }

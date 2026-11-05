@@ -37,11 +37,15 @@ import kotlin.math.hypot
 
 /** Where the map camera should go. A new [nonce] re-runs the move even if the target is unchanged. */
 data class CameraRequest(
-    val nonce: Int, val center: LatLng? = null, val zoom: Double = 19.5, val bounds: List<LatLng> = emptyList(),
+    /** [zoom] null keeps the current zoom (used while following the blue dot). */
+    val nonce: Int, val center: LatLng? = null, val zoom: Double? = 19.5, val bounds: List<LatLng> = emptyList(),
     /** +1 zooms in one level, -1 zooms out, 0 leaves the zoom alone. */
     val zoomStep: Int = 0,
     /** Turn the map so north is up again. */
-    val northUp: Boolean = false
+    val northUp: Boolean = false,
+    /** Turn the map so this compass direction points up (compass mode). */
+    val bearing: Float? = null,
+    val animateMs: Long = 600L
 )
 
 /** Everything the campus overlay draws, prepared outside the draw loop. */
@@ -61,7 +65,11 @@ private data class OverlayData(
     val pois: List<com.accesspath.data.remote.Poi> = emptyList(),
     val selectedPoi: String? = null,
     val altRoutes: List<List<LatLng>> = emptyList(),
-    val barriers: List<com.accesspath.data.OutdoorBarrier> = emptyList()
+    val barriers: List<com.accesspath.data.OutdoorBarrier> = emptyList(),
+    /** GPS accuracy around the blue dot, metres. */
+    val accuracyM: Float? = null,
+    /** Direction the phone points, for the beam on the blue dot. */
+    val heading: Float? = null
 )
 
 /** Map look, like the map-type picker in other map apps. */
@@ -137,9 +145,10 @@ private class CampusOverlay(
         d.places.forEach { (n, l) ->
             if (n.id == d.currentId || n.id == d.destinationId) return@forEach
             px(mapView, l, p1)
-            val important = !n.type.equals("LANDMARK", true)
+            // Only real places get a dot; path points (bends, junctions, walk points) are part of the line only.
+            if (!n.isPlace && n.id != d.selectedId) return@forEach
+            val important = true
             val onRoute = n.id in d.routeNodeIds
-            if (!important && !onRoute && zoom < 19.0) return@forEach
             val r = if (important) dp(7f) else dp(4f)
             fill.color = colors.white; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), r + dp(2f), fill)
             fill.color = if (onRoute) colors.route else colors.placeColor(n.type); canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), r, fill)
@@ -212,9 +221,26 @@ private class CampusOverlay(
         // Dropped pin from a long press or a search result.
         d.pin?.let { l -> drawPin(canvas, mapView, l) }
 
-        // You: blue dot with halo.
+        // You: accuracy circle, heading beam, then the blue dot.
         d.current?.let { l ->
             px(mapView, l, p1)
+            d.accuracyM?.takeIf { it > 3f }?.let { acc ->
+                val r = mapView.projection.metersToPixels(acc, l.lat, mapView.zoomLevelDouble)
+                if (r > dp(22f)) {
+                    fill.color = android.graphics.Color.argb(40, 0x1A, 0x73, 0xE8); canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), r, fill)
+                    stroke.pathEffect = null; stroke.color = android.graphics.Color.argb(90, 0x1A, 0x73, 0xE8); stroke.strokeWidth = dp(1f)
+                    canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), r, stroke)
+                }
+            }
+            d.heading?.let { h ->
+                val a = Math.toRadians((h + mapView.mapOrientation - 90).toDouble())
+                val x = p1.x.toFloat(); val y = p1.y.toFloat(); val len = dp(42f); val spread = Math.toRadians(28.0)
+                path.reset(); path.moveTo(x, y)
+                path.lineTo(x + (len * Math.cos(a - spread)).toFloat(), y + (len * Math.sin(a - spread)).toFloat())
+                path.lineTo(x + (len * Math.cos(a + spread)).toFloat(), y + (len * Math.sin(a + spread)).toFloat())
+                path.close()
+                fill.color = android.graphics.Color.argb(70, 0x1A, 0x73, 0xE8); canvas.drawPath(path, fill)
+            }
             fill.color = colors.youHalo; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), dp(20f), fill)
             fill.color = colors.white; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), dp(10f), fill)
             fill.color = colors.you; canvas.drawCircle(p1.x.toFloat(), p1.y.toFloat(), dp(7.5f), fill)
@@ -266,7 +292,7 @@ private class CampusOverlay(
             px(mapView, poiHit.at, p1)
             if (hypot(p1.x - e.x, p1.y - e.y) <= dp(24f)) { onPoiTap(poiHit); return true }
         }
-        val hit = d.places.minByOrNull { (_, l) -> px(mapView, l, p1); hypot(p1.x - e.x, p1.y - e.y) }
+        val hit = d.places.filter { it.first.isPlace }.minByOrNull { (_, l) -> px(mapView, l, p1); hypot(p1.x - e.x, p1.y - e.y) }
         if (hit != null) {
             px(mapView, hit.second, p1)
             if (hypot(p1.x - e.x, p1.y - e.y) <= dp(28f)) { onPlaceTap(hit.first); return true }
@@ -316,8 +342,12 @@ fun WorldMap(
     onLongPress: (LatLng) -> Unit = {},
     onOrientation: (Float) -> Unit = {},
     onCenter: (LatLng) -> Unit = {},
-    /** Live GPS position while following an outdoor route; replaces the confirmed campus position dot. */
+    /** Live GPS position (the blue dot); replaces the confirmed campus position dot. */
     myLocation: LatLng? = null,
+    myAccuracyM: Float? = null,
+    myHeading: Float? = null,
+    /** Called when the person drags or pinches the map, so following the blue dot stops. */
+    onUserMove: () -> Unit = {},
     mapStyle: MapStyle = MapStyle.DEFAULT,
     pois: List<com.accesspath.data.remote.Poi> = emptyList(),
     selectedPoi: String? = null,
@@ -339,6 +369,7 @@ fun WorldMap(
     val latestLongPress by rememberUpdatedState(onLongPress)
     val latestPoiTap by rememberUpdatedState(onPoiTap)
     val latestAltTap by rememberUpdatedState(onAltTap)
+    val latestUserMove by rememberUpdatedState(onUserMove)
     val latestBarrierTap by rememberUpdatedState(onBarrierTap)
 
     val overlay = remember { CampusOverlay(context, { latestPlaceTap(it) }, { latestEmptyTap() }, { latestPoiTap(it) }, { latestAltTap(it) }, { latestBarrierTap(it) }) }
@@ -380,7 +411,7 @@ fun WorldMap(
     }
 
     // Prepare drawing data for the selected floor level (all buildings at the same level).
-    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation, pois, selectedPoi, altRoutes, barriers) {
+    val data = remember(state.map, state.selectedFloor, state.current, state.destination, route, exclusions, selectedPlaceId, pin, outdoorRoute, myLocation, pois, selectedPoi, altRoutes, barriers, myAccuracyM, myHeading) {
         val map = state.map
         val floors = map.floors.associateBy { it.id }
         val selected = floors[state.selectedFloor]
@@ -420,7 +451,8 @@ fun WorldMap(
             destination = state.destination.takeIf { it in visibleIds && it != state.current }?.let(pos::get),
             currentId = state.current, destinationId = state.destination, selectedId = selectedPlaceId,
             routeNodeIds = route?.nodes?.map { it.id }?.toSet().orEmpty(),
-            pin = pin, outdoorRoute = outdoorRoute, pois = pois, selectedPoi = selectedPoi, altRoutes = altRoutes, barriers = barriers
+            pin = pin, outdoorRoute = outdoorRoute, pois = pois, selectedPoi = selectedPoi, altRoutes = altRoutes, barriers = barriers,
+            accuracyM = myAccuracyM.takeIf { myLocation != null }, heading = myHeading.takeIf { myLocation != null }
         )
     }
 
@@ -444,6 +476,11 @@ fun WorldMap(
 
     LaunchedEffect(camera.nonce) {
         if (camera.northUp) { mapView.controller.animateTo(mapView.mapCenter, mapView.zoomLevelDouble, 400L, 0f); return@LaunchedEffect }
+        camera.bearing?.let { b ->
+            val c = camera.center?.let { GeoPoint(it.lat, it.lng) } ?: mapView.mapCenter
+            mapView.controller.animateTo(c, camera.zoom ?: mapView.zoomLevelDouble, camera.animateMs, -b)
+            return@LaunchedEffect
+        }
         if (camera.zoomStep > 0) { mapView.controller.zoomIn(); return@LaunchedEffect }
         if (camera.zoomStep < 0) { mapView.controller.zoomOut(); return@LaunchedEffect }
         val pts = camera.bounds
@@ -452,7 +489,7 @@ fun WorldMap(
             // Padding keeps the route clear of the search bar and the bottom sheet.
             mapView.post { mapView.zoomToBoundingBox(box.increaseByScale(1.6f), true, 64, 20.5, 600L) }
         } else camera.center?.let { c ->
-            mapView.controller.animateTo(GeoPoint(c.lat, c.lng), camera.zoom, 600L)
+            mapView.controller.animateTo(GeoPoint(c.lat, c.lng), camera.zoom ?: mapView.zoomLevelDouble, camera.animateMs)
         }
     }
 
@@ -463,15 +500,19 @@ fun WorldMap(
             // reach the map) because it is more reliable than the map library's own gesture timer.
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                var moved = false
                 val held = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
                     while (true) {
                         val ev = awaitPointerEvent(PointerEventPass.Initial)
                         val c = ev.changes.firstOrNull { it.id == down.id }
-                        if (ev.changes.size > 1 || c == null || !c.pressed) break
-                        if ((c.position - down.position).getDistance() > viewConfiguration.touchSlop) break
+                        if (ev.changes.size > 1) { moved = true; break }
+                        if (c == null || !c.pressed) break
+                        if ((c.position - down.position).getDistance() > viewConfiguration.touchSlop) { moved = true; break }
                     }
                     false
                 } == null
+                // A drag or pinch means the person is looking around: stop following the blue dot.
+                if (moved) latestUserMove()
                 if (held) {
                     val gp = mapView.projection.fromPixels(down.position.x.toInt(), down.position.y.toInt())
                     latestLongPress(LatLng(gp.latitude, gp.longitude))

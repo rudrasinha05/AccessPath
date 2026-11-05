@@ -187,7 +187,7 @@ class CampusRepository(
     /** Removes a draft area and everything on it. Refused while active reports point at its paths. */
     suspend fun deleteSurvey(buildingId: String, reason: String) = mutate { s ->
         if (reason.trim().length !in ReportRules.MIN_TEXT..ReportRules.MAX_TEXT) throw AppError(ErrorCode.REASON_LENGTH)
-        val building = s.map.buildings.firstOrNull { it.id == buildingId && it.draft } ?: throw AppError(ErrorCode.UNKNOWN_LOCATION)
+        val building = s.map.buildings.firstOrNull { it.id == buildingId && (it.draft || it.id.startsWith("survey_")) } ?: throw AppError(ErrorCode.UNKNOWN_LOCATION)
         val floorIds = s.map.floors.filter { it.buildingId == buildingId }.map { it.id }.toSet()
         val nodeIds = s.map.nodes.filter { it.floorId in floorIds }.map { it.id }.toSet()
         val edgeIds = s.map.edges.filter { it.from in nodeIds || it.to in nodeIds }.map { it.id }.toSet()

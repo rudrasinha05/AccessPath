@@ -338,3 +338,50 @@ create policy outdoor_barriers_insert on public.outdoor_barriers for insert to a
 drop policy if exists outdoor_barriers_delete on public.outdoor_barriers;
 create policy outdoor_barriers_delete on public.outdoor_barriers for delete to authenticated
   using (created_by = (select auth.uid()) or (select private.is_reviewer()));
+-- ---------------------------------------------------------------------------------------------
+-- Mapped areas need an admin's approval. PENDING and REJECTED areas are visible only to the
+-- person who mapped them and to reviewers; APPROVED areas are visible to everyone.
+-- ---------------------------------------------------------------------------------------------
+alter table public.surveys add column if not exists status text not null default 'PENDING';
+alter table public.surveys add column if not exists reason text not null default '';
+alter table public.surveys add column if not exists reviewed_by uuid references auth.users (id) on delete set null;
+alter table public.surveys add column if not exists reviewed_at timestamptz;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'surveys_status_check') then
+    alter table public.surveys add constraint surveys_status_check check (status in ('PENDING', 'APPROVED', 'REJECTED'));
+  end if;
+end $$;
+create index if not exists surveys_status_idx on public.surveys (map_id, status);
+
+drop policy if exists "surveys readable" on public.surveys;
+create policy "surveys readable" on public.surveys for select
+  using (status = 'APPROVED' or created_by = (select auth.uid()) or (select private.is_reviewer()));
+
+drop policy if exists "surveys insert own" on public.surveys;
+create policy "surveys insert own" on public.surveys for insert to authenticated
+  with check (created_by = (select auth.uid()) and status = 'PENDING' and octet_length(payload::text) < 2000000);
+
+-- Only reviewers decide, through this function, which also records who decided and when.
+create or replace function public.review_survey(survey_id text, decision text, why text default '')
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select private.is_reviewer()) then
+    raise exception 'Only reviewers can approve or reject mapped areas';
+  end if;
+  if decision not in ('APPROVED', 'REJECTED') then
+    raise exception 'Decision must be APPROVED or REJECTED';
+  end if;
+  if decision = 'REJECTED' and char_length(btrim(coalesce(why, ''))) not between 5 and 1000 then
+    raise exception 'A rejection needs a reason of 5 to 1000 characters';
+  end if;
+  update public.surveys
+     set status = decision, reason = btrim(coalesce(why, '')), reviewed_by = (select auth.uid()), reviewed_at = now()
+   where id = survey_id;
+end;
+$$;
+revoke execute on function public.review_survey(text, text, text) from public, anon;
+grant execute on function public.review_survey(text, text, text) to authenticated;
