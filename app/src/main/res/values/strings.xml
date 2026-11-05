@@ -566,5 +566,5 @@
     <string name="status_waiting_review">Waiting for admin review</string>
     <string name="status_not_sent">Not sent yet (sign in)</string>
     <string name="status_on_map">Approved, on the map</string>
-    <string name="status_rejected">Rejected</string>
+    <string name="area_status_rejected">Rejected</string>
 </resources>

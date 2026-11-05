@@ -548,5 +548,5 @@
     <string name="status_waiting_review">एडमिन की जाँच बाकी</string>
     <string name="status_not_sent">अभी नहीं भेजा (साइन इन करें)</string>
     <string name="status_on_map">मंज़ूर, मैप पर है</string>
-    <string name="status_rejected">अस्वीकार</string>
+    <string name="area_status_rejected">अस्वीकार</string>
 </resources>

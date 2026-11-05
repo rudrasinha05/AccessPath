@@ -86,7 +86,7 @@ fun MyMappedAreas(list: List<PendingSurvey>) {
             val (label, color, icon) = when (p.status) {
                 ReviewStatus.PENDING -> Triple(stringResource(if (p.uploaded) R.string.status_waiting_review else R.string.status_not_sent), Color(0xFFE37400), Icons.Filled.HourglassTop)
                 ReviewStatus.APPROVED -> Triple(stringResource(R.string.status_on_map), Color(0xFF188038), Icons.Filled.CheckCircle)
-                ReviewStatus.REJECTED -> Triple(stringResource(R.string.status_rejected), Color(0xFFD93025), Icons.Filled.Cancel)
+                ReviewStatus.REJECTED -> Triple(stringResource(R.string.area_status_rejected), Color(0xFFD93025), Icons.Filled.Cancel)
             }
             ListItem(
                 headlineContent = { Text(p.name, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
